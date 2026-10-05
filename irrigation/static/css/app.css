@@ -521,6 +521,18 @@ textarea {
 }
 
 /* Map container */
+.geometry-map-card .card-header h5,
+.geometry-map-card .leaflet-container,
+.geometry-map-card .leaflet-control,
+.geometry-map-card .leaflet-popup-content,
+.geometry-map-card .map-legend {
+    font-family: 'Comfortaa', 'VIP-Rawy', 'Segoe UI', sans-serif !important;
+}
+
+.geometry-map-card .ar-text {
+    font-family: var(--font-ar) !important;
+}
+
 #map {
     width: 100%;
     height: 500px;

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.5 - 2026-10-05
+
+### Changed
+
+- Apply the default English and Arabic fonts to Geometry map titles, controls, legends, and popups.
+
 ## 0.3.4 - 2026-10-05
 
 ### Changed
