@@ -15,37 +15,26 @@
     <link href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" rel="stylesheet">
     <link href="https://unpkg.com/leaflet-draw@1.0.4/dist/leaflet.draw.css" rel="stylesheet">
 
-    <!-- Google Fonts: Comfortaa fallback -->
-    <link href="https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-
     <!-- App CSS -->
     <link href="{{ url_for('static', filename='css/app.css') }}" rel="stylesheet">
+    <link rel="preload" href="{{ url_for('static', filename='fonts/Comfortaa-Regular.ttf') }}" as="font" type="font/ttf" crossorigin>
+    <link rel="preload" href="{{ url_for('static', filename='fonts/VIP-Rawy-Regular.ttf') }}" as="font" type="font/ttf" crossorigin>
 
     {% block extra_head %}{% endblock %}
 </head>
 <body>
     <!-- Fixed Header -->
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="{{ url_for('project.index') }}">
-                <i class="bi bi-droplet-fill"></i>
-                Irrigation Planner
-                <span class="ar-text">مخطط الري</span>
+        <div class="container planner-navbar">
+            <a class="navbar-brand planner-navbar-en" href="{{ url_for('project.index') }}">
+                <i class="bi bi-droplet-fill"></i> Irrigation Planner
             </a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain">
-                <span class="navbar-toggler-icon"></span>
-            </button>
+            <div class="planner-navbar-center">
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarMain" aria-controls="navbarMain" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
             <div class="collapse navbar-collapse" id="navbarMain">
-                <ul class="navbar-nav me-auto">
-                    {% if current_user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('project.index') }}">
-                            <i class="bi bi-folder"></i> Projects / المشاريع
-                        </a>
-                    </li>
-                    {% endif %}
-                </ul>
-                <ul class="navbar-nav ms-auto">
+                <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
@@ -57,34 +46,140 @@
                             </a></li>
                         </ul>
                     </li>
-                    {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.login') }}">
-                            <i class="bi bi-box-arrow-in-right"></i> Login / دخول
-                        </a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.register') }}">
-                            <i class="bi bi-person-plus"></i> Register / تسجيل
-                        </a>
-                    </li>
                     {% endif %}
                 </ul>
             </div>
+            </div>
+            <span class="planner-navbar-ar ar-text">مخطط الري</span>
         </div>
     </nav>
 
-    <!-- Main Content -->
-    <div class="main-content container mt-4">
-        {% with messages = get_flashed_messages(with_categories=true) %}
+    {% set workflow_project_id = request.view_args.get('project_id') if request.view_args else none %}
+    {% set workflow_endpoint = request.endpoint or '' %}
+    {% if current_user.is_authenticated %}
+    <nav class="project-workflow-nav" aria-label="Project workflow">
+        <div class="container">
+            <ul class="nav nav-tabs">
+                <li class="nav-item">
+                    {% if workflow_project_id %}
+                    <a class="nav-link{% if workflow_endpoint == 'project.detail' %} active{% endif %}" href="{{ url_for('project.detail', project_id=workflow_project_id) }}">
+                    {% else %}
+                    <a class="nav-link{% if workflow_endpoint in ['project.index', 'project.create'] %} active{% endif %}" href="{{ url_for('project.index') }}">
+                    {% endif %}
+                        <i class="bi bi-folder"></i> Project / المشروع
+                    </a>
+                </li>
+                <li class="nav-item">
+                    {% if workflow_project_id %}
+                    <a class="nav-link{% if workflow_endpoint in ['geometry.sectors_view', 'geometry.zones_view'] %} active{% endif %}" href="{{ url_for('geometry.sectors_view', project_id=workflow_project_id) }}">
+                    {% else %}
+                    <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
+                    {% endif %}
+                        <i class="bi bi-bounding-box"></i> Geometry / الهندسة
+                    {% if workflow_project_id %}</a>{% else %}</span>{% endif %}
+                </li>
+                <li class="nav-item">
+                    {% if workflow_project_id %}
+                    <a class="nav-link{% if workflow_endpoint in ['hydrology.main_pipe', 'hydrology.sub_pipe'] %} active{% endif %}" href="{{ url_for('hydrology.main_pipe', project_id=workflow_project_id) }}">
+                    {% else %}
+                    <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
+                    {% endif %}
+                        <i class="bi bi-water"></i> Hydrology 1 / الري 1
+                    {% if workflow_project_id %}</a>{% else %}</span>{% endif %}
+                </li>
+                <li class="nav-item">
+                    {% if workflow_project_id %}
+                    <a class="nav-link{% if workflow_endpoint in ['trees.rows_view', 'trees.trees_view'] %} active{% endif %}" href="{{ url_for('trees.rows_view', project_id=workflow_project_id) }}">
+                    {% else %}
+                    <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
+                    {% endif %}
+                        <i class="bi bi-tree"></i> Trees / الأشجار
+                    {% if workflow_project_id %}</a>{% else %}</span>{% endif %}
+                </li>
+                <li class="nav-item">
+                    {% if workflow_project_id %}
+                    <a class="nav-link{% if workflow_endpoint in ['hydrology.valves', 'hydrology.dripline', 'hydrology.network_elements'] %} active{% endif %}" href="{{ url_for('hydrology.valves', project_id=workflow_project_id) }}">
+                    {% else %}
+                    <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
+                    {% endif %}
+                        <i class="bi bi-diagram-2"></i> Hydrology 2 / الري 2
+                    {% if workflow_project_id %}</a>{% else %}</span>{% endif %}
+                </li>
+                <li class="nav-item">
+                    {% if workflow_project_id %}
+                    <a class="nav-link{% if workflow_endpoint == 'engineering.validation_view' %} active{% endif %}" href="{{ url_for('engineering.validation_view', project_id=workflow_project_id) }}">
+                    {% else %}
+                    <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
+                    {% endif %}
+                        <i class="bi bi-clipboard-check"></i> Report / التقرير
+                    {% if workflow_project_id %}</a>{% else %}</span>{% endif %}
+                </li>
+            </ul>
+        </div>
+    </nav>
+        {% if workflow_project_id %}
+        {% set workflow_subnav = [] %}
+        {% if workflow_endpoint in ['geometry.sectors_view', 'geometry.zones_view'] %}
+            {% set workflow_subnav = [
+                ('geometry.sectors_view', url_for('geometry.sectors_view', project_id=workflow_project_id), 'Sectors / القطاعات', 'bi-bounding-box'),
+                ('geometry.zones_view', url_for('geometry.zones_view', project_id=workflow_project_id), 'Zones / المناطق', 'bi-grid')
+            ] %}
+        {% elif workflow_endpoint in ['hydrology.main_pipe', 'hydrology.sub_pipe'] %}
+            {% set workflow_subnav = [
+                ('hydrology.main_pipe', url_for('hydrology.main_pipe', project_id=workflow_project_id), 'Main Pipe / الأنبوب الرئيسي', 'bi-water'),
+                ('hydrology.sub_pipe', url_for('hydrology.sub_pipe', project_id=workflow_project_id), 'Sub Pipe / الأنبوب الفرعي', 'bi-droplet')
+            ] %}
+        {% elif workflow_endpoint in ['trees.rows_view', 'trees.trees_view'] %}
+            {% set workflow_subnav = [
+                ('trees.rows_view', url_for('trees.rows_view', project_id=workflow_project_id), 'Rows / الصفوف', 'bi-list-ol'),
+                ('trees.trees_view', url_for('trees.trees_view', project_id=workflow_project_id), 'Trees / الأشجار', 'bi-tree')
+            ] %}
+        {% elif workflow_endpoint in ['hydrology.valves', 'hydrology.dripline', 'hydrology.network_elements'] %}
+            {% set workflow_subnav = [
+                ('hydrology.valves', url_for('hydrology.valves', project_id=workflow_project_id), 'Valves / الصمامات', 'bi-valve'),
+                ('hydrology.dripline', url_for('hydrology.dripline', project_id=workflow_project_id), 'Dripline / خط التنقيط', 'bi-droplet-half'),
+                ('hydrology.network_elements', url_for('hydrology.network_elements', project_id=workflow_project_id), 'Network / الشبكة', 'bi-diagram-2')
+            ] %}
+        {% endif %}
+        {% if workflow_subnav %}
+    <nav class="project-workflow-subnav" aria-label="Project section">
+        <div class="container">
+            <ul class="nav nav-pills">
+                {% for sub_endpoint, sub_url, sub_label, sub_icon in workflow_subnav %}
+                <li class="nav-item">
+                    <a class="nav-link{% if workflow_endpoint == sub_endpoint %} active{% endif %}" href="{{ sub_url }}">
+                        <i class="bi {{ sub_icon }}"></i> {{ sub_label }}
+                    </a>
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </nav>
+        {% endif %}
+        {% endif %}
+    {% endif %}
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="toast-container position-fixed top-0 end-0 p-3 flash-toast-container" aria-live="assertive" aria-atomic="true">
             {% for category, message in messages %}
-            <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
-                {{ message }}
-                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                {% set toast_variant = 'danger' if category in ['error', 'danger'] else category %}
+                {% if toast_variant not in ['success', 'info', 'warning', 'danger'] %}
+                    {% set toast_variant = 'info' %}
+                {% endif %}
+            <div class="toast flash-toast text-bg-{{ toast_variant }} border-0" role="alert" aria-live="assertive" aria-atomic="true" data-bs-autohide="true" data-bs-delay="5000">
+                <div class="d-flex">
+                    <div class="toast-body">{{ message }}</div>
+                    <button type="button" class="btn-close {{ 'btn-close-white' if toast_variant != 'warning' else '' }} me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+                </div>
             </div>
             {% endfor %}
-        {% endwith %}
+        </div>
+        {% endif %}
+    {% endwith %}
 
+    <!-- Main Content -->
+    <div class="main-content container mt-4{% if request.endpoint in ['auth.login', 'auth.register'] %} auth-main-content{% endif %}">
         {% block content %}{% endblock %}
     </div>
 
@@ -99,6 +194,11 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.querySelectorAll('.flash-toast').forEach((toastElement) => {
+            bootstrap.Toast.getOrCreateInstance(toastElement, { autohide: true, delay: 5000 }).show();
+        });
+    </script>
 
     <!-- Leaflet JS -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -108,5 +208,117 @@
     <script src="{{ url_for('static', filename='js/map.js') }}"></script>
 
     {% block extra_js %}{% endblock %}
+    <script>
+        document.querySelectorAll('.main-content h1, .main-content h2, .main-content h3, .main-content h4, .main-content h5, .main-content h6, .main-content .modal-title, .main-content label.form-label, .main-content a, .main-content button, .planner-navbar .nav-link, .project-workflow-nav .nav-link, .project-workflow-subnav .nav-link').forEach((item) => {
+            const isLabel = item.matches('label.form-label');
+            const isButton = item.matches('.btn, .nav-link');
+            const group = isLabel ? 'label' : isButton ? 'button' : 'heading';
+            const nodes = Array.from(item.childNodes);
+            const arabicNode = nodes.find((node) => node.nodeType === Node.ELEMENT_NODE && node.classList.contains('ar-text'));
+            const english = document.createElement('span');
+            const arabic = document.createElement('span');
+            english.className = `bilingual-${group}-en`;
+            arabic.className = `bilingual-${group}-ar`;
+
+            if (arabicNode) {
+                let isArabic = false;
+                nodes.forEach((node) => {
+                    if (node === arabicNode) {
+                        isArabic = true;
+                        arabicNode.textContent = arabicNode.textContent.replace(/^\s*\/\s*/, '').trim();
+                    }
+                    (isArabic ? arabic : english).append(node);
+                });
+            } else {
+                const separatorNode = nodes.find((node) => node.nodeType === Node.TEXT_NODE && /\s+\/\s+/.test(node.textContent));
+                if (!separatorNode) return;
+
+                let isArabic = false;
+                nodes.forEach((node) => {
+                    if (node === separatorNode) {
+                        const parts = node.textContent.split(/\s+\/\s+/, 2);
+                        if (parts[0].trim()) english.append(document.createTextNode(parts[0].trim()));
+                        if (parts[1].trim()) arabic.append(document.createTextNode(parts[1].trim()));
+                        isArabic = true;
+                    } else {
+                        (isArabic ? arabic : english).append(node);
+                    }
+                });
+            }
+
+            if (!english.childNodes.length || !arabic.childNodes.length) return;
+            item.classList.add(`bilingual-${group}`);
+            if (isButton) {
+                const icons = [...english.querySelectorAll('.bi'), ...arabic.querySelectorAll('.bi')];
+                const text = document.createElement('span');
+                text.className = 'bilingual-button-text';
+                text.append(arabic, english);
+                item.replaceChildren(text);
+
+                if (icons.length) {
+                    const icon = document.createElement('span');
+                    icon.className = 'bilingual-button-icon';
+                    icons.forEach((iconElement) => icon.append(iconElement));
+                    item.append(icon);
+                }
+            } else {
+                item.replaceChildren(english, arabic);
+            }
+        });
+
+        const localizedDigits = /[٠-٩۰-۹]/g;
+        const numericRuns = /[0-9٠-٩۰-۹]+(?:[.,٫٬][0-9٠-٩۰-۹]+)*/g;
+
+        function toWesternDigits(value) {
+            return value.replace(localizedDigits, (digit) => {
+                const code = digit.charCodeAt(0);
+                return String(code - (code >= 0x06f0 ? 0x06f0 : 0x0660));
+            });
+        }
+
+        function formatNumericText(textNode) {
+            const parent = textNode.parentElement;
+            const value = textNode.nodeValue;
+            if (!parent || parent.closest('.latin-number, script, style, textarea') || !/[0-9٠-٩۰-۹]/.test(value)) return;
+
+            const matches = Array.from(value.matchAll(numericRuns));
+            if (!matches.length) return;
+
+            const fragment = document.createDocumentFragment();
+            let cursor = 0;
+            matches.forEach((match) => {
+                if (match.index > cursor) fragment.append(document.createTextNode(value.slice(cursor, match.index)));
+                const number = document.createElement('span');
+                number.className = 'latin-number';
+                number.dir = 'ltr';
+                number.textContent = toWesternDigits(match[0]);
+                fragment.append(number);
+                cursor = match.index + match[0].length;
+            });
+            if (cursor < value.length) fragment.append(document.createTextNode(value.slice(cursor)));
+            textNode.replaceWith(fragment);
+        }
+
+        function formatNumbersIn(node) {
+            if (node.nodeType === Node.TEXT_NODE) {
+                formatNumericText(node);
+                return;
+            }
+            if (node.nodeType !== Node.ELEMENT_NODE || node.closest('.latin-number, script, style, textarea')) return;
+
+            const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
+            const textNodes = [];
+            while (walker.nextNode()) textNodes.push(walker.currentNode);
+            textNodes.forEach(formatNumericText);
+        }
+
+        formatNumbersIn(document.body);
+        new MutationObserver((mutations) => {
+            mutations.forEach((mutation) => {
+                if (mutation.type === 'characterData') formatNumericText(mutation.target);
+                mutation.addedNodes.forEach(formatNumbersIn);
+            });
+        }).observe(document.body, { childList: true, characterData: true, subtree: true });
+    </script>
 </body>
 </html>

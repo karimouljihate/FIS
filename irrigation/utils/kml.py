@@ -10,17 +10,20 @@ from irrigation.models import get_next_id
 
 def parse_kml_content(kml_text):
     """Parse KML text and extract all polygons and points as GeoJSON."""
-    doc = etree.fromstring(kml_text.encode('utf-8'))
-    k = kml.KML()
-    k.from_element(doc)
+    k = kml.KML.parse(io.BytesIO(kml_text.encode('utf-8')))
 
     features = []
 
-    def walk_feature(folder, depth=0):
-        for feature in folder.features():
+    def walk_feature(folder):
+        folder_features = folder.features
+        if callable(folder_features):
+            folder_features = folder_features()
+
+        for feature in folder_features:
             name = feature.name or ''
-            if hasattr(feature, 'geometry') and feature.geometry:
-                geom = feature.geometry.geometry
+            feature_geometry = getattr(feature, 'geometry', None)
+            if feature_geometry is not None:
+                geom = getattr(feature_geometry, 'geometry', feature_geometry)
                 geojson = _kml_geom_to_geojson(geom)
                 if geojson:
                     features.append({
@@ -29,7 +32,7 @@ def parse_kml_content(kml_text):
                     })
             # Recurse into folders
             if hasattr(feature, 'features'):
-                walk_feature(feature, depth + 1)
+                walk_feature(feature)
 
     walk_feature(k)
 

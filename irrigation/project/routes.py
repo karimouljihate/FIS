@@ -1,4 +1,5 @@
 import os
+import re
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
 from flask_login import login_required, current_user
 from werkzeug.utils import secure_filename
@@ -100,6 +101,69 @@ def detail(project_id):
                            trees=trees)
 
 
+def _store_kml_features(project_id, project, filename, features):
+    from shapely.geometry import shape as shp_shape
+
+    polygon_features = [
+        feature for feature in features
+        if feature['geometry'].get('type') in ('Polygon', 'MultiPolygon')
+    ]
+    boundary_feature = max(
+        polygon_features,
+        key=lambda feature: shp_shape(feature['geometry']).area,
+        default=None
+    )
+    water_feature = next(
+        (
+            feature for feature in features
+            if feature['geometry'].get('type') in ('Point', 'MultiPoint')
+            and re.search(r'well|water|source', feature['name'], re.IGNORECASE)
+        ),
+        None
+    )
+    sector_features = [
+        feature for feature in polygon_features
+        if feature is not boundary_feature
+        and re.match(r'^(?:s\s*\d+|sector\s*\d*)$', feature['name'].strip(), re.IGNORECASE)
+    ]
+
+    for feature in features:
+        if feature is boundary_feature:
+            feature['category'] = 'boundary'
+        elif feature in sector_features:
+            feature['category'] = 'sector'
+        elif feature is water_feature:
+            feature['category'] = 'water_source'
+        else:
+            feature['category'] = 'overlay'
+
+    mongo.db.sectors.delete_many({'project_id': project_id, 'source': 'kml'})
+    for feature in sector_features:
+        mongo.db.sectors.insert_one({
+            'id': get_next_id('sectors'),
+            'project_id': project_id,
+            'name_en': feature['name'],
+            'name_ar': '',
+            'polygon': feature['geometry'],
+            'validated': False,
+            'source': 'kml'
+        })
+
+    update = {
+        'kml_file': filename,
+        'kml_features': features
+    }
+    if boundary_feature:
+        update['boundary'] = boundary_feature['geometry']
+    if water_feature:
+        update['water_source'] = water_feature['geometry']
+    mongo.db.projects.update_one(
+        {'id': project_id, 'user_id': project['user_id']},
+        {'$set': update}
+    )
+    return boundary_feature is not None
+
+
 @project_bp.route('/<int:project_id>/upload_kml', methods=['POST'])
 @login_required
 def upload_kml(project_id):
@@ -131,29 +195,11 @@ def upload_kml(project_id):
             features = parse_kml_content(f.read())
 
     if features:
-        # Use first polygon as land boundary
-        for feat in features:
-            if feat['geometry'].get('type') == 'Polygon':
-                mongo.db.projects.update_one(
-                    {'id': project_id},
-                    {'$set': {
-                        'boundary': feat['geometry'],
-                        'kml_file': filename,
-                        'kml_features': features
-                    }}
-                )
-                flash(f'Loaded {len(features)} features from KML / تم تحميل {len(features)} عنصر', 'success')
-                break
+        has_boundary = _store_kml_features(project_id, project, filename, features)
+        if has_boundary:
+            flash(f'Loaded {len(features)} features from KML / تم تحميل {len(features)} عنصر', 'success')
         else:
-            # No polygon found, store first point or line
-            mongo.db.projects.update_one(
-                {'id': project_id},
-                {'$set': {
-                    'kml_file': filename,
-                    'kml_features': features
-                }}
-            )
-            flash('KML loaded but no polygon found / تم تحميل الملف لكن لم يتم العثور على مضلع', 'warning')
+            flash(f'Loaded {len(features)} KML features; no polygon boundary was found / تم تحميل {len(features)} عنصر دون حدود مضلع', 'warning')
     else:
         flash('Could not parse KML file / تعذر تحليل ملف KML', 'danger')
 

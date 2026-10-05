@@ -2,12 +2,14 @@
 {% block title %}Projects / المشاريع{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <h2><i class="bi bi-folder-fill"></i> Projects / المشاريع</h2>
-    <a href="{{ url_for('project.create') }}" class="btn btn-success">
-        <i class="bi bi-plus-circle"></i> New Project / مشروع جديد
-    </a>
-</div>
+<div class="projects-page">
+    <div class="projects-page-header mb-4">
+        <h2 class="projects-page-title-en"><i class="bi bi-folder-fill"></i> Projects</h2>
+        <a href="{{ url_for('project.create') }}" class="btn btn-success projects-page-create">
+            <i class="bi bi-plus-circle"></i> Create Project / إنشاء مشروع
+        </a>
+        <h2 class="projects-page-title-ar ar-text" lang="ar">المشاريع</h2>
+    </div>
 
 {% if projects %}
 <div class="card shadow-sm">
@@ -67,9 +69,7 @@
 <div class="text-center py-5">
     <i class="bi bi-folder-x" style="font-size: 3rem; color: #ccc;"></i>
     <h4 class="mt-3 text-muted">No projects yet / لا توجد مشاريع بعد</h4>
-    <a href="{{ url_for('project.create') }}" class="btn btn-primary mt-2">
-        <i class="bi bi-plus-circle"></i> Create your first project / أنشئ أول مشروع
-    </a>
 </div>
 {% endif %}
+</div>
 {% endblock %}

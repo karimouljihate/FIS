@@ -34,7 +34,7 @@ def register():
         flash('Registration successful / تم التسجيل بنجاح', 'success')
         return redirect(url_for('auth.login'))
 
-    return render_template('auth/register.html')
+    return render_template('auth/login.html', active_tab='register')
 
 
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -52,7 +52,7 @@ def login():
         flash('Invalid credentials / بيانات اعتماد غير صالحة', 'danger')
         return redirect(url_for('auth.login'))
 
-    return render_template('auth/login.html')
+    return render_template('auth/login.html', active_tab='login')
 
 
 @auth_bp.route('/logout')

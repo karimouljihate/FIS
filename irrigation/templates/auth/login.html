@@ -1,34 +1,60 @@
 {% extends "base.html" %}
-{% block title %}Login / دخول{% endblock %}
+{% block title %}{{ 'Login / دخول' if active_tab == 'login' else 'Register / تسجيل' }}{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
     <div class="col-md-5">
         <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white text-center">
-                <h4 class="mb-0"><i class="bi bi-box-arrow-in-right"></i> Login / دخول</h4>
+            <div class="card-header p-0">
+                <ul class="nav nav-tabs nav-fill auth-tabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {{ 'active' if active_tab == 'login' else '' }}" id="login-tab" data-bs-toggle="tab" data-bs-target="#login-pane" type="button" role="tab" aria-controls="login-pane" aria-selected="{{ 'true' if active_tab == 'login' else 'false' }}">Login / دخول</button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link {{ 'active' if active_tab == 'register' else '' }}" id="register-tab" data-bs-toggle="tab" data-bs-target="#register-pane" type="button" role="tab" aria-controls="register-pane" aria-selected="{{ 'true' if active_tab == 'register' else 'false' }}">Register / تسجيل</button>
+                    </li>
+                </ul>
             </div>
             <div class="card-body">
-                <form method="POST">
-                    <div class="mb-3">
-                        <label class="form-label">Username / اسم المستخدم</label>
-                        <input type="text" name="username" class="form-control" required autofocus>
+                <div class="tab-content">
+                    <div class="tab-pane fade {{ 'show active' if active_tab == 'login' else '' }}" id="login-pane" role="tabpanel" aria-labelledby="login-tab" tabindex="0">
+                        <form method="POST" action="{{ url_for('auth.login') }}">
+                            <div class="mb-3">
+                                <label class="form-label">Username / اسم المستخدم</label>
+                                <input type="text" name="username" class="form-control" required autofocus>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password / كلمة المرور</label>
+                                <input type="password" name="password" class="form-control" required>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-primary">
+                                    <i class="bi bi-box-arrow-in-right"></i> Login / دخول
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Password / كلمة المرور</label>
-                        <input type="password" name="password" class="form-control" required>
+                    <div class="tab-pane fade {{ 'show active' if active_tab == 'register' else '' }}" id="register-pane" role="tabpanel" aria-labelledby="register-tab" tabindex="0">
+                        <form method="POST" action="{{ url_for('auth.register') }}">
+                            <div class="mb-3">
+                                <label class="form-label">Username / اسم المستخدم</label>
+                                <input type="text" name="username" class="form-control" required>
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Email / البريد الإلكتروني</label>
+                                <input type="email" name="email" class="form-control">
+                            </div>
+                            <div class="mb-3">
+                                <label class="form-label">Password / كلمة المرور</label>
+                                <input type="password" name="password" class="form-control" required>
+                            </div>
+                            <div class="d-grid">
+                                <button type="submit" class="btn btn-success">
+                                    <i class="bi bi-check-circle"></i> Register / تسجيل
+                                </button>
+                            </div>
+                        </form>
                     </div>
-                    <div class="d-grid">
-                        <button type="submit" class="btn btn-primary">
-                            <i class="bi bi-box-arrow-in-right"></i> Login / دخول
-                        </button>
-                    </div>
-                </form>
-                <hr>
-                <div class="text-center">
-                    <a href="{{ url_for('auth.register') }}">
-                        <i class="bi bi-person-plus"></i> Register / تسجيل
-                    </a>
                 </div>
             </div>
         </div>

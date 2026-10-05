@@ -2,7 +2,7 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from irrigation.extensions import mongo
 from irrigation.models import get_next_id, serialize_doc
-from irrigation.engineering.regen import regenerate_sectors, regenerate_zones
+from irrigation.engineering.regeneration import regenerate_sectors, regenerate_zones
 import json
 
 geometry_bp = Blueprint('geometry', __name__)

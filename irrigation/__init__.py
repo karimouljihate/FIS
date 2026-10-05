@@ -3,6 +3,8 @@ from flask import Flask, render_template
 from irrigation.extensions import mongo, login_manager
 from irrigation.utils.logger import setup_logging
 
+__version__ = '0.2.0'
+
 
 def create_app():
     app = Flask(__name__, instance_relative_config=False)

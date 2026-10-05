@@ -118,6 +118,21 @@ def get_geometry(project_id):
                 'geometry': tree['geometry']
             })
 
+    # KML features that are not represented by the boundary or project collections.
+    for imported in project.get('kml_features', []):
+        if imported.get('category') != 'overlay' or not imported.get('geometry'):
+            continue
+        features.append({
+            'type': 'Feature',
+            'properties': {
+                'name': imported.get('name', ''),
+                'name_ar': imported.get('name_ar', ''),
+                'type': 'kml_feature',
+                'color': '#6f42c1'
+            },
+            'geometry': imported['geometry']
+        })
+
     return jsonify({
         'type': 'FeatureCollection',
         'features': features

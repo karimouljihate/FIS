@@ -80,65 +80,8 @@
     </div>
 </div>
 
-<!-- Navigation Tabs -->
+<!-- Project map -->
 <div class="card shadow-sm">
-    <div class="card-header">
-        <ul class="nav nav-tabs card-header-tabs">
-            <li class="nav-item">
-                <a class="nav-link active" href="#"><i class="bi bi-map"></i> Overview / نظرة عامة</a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('geometry.sectors_view', project_id=project.id) }}">
-                    <i class="bi bi-bounding-box"></i> Sectors / القطاعات
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('geometry.zones_view', project_id=project.id) }}">
-                    <i class="bi bi-grid"></i> Zones / المناطق
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('hydrology.main_pipe', project_id=project.id) }}">
-                    <i class="bi bi-water"></i> Main Pipe / الأنبوب الرئيسي
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('hydrology.sub_pipe', project_id=project.id) }}">
-                    <i class="bi bi-droplet"></i> Sub Pipe / أنبوب فرعي
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('trees.rows_view', project_id=project.id) }}">
-                    <i class="bi bi-list-ol"></i> Rows / الصفوف
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('trees.trees_view', project_id=project.id) }}">
-                    <i class="bi bi-tree"></i> Trees / الأشجار
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('hydrology.valves', project_id=project.id) }}">
-                    <i class="bi bi-valve"></i> Valves / الصمامات
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('hydrology.dripline', project_id=project.id) }}">
-                    <i class="bi bi-droplet-half"></i> DripLine / خط التنقيط
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('engineering.validation_view', project_id=project.id) }}">
-                    <i class="bi bi-clipboard-check"></i> Engineering / هندسة
-                </a>
-            </li>
-            <li class="nav-item">
-                <a class="nav-link" href="{{ url_for('hydrology.network_elements', project_id=project.id) }}">
-                    <i class="bi bi-diagram-2"></i> Network / الشبكة
-                </a>
-            </li>
-        </ul>
-    </div>
     <div class="card-body">
         <div id="projectMap"></div>
     </div>
