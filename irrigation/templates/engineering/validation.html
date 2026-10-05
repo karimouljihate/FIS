@@ -1,0 +1,483 @@
+{% extends "base.html" %}
+{% block title %}Engineering Validation / التحقق الهندسي{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-clipboard-check"></i> Engineering Validation / التحقق الهندسي</h2>
+    <a href="{{ url_for('project.detail', project_id=project.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back / رجوع
+    </a>
+</div>
+
+<div class="mb-3">
+    <span class="badge bg-primary"><i class="bi bi-folder"></i> {{ project.name }}</span>
+</div>
+
+<!-- AI Regeneration Panel -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-warning text-dark">
+        <h5 class="mb-0"><i class="bi bi-robot"></i> AI Regeneration / إعادة الإنشاء بالذكاء الاصطناعي
+            {% if regen_report.elevation_aware %}
+            <span class="badge bg-success float-end"><i class="bi bi-triangle"></i> Elevation-Aware / مدرك للارتفاع</span>
+            {% endif %}
+        </h5>
+    </div>
+    <div class="card-body">
+        {% if regen_report.sectors_count > 0 %}
+        <div class="row mb-3">
+            <div class="col-md-3">
+                <div class="text-center p-3 bg-light rounded">
+                    <h3 class="text-primary">{{ regen_report.sectors_count }}</h3>
+                    <small>Sectors / القطاعات</small><br>
+                    <small class="text-muted">Avg Score: {{ '%.2f' % regen_report.avg_sector_score }}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center p-3 bg-light rounded">
+                    <h3 class="text-success">{{ regen_report.zones_count }}</h3>
+                    <small>Zones / المناطق</small><br>
+                    <small class="text-muted">Avg Score: {{ '%.2f' % regen_report.avg_zone_score }}</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center p-3 bg-light rounded">
+                    <h3 class="text-info">{{ '%.0f' % regen_report.total_area_m2 }} m²</h3>
+                    <small>Total Area / المساحة الكلية</small>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="text-center p-3 bg-light rounded">
+                    {% if regen_report.elevation_aware %}
+                    <h3 class="text-warning">{{ '%.1f' % regen_report.elevation_stats.range_m }}m</h3>
+                    <small>Elevation Range / نطاق الارتفاع</small><br>
+                    <small class="text-muted">{{ '%.1f' % regen_report.elevation_stats.min_elevation_m }}-{{ '%.1f' % regen_report.elevation_stats.max_elevation_m }}m</small>
+                    {% if regen_report.water_source_elevation_m is not none %}
+                    <br><small class="text-info">Source: {{ '%.1f' % regen_report.water_source_elevation_m }}m</small>
+                    {% endif %}
+                    {% else %}
+                    <h3 class="text-secondary">-</h3>
+                    <small>No Elevation Data / لا توجد بيانات ارتفاع</small>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <div class="row">
+            <div class="col-md-6">
+                <div class="card border-warning">
+                    <div class="card-body">
+                        <h6><i class="bi bi-bounding-box"></i> Regenerate Sectors / إعادة إنشاء القطاعات</h6>
+                        <form method="POST" action="{{ url_for('engineering.ai_regenerate_sectors', project_id=project.id) }}">
+                            <div class="mb-2">
+                                <label class="form-label">Number of sectors / عدد القطاعات</label>
+                                <select name="n_sectors" class="form-select form-select-sm">
+                                    <option value="2">2</option>
+                                    <option value="3">3</option>
+                                    <option value="4" selected>4</option>
+                                    <option value="6">6</option>
+                                    <option value="8">8</option>
+                                </select>
+                            </div>
+                            <button type="submit" class="btn btn-warning btn-sm"
+                                    onclick="return confirm('AI will rebuild all sectors and zones with optimal partitioning. This replaces existing data. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات والمناطق بتقسيم أمثل. سيستبدل البيانات الحالية. متابعة؟')">
+                                <i class="bi bi-magic"></i> AI Regenerate Sectors / إعادة إنشاء القطاعات
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card border-info">
+                    <div class="card-body">
+                        <h6><i class="bi bi-grid"></i> Regenerate Zones / إعادة إنشاء المناطق</h6>
+                        <form method="POST" action="{{ url_for('engineering.ai_regenerate_zones', project_id=project.id) }}">
+                            <div class="row mb-2">
+                                <div class="col-6">
+                                    <label class="form-label">Zones per sector / مناطق لكل قطاع</label>
+                                    <select name="zones_per_sector" class="form-select form-select-sm">
+                                        <option value="2" selected>2</option>
+                                        <option value="3">3</option>
+                                        <option value="4">4</option>
+                                    </select>
+                                </div>
+                                <div class="col-6">
+                                    <label class="form-label">Sector (optional) / قطاع</label>
+                                    <select name="sector_id" class="form-select form-select-sm">
+                                        <option value="">All / الكل</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <button type="submit" class="btn btn-info btn-sm text-white"
+                                    onclick="return confirm('AI will rebuild all zones with optimal partitioning. This replaces existing zones. Continue? / سيعيد الذكاء الاصطناعي بناء المناطق بتقسيم أمثل. سيستبدل المناطق الحالية. متابعة؟')">
+                                <i class="bi bi-magic"></i> AI Regenerate Zones / إعادة إنشاء المناطق
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="alert alert-secondary mt-3 small">
+            <i class="bi bi-info-circle"></i>
+            <strong>AI Algorithm:</strong> Optimizes partition by trying 36 split angles (0-175° at 5° intervals),
+            scoring each candidate on area balance, compactness, water-source proximity, shape regularity,
+            and terrain elevation uniformity + gravity flow potential.
+            <br>
+            <strong>With elevation data:</strong> Area balance (20%), Compactness (15%), Water access (12%),
+            Shape regularity (10%), Elevation uniformity (25%), Gravity pressure (18%).
+            <br>
+            <strong>Without elevation data:</strong> Area balance (35%), Compactness (25%), Water access (20%),
+            Shape regularity (20%).
+            <br>
+            <strong>خوارزمية الذكاء الاصطناعي:</strong> تحسين التقسيم بتجربة 36 زاوية تقسيم (0-175° بفاصل 5°)،
+            وتقييم كل مرشح بناءً على توازن المساحة، الاكتناز، القرب من مصدر المياه، انتظام الشكل،
+            وتجانس الارتفاع + إمكانية الجاذبية.
+        </div>
+    </div>
+</div>
+
+<!-- Terrain Elevation Panel -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-triangle"></i> Terrain Elevation Analysis / تحليل تضاريس الارتفاع</h5>
+    </div>
+    <div class="card-body">
+        <div class="row mb-3">
+            <div class="col-md-6">
+                <form method="POST" action="{{ url_for('engineering.fetch_elevation', project_id=project.id) }}"
+                      class="d-flex gap-2 align-items-end">
+                    <div>
+                        <label class="form-label">Grid Spacing (m) / تباعد الشبكة</label>
+                        <input type="number" name="spacing_m" value="30" min="10" max="100"
+                               class="form-control form-control-sm" style="width: 100px;">
+                    </div>
+                    <button type="submit" class="btn btn-success btn-sm">
+                        <i class="bi bi-download"></i> Fetch Elevation / جلب بيانات الارتفاع
+                    </button>
+                    {% if regen_report.elevation_aware %}
+                    <button type="button" class="btn btn-outline-danger btn-sm"
+                            onclick="if(confirm('Clear cached elevation data? / مسح بيانات الارتفاع المخزنة؟'))
+                                     { const f=document.createElement('form'); f.method='POST';
+                                     f.action='{{ url_for('engineering.clear_elevation', project_id=project.id) }}';
+                                     document.body.appendChild(f); f.submit(); }">
+                        <i class="bi bi-trash"></i> Clear / مسح
+                    </button>
+                    {% endif %}
+                </form>
+            </div>
+            <div class="col-md-6">
+                {% if regen_report.elevation_aware %}
+                <div class="row text-center">
+                    <div class="col-3">
+                        <div class="p-2 bg-light rounded">
+                            <strong>{{ '%.1f' % regen_report.elevation_stats.min_elevation_m }}m</strong><br>
+                            <small>Min / الأدنى</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="p-2 bg-light rounded">
+                            <strong>{{ '%.1f' % regen_report.elevation_stats.max_elevation_m }}m</strong><br>
+                            <small>Max / الأعلى</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="p-2 bg-light rounded">
+                            <strong>{{ '%.1f' % regen_report.elevation_stats.mean_elevation_m }}m</strong><br>
+                            <small>Mean / المتوسط</small>
+                        </div>
+                    </div>
+                    <div class="col-3">
+                        <div class="p-2 bg-light rounded">
+                            <strong>{{ '%.1f' % regen_report.elevation_stats.std_elevation_m }}m</strong><br>
+                            <small>Std Dev / الانحراف</small>
+                        </div>
+                    </div>
+                </div>
+                {% if regen_report.water_source_elevation_m is not none %}
+                <div class="mt-2 text-center">
+                    <span class="badge bg-info">
+                        <i class="bi bi-water"></i>
+                        Water Source Elevation: {{ '%.1f' % regen_report.water_source_elevation_m }}m /
+                        ارتفاع مصدر المياه
+                    </span>
+                </div>
+                {% endif %}
+                {% if regen_report.sector_elevations %}
+                <div class="mt-2">
+                    <small class="text-muted">Sector Elevations / ارتفاعات القطاعات:</small>
+                    {% for se in regen_report.sector_elevations %}
+                    <span class="badge bg-secondary">
+                        {{ se.name }}: {{ '%.1f' % se.metrics.mean_elevation_m }}m
+                        (±{{ '%.1f' % se.metrics.std_elevation_m }}m)
+                    </span>
+                    {% endfor %}
+                </div>
+                {% endif %}
+                {% else %}
+                <div class="alert alert-warning mb-0 small">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    No elevation data fetched. Click "Fetch Elevation" to retrieve terrain data from
+                    Open-Meteo API. This enables contour-aware partitioning and gravity flow analysis.
+                    <br>
+                    لم يتم جلب بيانات الارتفاع. انقر على "جلب بيانات الارتفاع" لاسترداد بيانات التضاريس
+                    من Open-Meteo API. يتيح ذلك التقسيم المدرك للكنتور وتحليل الجاذبية.
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        {% if regen_report.elevation_aware %}
+        <div class="card border-light">
+            <div class="card-header bg-light">
+                <h6 class="mb-0"><i class="bi bi-map"></i> Elevation Heatmap / خريطة الارتفاع الحرارية</h6>
+            </div>
+            <div class="card-body p-2">
+                <div id="elevationMap" style="height: 350px; border-radius: 0.5rem;"></div>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Engineering Parameters -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="bi bi-gear"></i> Engineering Parameters / المعاملات الهندسية</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('engineering.run_validation', project_id=project.id) }}">
+            <div class="row">
+                <div class="col-md-3">
+                    <label class="form-label">Emitter Flow (L/h) / تدفق القطارة</label>
+                    <input type="number" step="0.5" name="emitter_flow_lph" class="form-control form-control-sm"
+                           value="{{ defaults.emitter_flow_lph }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Emitters per Tree / قطرات لكل شجرة</label>
+                    <input type="number" name="emitters_per_tree" class="form-control form-control-sm"
+                           value="{{ defaults.emitters_per_tree }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Source Pressure (bar) / ضغط المصدر</label>
+                    <input type="number" step="0.1" name="source_pressure_bar" class="form-control form-control-sm"
+                           value="{{ defaults.source_pressure_bar }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Source Flow (L/min) / تدفق المصدر</label>
+                    <input type="number" name="source_flow_lpm" class="form-control form-control-sm"
+                           value="{{ defaults.source_flow_lpm }}">
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-3">
+                    <label class="form-label">Hazen-Williams C / معامل هايزن-ويليامز</label>
+                    <input type="number" name="hazen_williams_c" class="form-control form-control-sm"
+                           value="{{ defaults.hazen_williams_c }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Max Main Velocity (m/s) / أقصى سرعة أنبوب رئيسي</label>
+                    <input type="number" step="0.1" name="main_max_velocity_mps" class="form-control form-control-sm"
+                           value="{{ defaults.main_max_velocity_mps }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Max Sub Velocity (m/s) / أقصى سرعة أنبوب فرعي</label>
+                    <input type="number" step="0.1" name="sub_max_velocity_mps" class="form-control form-control-sm"
+                           value="{{ defaults.sub_max_velocity_mps }}">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Max Drip Velocity (m/s) / أقصى سرعة تنقيط</label>
+                    <input type="number" step="0.1" name="drip_max_velocity_mps" class="form-control form-control-sm"
+                           value="{{ defaults.drip_max_velocity_mps }}">
+                </div>
+            </div>
+            <div class="mt-3 d-flex gap-2">
+                <button type="submit" class="btn btn-info text-white">
+                    <i class="bi bi-play-circle"></i> Run Validation / تشغيل التحقق
+                </button>
+                <button type="submit" formaction="{{ url_for('engineering.apply_diameters', project_id=project.id) }}"
+                        class="btn btn-outline-success"
+                        onclick="return confirm('Apply AI-recommended pipe diameters? This will modify pipe data. / تطبيق الأقطار الموصى بها؟ سيعدل بيانات الأنابيب.')">
+                    <i class="bi bi-wrench"></i> Apply Recommended Diameters / تطبيق الأقطار الموصى بها
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Validation Results -->
+{% if validation %}
+<div class="card shadow-sm mb-4">
+    <div class="card-header
+        {% if validation.summary.status == 'pass' %}bg-success text-white
+        {% elif validation.summary.status == 'warning' %}bg-warning
+        {% else %}bg-danger text-white{% endif %}">
+        <h5 class="mb-0">
+            <i class="bi
+            {% if validation.summary.status == 'pass' %}bi-check-circle
+            {% elif validation.summary.status == 'warning' %}bi-exclamation-triangle
+            {% else %}bi-x-circle{% endif %}">
+            </i>
+            Validation Results / نتائج التحقق
+            <span class="float-end">
+                {{ validation.summary.passes }} <i class="bi bi-check-circle-fill text-success"></i>
+                {{ validation.summary.warnings }} <i class="bi bi-exclamation-triangle-fill text-warning"></i>
+                {{ validation.summary.failures }} <i class="bi bi-x-circle-fill text-danger"></i>
+            </span>
+        </h5>
+    </div>
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th width="80">Status / الحالة</th>
+                        <th>Check / الفحص</th>
+                        <th>Object / العنصر</th>
+                        <th>Message / الرسالة</th>
+                        <th>Metrics / القياسات</th>
+                        <th>Recommendation / التوصية</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for check in validation.checks %}
+                    <tr class="
+                        {% if check.severity == 'fail' %}table-danger
+                        {% elif check.severity == 'warning' %}table-warning{% endif %}">
+                        <td>
+                            {% if check.severity == 'pass' %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                            {% elif check.severity == 'warning' %}
+                            <span class="badge bg-warning"><i class="bi bi-exclamation-triangle"></i></span>
+                            {% else %}
+                            <span class="badge bg-danger"><i class="bi bi-x"></i></span>
+                            {% endif %}
+                        </td>
+                        <td><small><code>{{ check.code }}</code></small></td>
+                        <td><small>{{ check.object_type }} #{{ check.object_id }}</small></td>
+                        <td>
+                            <small>{{ check.message_en }}</small><br>
+                            <small class="ar-text">{{ check.message_ar }}</small>
+                        </td>
+                        <td>
+                            {% if check.metrics %}
+                            <small>
+                                {% for k, v in check.metrics.items() %}
+                                <span class="badge bg-secondary">{{ k }}: {{ v }}</span>
+                                {% endfor %}
+                            </small>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if check.recommendation_en %}
+                            <small>{{ check.recommendation_en }}</small><br>
+                            <small class="ar-text">{{ check.recommendation_ar }}</small>
+                            {% else %}
+                            <small class="text-muted">-</small>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% else %}
+<div class="card shadow-sm mb-4">
+    <div class="card-body text-center py-4">
+        <i class="bi bi-clipboard-check" style="font-size: 3rem; color: #ccc;"></i>
+        <h4 class="mt-2 text-muted">No validation run yet / لم يتم تشغيل التحقق بعد</h4>
+        <p class="text-muted">Configure parameters above and click "Run Validation" / اضبط المعاملات أعلاه وانقر على "تشغيل التحقق"</p>
+    </div>
+</div>
+{% endif %}
+
+<!-- Validation History -->
+{% if history %}
+<div class="card shadow-sm">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-clock-history"></i> Validation History / سجل التحقق</h6>
+    </div>
+    <div class="card-body p-0">
+        <table class="table table-sm mb-0">
+            <thead>
+                <tr>
+                    <th>Date / التاريخ</th>
+                    <th>Status / الحالة</th>
+                    <th>Passes / نجاح</th>
+                    <th>Warnings / تحذيرات</th>
+                    <th>Failures / فشل</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for h in history %}
+                <tr>
+                    <td><small>{{ h.created_at.strftime('%Y-%m-%d %H:%M') if h.created_at else '-' }}</small></td>
+                    <td>
+                        {% if h.summary.status == 'pass' %}<span class="badge bg-success">Pass</span>
+                        {% elif h.summary.status == 'warning' %}<span class="badge bg-warning">Warning</span>
+                        {% else %}<span class="badge bg-danger">Fail</span>{% endif %}
+                    </td>
+                    <td><span class="badge bg-success">{{ h.summary.passes }}</span></td>
+                    <td><span class="badge bg-warning">{{ h.summary.warnings }}</span></td>
+                    <td><span class="badge bg-danger">{{ h.summary.failures }}</span></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+{% if regen_report.elevation_aware %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const elevMap = L.map('elevationMap').setView([34.0, -6.0], 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '© OpenStreetMap', maxZoom: 19
+    }).addTo(elevMap);
+
+    const heatmapUrl = '{{ url_for("engineering.elevation_heatmap", project_id=project.id) }}';
+    fetch(heatmapUrl)
+        .then(r => r.json())
+        .then(data => {
+            if (data.features && data.features.length > 0) {
+                const layer = L.geoJSON(data, {
+                    pointToLayer: function(feature, latlng) {
+                        const color = feature.properties.color || '#28a745';
+                        const elev = feature.properties.elevation_m || 0;
+                        return L.circleMarker(latlng, {
+                            radius: 5,
+                            fillColor: color,
+                            color: '#fff',
+                            weight: 1,
+                            fillOpacity: 0.8
+                        }).bindPopup(`Elevation: ${elev}m / الارتفاع: ${elev}م`);
+                    }
+                }).addTo(elevMap);
+                elevMap.fitBounds(layer.getBounds(), { padding: [30, 30] });
+            }
+        })
+        .catch(err => console.error('Elevation heatmap error:', err));
+
+    // Legend
+    const legend = L.control({ position: 'bottomright' });
+    legend.onAdd = function() {
+        const div = L.DomUtil.create('div', 'map-legend');
+        div.innerHTML = `
+            <h6>Elevation / الارتفاع</h6>
+            <div class="legend-item"><span class="legend-color" style="background:#32c832"></span> Low / منخفض</div>
+            <div class="legend-item"><span class="legend-color" style="background:#ffc800"></span> Mid / متوسط</div>
+            <div class="legend-item"><span class="legend-color" style="background:#ff0000"></span> High / عالي</div>
+        `;
+        return div;
+    };
+    legend.addTo(elevMap);
+});
+</script>
+{% endif %}
+{% endblock %}

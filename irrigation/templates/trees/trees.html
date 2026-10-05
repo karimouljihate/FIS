@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Trees / الأشجار{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-tree"></i> Trees / الأشجار</h2>
+    <a href="{{ url_for('project.detail', project_id=project.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back / رجوع
+    </a>
+</div>
+
+<div class="mb-3">
+    <span class="badge bg-primary"><i class="bi bi-folder"></i> {{ project.name }}</span>
+    <span class="badge bg-info">Total Trees: {{ trees|length }}</span>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    Trees follow the path of rows. Define spacing between trees and the tree variety. Each tree will have 2 drips.
+    <br>
+    الأشجار تتبع مسار الصفوف. حدد المسافة بين الأشجار ونوع الشجرة. سيكون لكل شجرة قطاعتان.
+</div>
+
+<!-- Generate Trees -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-magic"></i> Generate Trees from Rows / إنشاء الأشجار من الصفوف</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('trees.trees_generate', project_id=project.id) }}">
+            <div class="row align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Spacing (m) / المسافة بين الأشجار</label>
+                    <input type="number" step="0.5" name="spacing" class="form-control" value="4" min="1">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tree Variety (EN) / نوع الشجرة</label>
+                    <input type="text" name="variety" class="form-control" value="Olive">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Tree Variety (AR) / نوع الشجرة</label>
+                    <input type="text" name="variety_ar" class="form-control" value="زيتون">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-success w-100"
+                            onclick="return confirm('This will replace all existing trees. Continue? / سيستبدل هذا جميع الأشجار الموجودة. متابعة؟')">
+                        <i class="bi bi-magic"></i> Generate / إنشاء
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Trees Table -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover table-sm mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th>Row</th>
+                        <th>Variety (EN)</th>
+                        <th>Variety (AR)</th>
+                        <th>Spacing (m)</th>
+                        <th>Drips/Tree</th>
+                        <th>Validated</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for t in trees[:100] %}
+                    <tr>
+                        <td>{{ t.id }}</td>
+                        <td>{{ t.name_en }}</td>
+                        <td>{{ t.row_id }}</td>
+                        <td>{{ t.variety_en }}</td>
+                        <td class="ar-text">{{ t.variety_ar }}</td>
+                        <td>{{ t.spacing_m }} m</td>
+                        <td>{{ t.drips_per_tree }}</td>
+                        <td>
+                            {% if t.validated %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                            {% else %}
+                            <span class="badge bg-warning"><i class="bi bi-clock"></i></span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="8" class="text-center text-muted py-3">No trees yet / لا توجد أشجار</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{% if trees|length > 100 %}
+<p class="text-muted small mt-2">Showing first 100 of {{ trees|length }} trees / عرض أول 100 من {{ trees|length }} شجرة</p>
+{% endif %}
+
+<!-- Validate -->
+<div class="mt-3">
+    <form method="POST" action="{{ url_for('trees.trees_validate', project_id=project.id) }}">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Validate & Continue / التحقق والمتابعة
+        </button>
+    </form>
+</div>
+
+<!-- Map -->
+<div class="card shadow-sm mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-map"></i> Map / الخريطة</h5>
+    </div>
+    <div class="card-body">
+        <div id="map"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
+    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
+});
+</script>
+{% endblock %}

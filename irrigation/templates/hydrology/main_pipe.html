@@ -1,0 +1,137 @@
+{% extends "base.html" %}
+{% block title %}Main Pipe / الأنبوب الرئيسي{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-water"></i> Main Pipe / الأنبوب الرئيسي</h2>
+    <a href="{{ url_for('project.detail', project_id=project.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back / رجوع
+    </a>
+</div>
+
+<div class="mb-3">
+    <span class="badge bg-primary"><i class="bi bi-folder"></i> {{ project.name }}</span>
+    {% if project.water_source and project.water_source.coordinates %}
+    <span class="badge bg-info"><i class="bi bi-water"></i> Water Source: [{{ project.water_source.coordinates[1] }}, {{ project.water_source.coordinates[0] }}]</span>
+    {% endif %}
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    Main pipe goes directly from water source (basin) and covers all sectors. It should have the largest pipe diameter.
+    <br>
+    الأنبوب الرئيسي يذهب مباشرة من مصدر المياه (الحوض) ويغطي جميع القطاعات. يجب أن يكون أكبر قطر أنبوب.
+</div>
+
+<!-- Add Main Pipe -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Add Main Pipe / إضافة أنبوب رئيسي</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('hydrology.main_pipe_add', project_id=project.id) }}">
+            <div class="row align-items-end">
+                <div class="col-md-4">
+                    <label class="form-label">Diameter (mm) / القطر (مم)</label>
+                    <input type="number" name="diameter" class="form-control" value="110" min="32">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Pipe Path Coordinates (JSON) / مسار الأنبوب</label>
+                    <input type="text" name="coordinates" id="pipeCoords" class="form-control"
+                           placeholder='[[lng,lat],[lng,lat],...]' required>
+                </div>
+                <div class="col-md-2">
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-check"></i> Add / إضافة
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Main Pipes Table -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Name (EN)</th>
+                        <th>Name (AR)</th>
+                        <th>Diameter (mm) / القطر</th>
+                        <th>Validated</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in main_pipes %}
+                    <tr>
+                        <td>{{ p.id }}</td>
+                        <td>{{ p.name_en }}</td>
+                        <td class="ar-text">{{ p.name_ar }}</td>
+                        <td>{{ p.properties.diameter }} mm</td>
+                        <td>
+                            {% if p.validated %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                            {% else %}
+                            <span class="badge bg-warning"><i class="bi bi-clock"></i></span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <span class="badge bg-secondary">{{ p.geometry.coordinates | length }} points</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="6" class="text-center text-muted py-3">No main pipes yet / لا توجد أنابيب رئيسية بعد</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Validate button -->
+<div class="mt-3">
+    <form method="POST" action="{{ url_for('hydrology.main_pipe_validate', project_id=project.id) }}">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Validate & Continue / التحقق والمتابعة
+        </button>
+    </form>
+</div>
+
+<!-- Map -->
+<div class="card shadow-sm mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-map"></i> Map - Draw Main Pipe / الخريطة - رسم الأنبوب الرئيسي</h5>
+    </div>
+    <div class="card-body">
+        <div class="mb-2">
+            <button class="btn btn-outline-primary btn-sm" onclick="startDrawLine()">
+                <i class="bi bi-pencil-square"></i> Draw Line / رسم خط
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearDrawn()">
+                <i class="bi bi-eraser"></i> Clear / مسح
+            </button>
+        </div>
+        <div id="map"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
+    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
+});
+
+function startDrawLine() {
+    initDrawTools('polyline', function(coords, coordsStr) {
+        document.getElementById('pipeCoords').value = coordsStr;
+    });
+}
+</script>
+{% endblock %}

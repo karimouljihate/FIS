@@ -1,0 +1,152 @@
+{% extends "base.html" %}
+{% block title %}Network Elements / عناصر الشبكة{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-diagram-2"></i> Other Network Elements / عناصر الشبكة الأخرى</h2>
+    <a href="{{ url_for('project.detail', project_id=project.id) }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left"></i> Back / رجوع
+    </a>
+</div>
+
+<div class="mb-3">
+    <span class="badge bg-primary"><i class="bi bi-folder"></i> {{ project.name }}</span>
+</div>
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    Add anti-return valves, air suppressors, pressure reducers, and other network elements as needed.
+    <br>
+    أضف صمامات عدم رجوع، طاردات الهواء، خافضات الضغط، وعناصر الشبكة الأخرى حسب الحاجة.
+</div>
+
+<!-- Add Network Element -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-success text-white">
+        <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Add Network Element / إضافة عنصر شبكة</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('hydrology.network_add', project_id=project.id) }}">
+            <div class="row align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">Element Type / نوع العنصر</label>
+                    <select name="elem_type" class="form-select" required>
+                        <option value="check_valve">Anti-Return Valve / صمام عدم رجوع</option>
+                        <option value="air_release">Air Suppressor / تنفيس الهواء</option>
+                        <option value="pressure_reducer">Pressure Reducer / خافض الضغط</option>
+                        <option value="other">Other / أخرى</option>
+                    </select>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Name (EN) / الاسم</label>
+                    <input type="text" name="name_en" class="form-control" placeholder="Auto if empty">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Name (AR) / الاسم</label>
+                    <input type="text" name="name_ar" class="form-control" placeholder="تلقائي إذا فارغ">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Location (JSON) / الموقع</label>
+                    <input type="text" name="coordinates" id="netCoords" class="form-control"
+                           placeholder='[lng,lat]' required>
+                </div>
+            </div>
+            <div class="row mt-2">
+                <div class="col-md-9">
+                    <label class="form-label">Notes / ملاحظات</label>
+                    <input type="text" name="notes" class="form-control" placeholder="Optional notes / ملاحظات اختيارية">
+                </div>
+                <div class="col-md-3">
+                    <button type="submit" class="btn btn-success w-100">
+                        <i class="bi bi-check"></i> Add / إضافة
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Elements by Type -->
+<div class="row">
+    {% set type_labels = {
+        'check_valve': ('Anti-Return Valves', 'صمامات عدم الرجوع', 'danger'),
+        'air_release': ('Air Suppressors', 'طاردات الهواء', 'warning'),
+        'pressure_reducer': ('Pressure Reducers', 'خافضات الضغط', 'info'),
+        'other': ('Other Elements', 'عناصر أخرى', 'secondary')
+    } %}
+    {% for t, (label_en, label_ar, color) in type_labels.items() %}
+    <div class="col-md-6 mb-3">
+        <div class="card shadow-sm">
+            <div class="card-header bg-{{ color }} text-white">
+                <h6 class="mb-0">
+                    {{ label_en }} ({{ elements[t]|length }})
+                    <span class="ar-text"> / {{ label_ar }}</span>
+                </h6>
+            </div>
+            <div class="card-body p-0">
+                <table class="table table-sm mb-0">
+                    <thead><tr><th>ID</th><th>Name</th><th>Validated</th></tr></thead>
+                    <tbody>
+                        {% for e in elements[t] %}
+                        <tr>
+                            <td>{{ e.id }}</td>
+                            <td>{{ e.name_en }} <span class="ar-text">{{ e.name_ar }}</span></td>
+                            <td>
+                                {% if e.validated %}<span class="badge bg-success"><i class="bi bi-check"></i></span>
+                                {% else %}<span class="badge bg-warning"><i class="bi bi-clock"></i></span>{% endif %}
+                            </td>
+                        </tr>
+                        {% else %}
+                        <tr><td colspan="3" class="text-center text-muted">None / لا يوجد</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Validate -->
+<div class="mt-3">
+    <form method="POST" action="{{ url_for('hydrology.network_validate', project_id=project.id) }}">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Validate & Complete / التحقق والإنهاء
+        </button>
+    </form>
+</div>
+
+<!-- Map -->
+<div class="card shadow-sm mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-map"></i> Map / الخريطة</h5>
+    </div>
+    <div class="card-body">
+        <div class="mb-2">
+            <button class="btn btn-outline-primary btn-sm" onclick="startDrawPoint()">
+                <i class="bi bi-pencil-square"></i> Place Point / وضع نقطة
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearDrawn()">
+                <i class="bi bi-eraser"></i> Clear / مسح
+            </button>
+        </div>
+        <div id="map"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
+    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
+});
+
+function startDrawPoint() {
+    initDrawTools('point', function(coords, coordsStr) {
+        document.getElementById('netCoords').value = coordsStr;
+    });
+}
+</script>
+{% endblock %}

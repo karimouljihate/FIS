@@ -1,0 +1,171 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} - Detail{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-folder-fill"></i> {{ project.name }}</h2>
+    <div>
+        <a href="{{ url_for('project.index') }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back / رجوع
+        </a>
+        <a href="{{ url_for('project.export_kml', project_id=project.id) }}" class="btn btn-success">
+            <i class="bi bi-download"></i> Export KML / تصدير
+        </a>
+    </div>
+</div>
+
+<!-- KML Upload Section -->
+<div class="card shadow-sm mb-4">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="bi bi-file-earmark-code"></i> KML/KMZ File / ملف KML/KMZ</h5>
+    </div>
+    <div class="card-body">
+        <form method="POST" action="{{ url_for('project.upload_kml', project_id=project.id) }}" enctype="multipart/form-data">
+            <div class="row align-items-end">
+                <div class="col-md-8">
+                    <label class="form-label">Upload KML or KMZ file / رفع ملف KML أو KMZ</label>
+                    <input type="file" name="kml_file" class="form-control" accept=".kml,.kmz">
+                </div>
+                <div class="col-md-4">
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-upload"></i> Upload / رفع
+                    </button>
+                </div>
+            </div>
+        </form>
+        {% if project.kml_file %}
+        <div class="mt-2">
+            <span class="badge bg-success"><i class="bi bi-check-circle"></i> {{ project.kml_file }}</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Project Info -->
+<div class="row mb-4">
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle"></i> Project Info / معلومات المشروع</h6></div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><th>Name / الاسم:</th><td>{{ project.name }}</td></tr>
+                    <tr><th>Location / الموقع:</th><td>{{ project.location or '-' }}</td></tr>
+                    <tr><th>Status / الحالة:</th><td><span class="badge bg-info">{{ project.status }}</span></td></tr>
+                    <tr><th>Water Source / مصدر المياه:</th>
+                        <td>
+                            {% if project.water_source and project.water_source.coordinates %}
+                            [{{ project.water_source.coordinates[1] }}, {{ project.water_source.coordinates[0] }}]
+                            {% else %}
+                            <span class="text-muted">Not set / غير محدد</span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-diagram-3"></i> Progress / التقدم</h6></div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><th>Sectors / القطاعات:</th><td>{{ sectors|length }}</td></tr>
+                    <tr><th>Zones / المناطق:</th><td>{{ zones|length }}</td></tr>
+                    <tr><th>Network Elements / عناصر الشبكة:</th><td>{{ network|length }}</td></tr>
+                    <tr><th>Tree Rows / صفوف الأشجار:</th><td>{{ tree_rows|length }}</td></tr>
+                    <tr><th>Trees / الأشجار:</th><td>{{ trees|length }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Navigation Tabs -->
+<div class="card shadow-sm">
+    <div class="card-header">
+        <ul class="nav nav-tabs card-header-tabs">
+            <li class="nav-item">
+                <a class="nav-link active" href="#"><i class="bi bi-map"></i> Overview / نظرة عامة</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('geometry.sectors_view', project_id=project.id) }}">
+                    <i class="bi bi-bounding-box"></i> Sectors / القطاعات
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('geometry.zones_view', project_id=project.id) }}">
+                    <i class="bi bi-grid"></i> Zones / المناطق
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('hydrology.main_pipe', project_id=project.id) }}">
+                    <i class="bi bi-water"></i> Main Pipe / الأنبوب الرئيسي
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('hydrology.sub_pipe', project_id=project.id) }}">
+                    <i class="bi bi-droplet"></i> Sub Pipe / أنبوب فرعي
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('trees.rows_view', project_id=project.id) }}">
+                    <i class="bi bi-list-ol"></i> Rows / الصفوف
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('trees.trees_view', project_id=project.id) }}">
+                    <i class="bi bi-tree"></i> Trees / الأشجار
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('hydrology.valves', project_id=project.id) }}">
+                    <i class="bi bi-valve"></i> Valves / الصمامات
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('hydrology.dripline', project_id=project.id) }}">
+                    <i class="bi bi-droplet-half"></i> DripLine / خط التنقيط
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('engineering.validation_view', project_id=project.id) }}">
+                    <i class="bi bi-clipboard-check"></i> Engineering / هندسة
+                </a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" href="{{ url_for('hydrology.network_elements', project_id=project.id) }}">
+                    <i class="bi bi-diagram-2"></i> Network / الشبكة
+                </a>
+            </li>
+        </ul>
+    </div>
+    <div class="card-body">
+        <div id="projectMap"></div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
+    initMap('projectMap', geojsonUrl, {
+        center: [34.0, -6.0],
+        zoom: 14
+    });
+
+    // Add legend
+    addLegend([
+        {color: '#28a745', label: 'Boundary / الحدود'},
+        {color: '#007bff', label: 'Sectors / القطاعات'},
+        {color: '#ffc107', label: 'Zones / المناطق'},
+        {color: '#dc3545', label: 'Main Pipe / الأنبوب الرئيسي'},
+        {color: '#fd7e14', label: 'Sub Pipe / أنبوب فرعي'},
+        {color: '#6c757d', label: 'Tree Rows / صفوف الأشجار'},
+        {color: '#28a745', label: 'Trees / الأشجار'},
+        {color: '#6610f2', label: 'Valves / الصمامات'}
+    ]);
+});
+</script>
+{% endblock %}

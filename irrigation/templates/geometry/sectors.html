@@ -1,0 +1,343 @@
+{% extends "base.html" %}
+{% block title %}Sectors / القطاعات{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h2><i class="bi bi-bounding-box"></i> Sectors / القطاعات</h2>
+    <div>
+        <a href="{{ url_for('project.detail', project_id=project.id) }}" class="btn btn-outline-secondary">
+            <i class="bi bi-arrow-left"></i> Back / رجوع
+        </a>
+    </div>
+</div>
+
+<!-- Project context -->
+<div class="mb-3">
+    <span class="badge bg-primary"><i class="bi bi-folder"></i> {{ project.name }}</span>
+    <span class="badge bg-info">Status: {{ project.status }}</span>
+</div>
+
+<!-- Add Sector Button -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSectorModal">
+        <i class="bi bi-plus-circle"></i> Add Sector / إضافة قطاع
+    </button>
+    <form method="POST" action="{{ url_for('geometry.sector_ai_regenerate', project_id=project.id) }}" class="d-inline">
+        <button type="submit" class="btn btn-warning"
+                onclick="return confirm('AI will rebuild all sectors. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات. متابعة؟')">
+            <i class="bi bi-robot"></i> AI Regenerate / إعادة إنشاء بالذكاء الاصطناعي
+        </button>
+    </form>
+    <form method="POST" action="{{ url_for('geometry.sector_validate', project_id=project.id) }}" class="d-inline">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Validate All / التحقق من الكل
+        </button>
+    </form>
+</div>
+
+<!-- Merge/swap controls -->
+{% if sectors|length >= 2 %}
+<div class="d-flex gap-2 mb-3">
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mergeModal">
+        <i class="bi bi-union"></i> Merge Selected / دمج المحدد
+    </button>
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#swapModal">
+        <i class="bi bi-arrow-left-right"></i> Swap / تبديل
+    </button>
+</div>
+{% endif %}
+
+<!-- Sectors Table -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th width="40"><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
+                        <th>ID</th>
+                        <th>Name (EN) / الاسم (EN)</th>
+                        <th>Name (AR) / الاسم (AR)</th>
+                        <th>Validated / تم التحقق</th>
+                        <th class="text-center">Actions / إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for s in sectors %}
+                    <tr>
+                        <td><input type="checkbox" class="sector-checkbox" value="{{ s.id }}"></td>
+                        <td>{{ s.id }}</td>
+                        <td>{{ s.name_en }}</td>
+                        <td class="ar-text">{{ s.name_ar }}</td>
+                        <td>
+                            {% if s.validated %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                            {% else %}
+                            <span class="badge bg-warning"><i class="bi bi-clock"></i></span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-circle btn-primary" data-bs-toggle="modal"
+                                    data-bs-target="#editModal{{ s.id }}" title="Edit / تعديل">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-circle btn-info" data-bs-toggle="modal"
+                                    data-bs-target="#renameModal{{ s.id }}" title="Rename / إعادة تسمية">
+                                <i class="bi bi-input-cursor-text"></i>
+                            </button>
+                            <button class="btn btn-circle btn-warning" data-bs-toggle="modal"
+                                    data-bs-target="#splitModal{{ s.id }}" title="Split / تقسيم">
+                                <i class="bi bi-scissors"></i>
+                            </button>
+                        </td>
+                    </tr>
+
+                    <!-- Edit Modal -->
+                    <div class="modal fade" id="editModal{{ s.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('geometry.sector_edit', project_id=project.id, sector_id=s.id) }}">
+                                    <div class="modal-header bg-primary text-white">
+                                        <h5 class="modal-title"><i class="bi bi-pencil"></i> Edit Sector / تعديل القطاع</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Name (EN) / الاسم</label>
+                                            <input type="text" name="name_en" class="form-control" value="{{ s.name_en }}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Name (AR) / الاسم</label>
+                                            <input type="text" name="name_ar" class="form-control" value="{{ s.name_ar }}">
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Polygon Coordinates (JSON) / إحداثيات المضلع</label>
+                                            <textarea name="polygon_coords" class="form-control" rows="4"
+                                                      placeholder='[[lng,lat],...]'>{{ s.polygon.coordinates[0] | tojson | safe if s.polygon else '' }}</textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close / إغلاق</button>
+                                        <button type="submit" class="btn btn-primary"><i class="bi bi-check"></i> Save / حفظ</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rename Modal -->
+                    <div class="modal fade" id="renameModal{{ s.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('geometry.sector_rename', project_id=project.id, sector_id=s.id) }}">
+                                    <div class="modal-header bg-info text-white">
+                                        <h5 class="modal-title"><i class="bi bi-input-cursor-text"></i> Rename Sector / إعادة تسمية القطاع</h5>
+                                        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Name (EN) / الاسم</label>
+                                            <input type="text" name="name_en" class="form-control" value="{{ s.name_en }}" required>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Name (AR) / الاسم</label>
+                                            <input type="text" name="name_ar" class="form-control" value="{{ s.name_ar }}">
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close / إغلاق</button>
+                                        <button type="submit" class="btn btn-info"><i class="bi bi-check"></i> Rename / إعادة تسمية</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Split Modal -->
+                    <div class="modal fade" id="splitModal{{ s.id }}" tabindex="-1">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <form method="POST" action="{{ url_for('geometry.sector_split', project_id=project.id, sector_id=s.id) }}">
+                                    <div class="modal-header bg-warning text-dark">
+                                        <h5 class="modal-title"><i class="bi bi-scissors"></i> Split Sector / تقسيم القطاع</h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label class="form-label">Number of parts / عدد الأجزاء</label>
+                                            <select name="parts" class="form-select">
+                                                <option value="2">2</option>
+                                                <option value="3">3</option>
+                                                <option value="4">4</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close / إغلاق</button>
+                                        <button type="submit" class="btn btn-warning"><i class="bi bi-scissors"></i> Split / تقسيم</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Map -->
+<div class="card shadow-sm mt-4">
+    <div class="card-header">
+        <h5 class="mb-0"><i class="bi bi-map"></i> Map - Draw Sectors / الخريطة - رسم القطاعات</h5>
+    </div>
+    <div class="card-body">
+        <div class="mb-2">
+            <button class="btn btn-outline-primary btn-sm" onclick="startDrawing()">
+                <i class="bi bi-pencil-square"></i> Draw Polygon / رسم مضلع
+            </button>
+            <button class="btn btn-outline-danger btn-sm" onclick="clearDrawn()">
+                <i class="bi bi-eraser"></i> Clear / مسح
+            </button>
+        </div>
+        <div id="map"></div>
+    </div>
+</div>
+
+<!-- Add Sector Modal -->
+<div class="modal fade" id="addSectorModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('geometry.sector_add', project_id=project.id) }}">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Add New Sector / إضافة قطاع جديد</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="row">
+                        <div class="col-md-6">
+                            <label class="form-label">Name (EN) / الاسم</label>
+                            <input type="text" name="name_en" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Name (AR) / الاسم</label>
+                            <input type="text" name="name_ar" class="form-control">
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label">Polygon Coordinates (JSON) / إحداثيات المضلع</label>
+                        <textarea name="polygon_coords" id="polygonCoords" class="form-control" rows="5"
+                                  placeholder='Draw on map or enter coordinates: [[lng,lat],[lng,lat],...]' required></textarea>
+                    </div>
+                    <p class="text-muted small mt-2">
+                        Draw a polygon on the map above and coordinates will be auto-filled, or enter manually.
+                        <br>
+                        ارسم مضلعاً على الخريطة وستملأ الإحداثيات تلقائياً أو أدخلها يدوياً
+                    </p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close / إغلاق</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check"></i> Add / إضافة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Merge Modal -->
+<div class="modal fade" id="mergeModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('geometry.sector_merge', project_id=project.id) }}" id="mergeForm">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-union"></i> Merge Sectors / دمج القطاعات</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Selected sectors will be merged into one / سيتم دمج القطاعات المحددة في قطاع واحد</p>
+                    <div id="mergeSelectedList"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close / إغلاق</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-union"></i> Merge / دمج</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Swap Modal -->
+<div class="modal fade" id="swapModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('geometry.sector_swap', project_id=project.id) }}">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-arrow-left-right"></i> Swap Sectors / تبديل القطاعات</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Sector 1 / القطاع الأول</label>
+                        <select name="id1" class="form-select" required>
+                            {% for s in sectors %}
+                            <option value="{{ s.id }}">{{ s.name_en }} ({{ s.name_ar }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Sector 2 / القطاع الثاني</label>
+                        <select name="id2" class="form-select" required>
+                            {% for s in sectors %}
+                            <option value="{{ s.id }}">{{ s.name_en }} ({{ s.name_ar }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close / إغلاق</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-arrow-left-right"></i> Swap / تبديل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
+    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
+
+    // Merge modal: collect selected sector IDs
+    document.getElementById('mergeModal').addEventListener('show.bs.modal', function() {
+        const selected = document.querySelectorAll('.sector-checkbox:checked');
+        const list = document.getElementById('mergeSelectedList');
+        list.innerHTML = '';
+        selected.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'sector_ids';
+            input.value = cb.value;
+            list.appendChild(input);
+            list.innerHTML += `<div>Sector ID: ${cb.value}</div>`;
+        });
+    });
+});
+
+function startDrawing() {
+    initDrawTools('polygon', function(coords, coordsStr) {
+        document.getElementById('polygonCoords').value = coordsStr;
+        // Also try to open the add modal
+        const modal = new bootstrap.Modal(document.getElementById('addSectorModal'));
+        modal.show();
+    });
+}
+
+function toggleAll(source) {
+    document.querySelectorAll('.sector-checkbox').forEach(cb => cb.checked = source.checked);
+}
+</script>
+{% endblock %}
