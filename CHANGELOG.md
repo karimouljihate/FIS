@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.2 - 2026-10-05
+
+### Changed
+
+- Split the Geometry Sectors title into English, centered icon, and Arabic columns with explicit fonts.
+
 ## 0.3.1 - 2026-10-05
 
 ### Changed

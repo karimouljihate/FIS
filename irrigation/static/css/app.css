@@ -239,6 +239,38 @@ footer {
     font-family: var(--font-ar) !important;
 }
 
+.geometry-sectors-header {
+    display: grid;
+    grid-template-columns: 15% 70% 15%;
+    align-items: center;
+}
+
+.geometry-sectors-title-en,
+.geometry-sectors-title-ar {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.geometry-sectors-title-en {
+    grid-column: 1;
+    justify-self: start;
+    font-family: 'Comfortaa', 'Segoe UI', sans-serif !important;
+}
+
+.geometry-sectors-icon {
+    grid-column: 2;
+    justify-self: center;
+    color: var(--bs-primary);
+    font-size: 1.5rem;
+}
+
+.geometry-sectors-title-ar {
+    grid-column: 3;
+    justify-self: end;
+    text-align: right;
+    font-family: 'VIP-Rawy', 'Amiri', serif !important;
+}
+
 .latin-number,
 .projects-page .latin-number {
     font-family: 'Comfortaa', 'Segoe UI', sans-serif !important;
@@ -253,6 +285,29 @@ textarea {
 }
 
 @media (max-width: 767.98px) {
+    .geometry-sectors-header {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.35rem;
+    }
+
+    .geometry-sectors-title-en,
+    .geometry-sectors-icon,
+    .geometry-sectors-title-ar {
+        grid-column: 1;
+    }
+
+    .geometry-sectors-title-en {
+        grid-row: 1;
+    }
+
+    .geometry-sectors-icon {
+        grid-row: 2;
+    }
+
+    .geometry-sectors-title-ar {
+        grid-row: 3;
+    }
+
     .projects-page-header {
         grid-template-columns: minmax(0, 1fr);
         gap: 0.75rem;
