@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.7 - 2026-10-05
+
+### Changed
+
+- Replace native browser confirmation dialogs with a shared Bootstrap confirmation modal.
+
 ## 0.3.6 - 2026-10-05
 
 ### Added

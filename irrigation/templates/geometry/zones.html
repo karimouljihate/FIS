@@ -17,7 +17,7 @@
     </button>
     <form method="POST" action="{{ url_for('geometry.zone_ai_regenerate', project_id=project.id) }}" class="d-inline">
         <button type="submit" class="btn btn-warning"
-                onclick="return confirm('AI will rebuild all zones. Continue? / سيعيد الذكاء الاصطناعي بناء المناطق. متابعة؟')">
+            data-confirm="AI will rebuild all zones. Continue? / سيعيد الذكاء الاصطناعي بناء المناطق. متابعة؟">
             <i class="bi bi-robot"></i> AI Generate Zones / إنشاء المناطق بالذكاء الاصطناعي
         </button>
     </form>

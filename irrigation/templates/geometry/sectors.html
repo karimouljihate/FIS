@@ -29,7 +29,7 @@
     {% endif %}
     <form method="POST" action="{{ url_for('geometry.sector_ai_regenerate', project_id=project.id) }}" class="d-inline">
         <button type="submit" class="btn btn-warning"
-                onclick="return confirm('AI will rebuild all sectors. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات. متابعة؟')">
+            data-confirm="AI will rebuild all sectors. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات. متابعة؟">
             <i class="bi bi-robot"></i> AI Regenerate / إعادة إنشاء بالذكاء الاصطناعي
         </button>
     </form>

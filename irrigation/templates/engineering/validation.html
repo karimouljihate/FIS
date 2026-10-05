@@ -79,8 +79,8 @@
                                     <option value="8">8</option>
                                 </select>
                             </div>
-                            <button type="submit" class="btn btn-warning btn-sm"
-                                    onclick="return confirm('AI will rebuild all sectors and zones with optimal partitioning. This replaces existing data. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات والمناطق بتقسيم أمثل. سيستبدل البيانات الحالية. متابعة؟')">
+                                <button type="submit" class="btn btn-warning btn-sm"
+                                    data-confirm="AI will rebuild all sectors and zones with optimal partitioning. This replaces existing data. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات والمناطق بتقسيم أمثل. سيستبدل البيانات الحالية. متابعة؟">
                                 <i class="bi bi-magic"></i> AI Regenerate Sectors / إعادة إنشاء القطاعات
                             </button>
                         </form>
@@ -108,8 +108,8 @@
                                     </select>
                                 </div>
                             </div>
-                            <button type="submit" class="btn btn-info btn-sm text-white"
-                                    onclick="return confirm('AI will rebuild all zones with optimal partitioning. This replaces existing zones. Continue? / سيعيد الذكاء الاصطناعي بناء المناطق بتقسيم أمثل. سيستبدل المناطق الحالية. متابعة؟')">
+                                <button type="submit" class="btn btn-info btn-sm text-white"
+                                    data-confirm="AI will rebuild all zones with optimal partitioning. This replaces existing zones. Continue? / سيعيد الذكاء الاصطناعي بناء المناطق بتقسيم أمثل. سيستبدل المناطق الحالية. متابعة؟">
                                 <i class="bi bi-magic"></i> AI Regenerate Zones / إعادة إنشاء المناطق
                             </button>
                         </form>
@@ -156,11 +156,9 @@
                         <i class="bi bi-download"></i> Fetch Elevation / جلب بيانات الارتفاع
                     </button>
                     {% if regen_report.elevation_aware %}
-                    <button type="button" class="btn btn-outline-danger btn-sm"
-                            onclick="if(confirm('Clear cached elevation data? / مسح بيانات الارتفاع المخزنة؟'))
-                                     { const f=document.createElement('form'); f.method='POST';
-                                     f.action='{{ url_for('engineering.clear_elevation', project_id=project.id) }}';
-                                     document.body.appendChild(f); f.submit(); }">
+                        <button type="button" class="btn btn-outline-danger btn-sm"
+                            data-confirm="Clear cached elevation data? / مسح بيانات الارتفاع المخزنة؟"
+                            data-confirm-post="{{ url_for('engineering.clear_elevation', project_id=project.id) }}">
                         <i class="bi bi-trash"></i> Clear / مسح
                     </button>
                     {% endif %}
@@ -296,8 +294,8 @@
                     <i class="bi bi-play-circle"></i> Run Validation / تشغيل التحقق
                 </button>
                 <button type="submit" formaction="{{ url_for('engineering.apply_diameters', project_id=project.id) }}"
-                        class="btn btn-outline-success"
-                        onclick="return confirm('Apply AI-recommended pipe diameters? This will modify pipe data. / تطبيق الأقطار الموصى بها؟ سيعدل بيانات الأنابيب.')">
+                    class="btn btn-outline-success"
+                    data-confirm="Apply AI-recommended pipe diameters? This will modify pipe data. / تطبيق الأقطار الموصى بها؟ سيعدل بيانات الأنابيب.">
                     <i class="bi bi-wrench"></i> Apply Recommended Diameters / تطبيق الأقطار الموصى بها
                 </button>
             </div>

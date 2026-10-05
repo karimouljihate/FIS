@@ -192,12 +192,91 @@
         </div>
     </footer>
 
+    <div class="modal fade" id="confirmActionModal" tabindex="-1" aria-labelledby="confirmActionTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="confirmActionTitle">Confirm action / تأكيد الإجراء</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="confirmActionMessage"></div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="button" class="btn btn-danger" id="confirmActionAccept">Continue / متابعة</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
         document.querySelectorAll('.flash-toast').forEach((toastElement) => {
             bootstrap.Toast.getOrCreateInstance(toastElement, { autohide: true, delay: 5000 }).show();
         });
+    </script>
+    <script>
+        (() => {
+            const modalElement = document.getElementById('confirmActionModal');
+            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+            const messageElement = document.getElementById('confirmActionMessage');
+            const acceptButton = document.getElementById('confirmActionAccept');
+            let pendingAction = null;
+
+            function askForConfirmation(message, action) {
+                messageElement.textContent = message;
+                pendingAction = action;
+                modal.show();
+            }
+
+            document.addEventListener('submit', (event) => {
+                const form = event.target;
+                if (!(form instanceof HTMLFormElement) || !form.dataset.confirm) return;
+                if (form.dataset.confirmed === 'true') {
+                    delete form.dataset.confirmed;
+                    return;
+                }
+
+                event.preventDefault();
+                askForConfirmation(form.dataset.confirm, () => {
+                    form.dataset.confirmed = 'true';
+                    form.requestSubmit();
+                });
+            }, true);
+
+            document.addEventListener('click', (event) => {
+                const trigger = event.target.closest('[data-confirm]');
+                if (!trigger || trigger instanceof HTMLFormElement) return;
+
+                if (trigger.matches('button[type="submit"], input[type="submit"]') && trigger.form) {
+                    event.preventDefault();
+                    askForConfirmation(trigger.dataset.confirm, () => trigger.form.requestSubmit(trigger));
+                    return;
+                }
+
+                const postUrl = trigger.dataset.confirmPost;
+                if (!postUrl) return;
+                event.preventDefault();
+                askForConfirmation(trigger.dataset.confirm, () => {
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = postUrl;
+                    document.body.append(form);
+                    form.requestSubmit();
+                });
+            }, true);
+
+            acceptButton.addEventListener('click', () => {
+                const action = pendingAction;
+                pendingAction = null;
+                modal.hide();
+                if (action) action();
+            });
+
+            modalElement.addEventListener('hidden.bs.modal', () => {
+                pendingAction = null;
+            });
+        })();
     </script>
 
     <!-- Leaflet JS -->
