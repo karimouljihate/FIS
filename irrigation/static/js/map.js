@@ -5,6 +5,7 @@ let map = null;
 let drawLayer = null;
 let featureLayer = null;
 let drawnItems = null;
+let mapSelectionMode = false;
 
 function initMap(elementId, geojsonUrl, options = {}) {
     const mapElement = document.getElementById(elementId);
@@ -53,6 +54,30 @@ function initMap(elementId, geojsonUrl, options = {}) {
         });
     }
 
+    mapSelectionMode = false;
+    if (options.selectable) {
+        const selectionControl = L.control({ position: 'topright' });
+        selectionControl.onAdd = function() {
+            const container = L.DomUtil.create('div', 'leaflet-bar geometry-map-select');
+            const button = L.DomUtil.create('button', 'geometry-map-select-button', container);
+            button.type = 'button';
+            button.title = 'Select elements on map';
+            button.setAttribute('aria-label', 'Select elements on map');
+            button.setAttribute('aria-pressed', 'false');
+            button.innerHTML = '<i class="bi bi-cursor"></i>';
+            L.DomEvent.disableClickPropagation(container);
+            L.DomEvent.on(button, 'click', function(event) {
+                L.DomEvent.stop(event);
+                mapSelectionMode = !mapSelectionMode;
+                button.classList.toggle('active', mapSelectionMode);
+                button.setAttribute('aria-pressed', String(mapSelectionMode));
+                map.getContainer().classList.toggle('geometry-map-select-mode', mapSelectionMode);
+            });
+            return container;
+        };
+        selectionControl.addTo(map);
+    }
+
     // Feature layer for loaded data
     featureLayer = L.geoJSON(null, {
         style: function(feature) {
@@ -86,6 +111,7 @@ function initMap(elementId, geojsonUrl, options = {}) {
         },
         onEachFeature: function(feature, layer) {
             if (feature.properties) {
+                const properties = feature.properties;
                 const name = feature.properties.name || '';
                 const nameAr = feature.properties.name_ar || '';
                 const type = feature.properties.type || '';
@@ -97,6 +123,37 @@ function initMap(elementId, geojsonUrl, options = {}) {
                     popupContent += `<br><small>Status: ${validated ? '✓ Validated' : 'Pending'}</small>`;
                 }
                 layer.bindPopup(popupContent);
+
+                if (options.selectable && type === options.selectable.type && properties.id !== undefined) {
+                    const checkbox = Array.from(document.querySelectorAll(options.selectable.checkboxSelector))
+                        .find((input) => input.value === String(properties.id));
+                    const setSelectedStyle = (selected) => {
+                        layer._geometrySelected = selected;
+                        if (layer.setStyle) {
+                            layer.setStyle({
+                                color: selected ? '#f08c00' : properties.color || '#3388ff',
+                                weight: selected ? 4 : 2,
+                                fillOpacity: selected ? 0.4 : 0.2
+                            });
+                        }
+                    };
+
+                    if (checkbox) {
+                        setSelectedStyle(checkbox.checked);
+                        checkbox.addEventListener('change', () => setSelectedStyle(checkbox.checked));
+                    }
+
+                    layer.on('click', function(event) {
+                        if (!mapSelectionMode) return;
+                        if (event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
+                        if (checkbox) {
+                            checkbox.checked = !checkbox.checked;
+                            checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+                        } else {
+                            setSelectedStyle(!layer._geometrySelected);
+                        }
+                    });
+                }
             }
         }
     }).addTo(map);

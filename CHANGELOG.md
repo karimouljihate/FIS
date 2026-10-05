@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.6 - 2026-10-05
+
+### Added
+
+- Map selection mode for Geometry sectors and zones, synchronized with table checkboxes.
+
 ## 0.3.5 - 2026-10-05
 
 ### Changed

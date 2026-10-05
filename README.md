@@ -1,6 +1,6 @@
 # FIS (Farming Irrigation System)
 
-Version: **0.3.5**
+Version: **0.3.6**
 
 FIS is a Flask irrigation-planning application for organizing farm projects, field geometry, irrigation networks, trees, and engineering validation.
 
@@ -9,6 +9,7 @@ FIS is a Flask irrigation-planning application for organizing farm projects, fie
 - Manage projects, boundaries, sectors, zones, rows, and trees.
 - Import KML/KMZ geometry, including field boundaries and sector features.
 - Draw polygons, lines, and markers with the Geometry map editor.
+- Select and multi-select sectors/zones from the map and sync them with table actions.
 - Display Geometry Sectors with English, centered icon, and Arabic title columns.
 - Navigate Geometry sections with workflow tabs instead of page-level Back buttons.
 - View project geometry and irrigation elements on a Leaflet map.
