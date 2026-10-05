@@ -190,17 +190,9 @@
 <!-- Map -->
 <div class="card shadow-sm mt-4">
     <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-map"></i> Map - Draw Sectors / الخريطة - رسم القطاعات</h5>
+        <h5 class="mb-0"><i class="bi bi-map"></i> Map Editor - Sectors / محرر الخريطة - القطاعات</h5>
     </div>
     <div class="card-body">
-        <div class="mb-2">
-            <button class="btn btn-outline-primary btn-sm" onclick="startDrawing()">
-                <i class="bi bi-pencil-square"></i> Draw Polygon / رسم مضلع
-            </button>
-            <button class="btn btn-outline-danger btn-sm" onclick="clearDrawn()">
-                <i class="bi bi-eraser"></i> Clear / مسح
-            </button>
-        </div>
         <div id="map"></div>
     </div>
 </div>
@@ -309,7 +301,17 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
-    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
+    initMap('map', geojsonUrl, {
+        center: [34.0, -6.0],
+        zoom: 14,
+        editor: true,
+        onDrawCreated: function(layer, layerType) {
+            if (layerType !== 'polygon') return;
+            const coords = layer.toGeoJSON().geometry.coordinates[0];
+            document.getElementById('polygonCoords').value = JSON.stringify(coords);
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('addSectorModal')).show();
+        }
+    });
 
     // Merge modal: collect selected sector IDs
     document.getElementById('mergeModal').addEventListener('show.bs.modal', function() {
@@ -326,15 +328,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
-
-function startDrawing() {
-    initDrawTools('polygon', function(coords, coordsStr) {
-        document.getElementById('polygonCoords').value = coordsStr;
-        // Also try to open the add modal
-        const modal = new bootstrap.Modal(document.getElementById('addSectorModal'));
-        modal.show();
-    });
-}
 
 function toggleAll(source) {
     document.querySelectorAll('.sector-checkbox').forEach(cb => cb.checked = source.checked);

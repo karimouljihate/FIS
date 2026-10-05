@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.0 - 2026-10-05
+
+### Added
+
+- In-map Geometry editor controls for polygons, lines, markers, and removing draft shapes.
+- Polygon drawings open the existing Sector or Zone form with coordinates filled in.
+
 ## 0.2.0 - 2026-10-05
 
 ### Added

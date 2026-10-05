@@ -27,6 +27,32 @@ function initMap(elementId, geojsonUrl, options = {}) {
     drawnItems = new L.FeatureGroup();
     map.addLayer(drawnItems);
 
+    if (options.editor) {
+        const drawControl = new L.Control.Draw({
+            position: 'topleft',
+            draw: {
+                polygon: { allowIntersection: false, showArea: true },
+                polyline: { allowIntersection: false },
+                marker: true,
+                rectangle: false,
+                circle: false,
+                circlemarker: false
+            },
+            edit: {
+                featureGroup: drawnItems,
+                edit: false,
+                remove: true
+            }
+        });
+        map.addControl(drawControl);
+        map.on(L.Draw.Event.CREATED, function(event) {
+            drawnItems.addLayer(event.layer);
+            if (options.onDrawCreated) {
+                options.onDrawCreated(event.layer, event.layerType);
+            }
+        });
+    }
+
     // Feature layer for loaded data
     featureLayer = L.geoJSON(null, {
         style: function(feature) {

@@ -190,7 +190,7 @@
 <!-- Map -->
 <div class="card shadow-sm mt-4">
     <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-map"></i> Map - Zones / الخريطة - المناطق</h5>
+        <h5 class="mb-0"><i class="bi bi-map"></i> Map Editor - Zones / محرر الخريطة - المناطق</h5>
     </div>
     <div class="card-body">
         <div id="map"></div>
@@ -268,7 +268,17 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
-    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
+    initMap('map', geojsonUrl, {
+        center: [34.0, -6.0],
+        zoom: 14,
+        editor: true,
+        onDrawCreated: function(layer, layerType) {
+            if (layerType !== 'polygon') return;
+            const coords = layer.toGeoJSON().geometry.coordinates[0];
+            document.getElementById('zonePolygonCoords').value = JSON.stringify(coords);
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('addZoneModal')).show();
+        }
+    });
 
     document.getElementById('mergeZoneModal').addEventListener('show.bs.modal', function() {
         const selected = document.querySelectorAll('.zone-checkbox:checked');
