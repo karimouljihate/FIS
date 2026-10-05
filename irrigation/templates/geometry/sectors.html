@@ -19,6 +19,14 @@
     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSectorModal">
         <i class="bi bi-plus-circle"></i> Add Sector / إضافة قطاع
     </button>
+    {% if sectors|length >= 2 %}
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mergeModal">
+        <i class="bi bi-union"></i> Merge Selected / دمج المحدد
+    </button>
+    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#swapModal">
+        <i class="bi bi-arrow-left-right"></i> Swap / تبديل
+    </button>
+    {% endif %}
     <form method="POST" action="{{ url_for('geometry.sector_ai_regenerate', project_id=project.id) }}" class="d-inline">
         <button type="submit" class="btn btn-warning"
                 onclick="return confirm('AI will rebuild all sectors. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات. متابعة؟')">
@@ -31,18 +39,6 @@
         </button>
     </form>
 </div>
-
-<!-- Merge/swap controls -->
-{% if sectors|length >= 2 %}
-<div class="d-flex gap-2 mb-3">
-    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mergeModal">
-        <i class="bi bi-union"></i> Merge Selected / دمج المحدد
-    </button>
-    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#swapModal">
-        <i class="bi bi-arrow-left-right"></i> Swap / تبديل
-    </button>
-</div>
-{% endif %}
 
 <!-- Sectors Table -->
 <div class="card shadow-sm">

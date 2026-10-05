@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.4 - 2026-10-05
+
+### Changed
+
+- Place Merge and Swap beside Add Sector in the Geometry action row.
+
 ## 0.3.3 - 2026-10-05
 
 ### Changed
