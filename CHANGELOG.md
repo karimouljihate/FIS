@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.3 - 2026-10-05
+
+### Changed
+
+- Center the Geometry Sectors and Zones tabs as a group.
+
 ## 0.3.2 - 2026-10-05
 
 ### Changed

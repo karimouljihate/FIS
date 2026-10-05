@@ -466,6 +466,10 @@ textarea {
     padding: 0.25rem 0;
 }
 
+.project-workflow-subnav-geometry .nav {
+    justify-content: center;
+}
+
 .project-workflow-subnav .nav-link {
     display: inline-grid;
     width: auto;
