@@ -19,6 +19,11 @@
     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSectorModal">
         <i class="bi bi-plus-circle"></i> Add Sector / إضافة قطاع
     </button>
+    {% if sectors|length >= 1 %}
+    <button class="btn btn-outline-warning" type="button" onclick="openSplitSelected()">
+        <i class="bi bi-scissors"></i> Split Selected / تقسيم المحدد
+    </button>
+    {% endif %}
     {% if sectors|length >= 2 %}
     <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mergeModal">
         <i class="bi bi-union"></i> Merge Selected / دمج المحدد
@@ -252,6 +257,36 @@
     </div>
 </div>
 
+<!-- Split Selected Modal -->
+<div class="modal fade" id="splitSelectedModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('geometry.sector_split_selected', project_id=project.id) }}">
+                <div class="modal-header bg-warning text-dark">
+                    <h5 class="modal-title"><i class="bi bi-scissors"></i> Split Selected Sectors / تقسيم القطاعات المحددة</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <p>Each selected sector will be split into equal parts / سيتم تقسيم كل قطاع محدد إلى أجزاء متساوية</p>
+                    <div id="splitSelectedList"></div>
+                    <div class="mb-3">
+                        <label class="form-label">Number of parts / عدد الأجزاء</label>
+                        <select name="parts" class="form-select">
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close / إغلاق</button>
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-scissors"></i> Split / تقسيم</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Swap Modal -->
 <div class="modal fade" id="swapModal" tabindex="-1">
     <div class="modal-dialog">
@@ -298,7 +333,19 @@ document.addEventListener('DOMContentLoaded', function() {
         center: [34.0, -6.0],
         zoom: 14,
         editor: true,
+        ruler: true,
+        showArea: true,
         selectable: { type: 'sector', checkboxSelector: '.sector-checkbox' },
+        mapActions: {
+            idField: 'sector_ids',
+            item: { en: 'sector', ar: 'قطاع' },
+            splitOptions: [2, 3, 4],
+            urls: {
+                split: '{{ url_for("geometry.sector_split_selected", project_id=project.id) }}',
+                merge: '{{ url_for("geometry.sector_merge", project_id=project.id) }}',
+                swap: '{{ url_for("geometry.sector_swap", project_id=project.id) }}'
+            }
+        },
         onDrawCreated: function(layer, layerType) {
             if (layerType !== 'polygon') return;
             const coords = layer.toGeoJSON().geometry.coordinates[0];
@@ -322,6 +369,27 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 });
+
+function openSplitSelected() {
+    const selected = document.querySelectorAll('.sector-checkbox:checked');
+    if (!selected.length) {
+        alert('Select at least one sector first / اختر قطاعا واحدا على الأقل أولا');
+        return;
+    }
+    const list = document.getElementById('splitSelectedList');
+    list.innerHTML = '';
+    selected.forEach(cb => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'sector_ids';
+        input.value = cb.value;
+        list.appendChild(input);
+        const label = document.createElement('div');
+        label.textContent = 'Sector ID: ' + cb.value;
+        list.appendChild(label);
+    });
+    bootstrap.Modal.getOrCreateInstance(document.getElementById('splitSelectedModal')).show();
+}
 
 function toggleAll(source) {
     document.querySelectorAll('.sector-checkbox').forEach(cb => cb.checked = source.checked);

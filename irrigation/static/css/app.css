@@ -195,7 +195,7 @@ footer {
 }
 
 .flash-toast {
-    width: min(24rem, calc(100vw - 2rem));
+    width: min(50rem, calc(100vw - 2rem));
 }
 
 .projects-page {
@@ -271,6 +271,38 @@ footer {
     font-family: 'VIP-Rawy', 'Amiri', serif !important;
 }
 
+.geometry-zones-header {
+    display: grid;
+    grid-template-columns: 15% 70% 15%;
+    align-items: center;
+}
+
+.geometry-zones-title-en,
+.geometry-zones-title-ar {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.geometry-zones-title-en {
+    grid-column: 1;
+    justify-self: start;
+    font-family: 'Comfortaa', 'Segoe UI', sans-serif !important;
+}
+
+.geometry-zones-icon {
+    grid-column: 2;
+    justify-self: center;
+    color: var(--bs-primary);
+    font-size: 1.5rem;
+}
+
+.geometry-zones-title-ar {
+    grid-column: 3;
+    justify-self: end;
+    text-align: right;
+    font-family: 'VIP-Rawy', 'Amiri', serif !important;
+}
+
 .latin-number,
 .projects-page .latin-number {
     font-family: 'Comfortaa', 'Segoe UI', sans-serif !important;
@@ -305,6 +337,29 @@ textarea {
     }
 
     .geometry-sectors-title-ar {
+        grid-row: 3;
+    }
+
+    .geometry-zones-header {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.35rem;
+    }
+
+    .geometry-zones-title-en,
+    .geometry-zones-icon,
+    .geometry-zones-title-ar {
+        grid-column: 1;
+    }
+
+    .geometry-zones-title-en {
+        grid-row: 1;
+    }
+
+    .geometry-zones-icon {
+        grid-row: 2;
+    }
+
+    .geometry-zones-title-ar {
         grid-row: 3;
     }
 
@@ -542,6 +597,69 @@ textarea {
     border: 0;
     background: #fff;
     color: #343a40;
+}
+
+.geometry-map-split-panel {
+    width: 170px;
+    padding: 0.5rem;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.4);
+}
+
+.geometry-map-split-panel[hidden] {
+    display: none;
+}
+
+.leaflet-draw-toolbar a.geometry-ruler-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-image: none;
+    background-color: #fff;
+    color: #343a40;
+    font-size: 16px;
+    text-decoration: none;
+}
+
+.leaflet-draw-toolbar a.geometry-ruler-button:hover {
+    background-color: #f4f4f4;
+}
+
+.leaflet-draw-toolbar a.geometry-ruler-button.active {
+    background-color: var(--bs-primary);
+    color: #fff;
+}
+
+.geometry-map-ruler-mode,
+.geometry-map-ruler-mode .leaflet-interactive {
+    cursor: crosshair;
+}
+
+.geometry-ruler-tooltip {
+    padding: 2px 6px;
+    border: 1px solid #c92a2a;
+    color: #c92a2a;
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.geometry-ruler-tooltip.total {
+    background: #c92a2a;
+    color: #fff;
+}
+
+.geometry-ruler-tooltip.live {
+    opacity: 0.85;
+}
+
+.geometry-map-actions {
+    margin-top: 6px;
+}
+
+.geometry-map-action-button + .geometry-map-action-button {
+    border-top: 1px solid #ccc;
 }
 
 .geometry-map-select-button.active {

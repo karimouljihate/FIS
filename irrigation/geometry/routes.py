@@ -73,6 +73,10 @@ def sector_add(project_id):
 @geometry_bp.route('/<int:project_id>/sectors/<int:sector_id>/edit', methods=['POST'])
 @login_required
 def sector_edit(project_id, sector_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     sector = mongo.db.sectors.find_one({'id': sector_id, 'project_id': project_id})
     if not sector:
         flash('Sector not found / القطاع غير موجود', 'danger')
@@ -95,7 +99,7 @@ def sector_edit(project_id, sector_id):
             pass
 
     if update:
-        mongo.db.sectors.update_one({'id': sector_id}, {'$set': update})
+        mongo.db.sectors.update_one({'id': sector_id, 'project_id': project_id}, {'$set': update})
         flash('Sector updated / تم تحديث القطاع', 'success')
 
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
@@ -104,6 +108,10 @@ def sector_edit(project_id, sector_id):
 @geometry_bp.route('/<int:project_id>/sectors/<int:sector_id>/rename', methods=['POST'])
 @login_required
 def sector_rename(project_id, sector_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     name_en = request.form.get('name_en', '').strip()
     name_ar = request.form.get('name_ar', '').strip()
     update = {}
@@ -112,7 +120,7 @@ def sector_rename(project_id, sector_id):
     if name_ar:
         update['name_ar'] = name_ar
     if update:
-        mongo.db.sectors.update_one({'id': sector_id}, {'$set': update})
+        mongo.db.sectors.update_one({'id': sector_id, 'project_id': project_id}, {'$set': update})
         flash('Sector renamed / تمت إعادة تسمية القطاع', 'success')
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
@@ -120,14 +128,18 @@ def sector_rename(project_id, sector_id):
 @geometry_bp.route('/<int:project_id>/sectors/swap', methods=['POST'])
 @login_required
 def sector_swap(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     id1 = request.form.get('id1', type=int)
     id2 = request.form.get('id2', type=int)
     if id1 and id2:
         s1 = mongo.db.sectors.find_one({'id': id1, 'project_id': project_id})
         s2 = mongo.db.sectors.find_one({'id': id2, 'project_id': project_id})
         if s1 and s2:
-            mongo.db.sectors.update_one({'id': id1}, {'$set': {'polygon': s2['polygon'], 'name_en': s2.get('name_en'), 'name_ar': s2.get('name_ar')}})
-            mongo.db.sectors.update_one({'id': id2}, {'$set': {'polygon': s1['polygon'], 'name_en': s1.get('name_en'), 'name_ar': s1.get('name_ar')}})
+            mongo.db.sectors.update_one({'id': id1, 'project_id': project_id}, {'$set': {'polygon': s2['polygon'], 'name_en': s2.get('name_en'), 'name_ar': s2.get('name_ar')}})
+            mongo.db.sectors.update_one({'id': id2, 'project_id': project_id}, {'$set': {'polygon': s1['polygon'], 'name_en': s1.get('name_en'), 'name_ar': s1.get('name_ar')}})
             flash('Sectors swapped / تم تبديل القطاعات', 'success')
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
@@ -135,7 +147,14 @@ def sector_swap(project_id):
 @geometry_bp.route('/<int:project_id>/sectors/merge', methods=['POST'])
 @login_required
 def sector_merge(project_id):
-    sector_ids = request.form.getlist('sector_ids')
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    try:
+        sector_ids = [str(int(v)) for v in request.form.getlist('sector_ids')]
+    except ValueError:
+        sector_ids = []
     if len(sector_ids) < 2:
         flash('Select at least 2 sectors to merge / اختر قطاعين على الأقل للدمج', 'warning')
         return redirect(url_for('geometry.sectors_view', project_id=project_id))
@@ -164,68 +183,111 @@ def sector_merge(project_id):
         'validated': False
     }
     mongo.db.sectors.insert_one(new_sector)
-    mongo.db.sectors.delete_many({'id': {'$in': [int(s) for s in sector_ids]}})
+    mongo.db.sectors.delete_many({'id': {'$in': [x['id'] for x in sectors]}, 'project_id': project_id})
 
     # Reassign zones from deleted sectors to new merged sector
-    for sid in sector_ids:
-        mongo.db.zones.update_many(
-            {'project_id': project_id, 'sector_id': int(sid)},
-            {'$set': {'sector_id': new_sector['id']}}
-        )
+    mongo.db.zones.update_many(
+        {'project_id': project_id, 'sector_id': {'$in': [x['id'] for x in sectors]}},
+        {'$set': {'sector_id': new_sector['id']}}
+    )
 
     flash('Sectors merged / تم دمج القطاعات', 'success')
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
 
+def _split_polygon_doc(collection, counter_name, project_id, doc, parts, default_en, default_ar):
+    """Split one polygon document into `parts` vertical strips (same sector_id etc. are kept).
+    Returns the number of new documents created; the original is removed only if something was created."""
+    from shapely.geometry import shape as shp_shape, box, mapping
+
+    geom = shp_shape(doc['polygon'])
+    minx, miny, maxx, maxy = geom.bounds
+    split_w = (maxx - minx) / parts
+
+    created = []
+    for i in range(parts):
+        clip_box = box(minx + i * split_w, miny, minx + (i + 1) * split_w, maxy)
+        clipped = geom.intersection(clip_box)
+        if clipped.is_empty or clipped.geom_type not in ('Polygon', 'MultiPolygon'):
+            continue
+        new_doc = {k: v for k, v in doc.items() if k not in ('_id', 'id', 'polygon', 'name_en', 'name_ar', 'validated')}
+        new_doc.update({
+            'id': get_next_id(counter_name),
+            'name_en': f"{doc.get('name_en', default_en)} - {i+1}",
+            'name_ar': f"{doc.get('name_ar', default_ar)} - {i+1}",
+            'polygon': mapping(clipped),
+            'validated': False
+        })
+        created.append(new_doc)
+
+    if created:
+        collection.insert_many(created)
+        collection.delete_one({'id': doc['id'], 'project_id': project_id})
+    return len(created)
+
+
+def _split_sector(project_id, sector, parts):
+    return _split_polygon_doc(mongo.db.sectors, 'sectors', project_id, sector, parts, 'Sector', 'قطاع')
+
+
+def _split_zone(project_id, zone, parts):
+    return _split_polygon_doc(mongo.db.zones, 'zones', project_id, zone, parts, 'Zone', 'منطقة')
+
+
 @geometry_bp.route('/<int:project_id>/sectors/<int:sector_id>/split', methods=['POST'])
 @login_required
 def sector_split(project_id, sector_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     sector = mongo.db.sectors.find_one({'id': sector_id, 'project_id': project_id})
     if not sector:
         flash('Sector not found / القطاع غير موجود', 'danger')
         return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
-    parts = request.form.get('parts', default=2, type=int)
-    if parts < 2:
-        parts = 2
+    parts = min(max(request.form.get('parts', default=2, type=int), 2), 10)
+    if _split_sector(project_id, sector, parts):
+        flash(f'Sector split into {parts} parts / تم تقسيم القطاع إلى {parts} أجزاء', 'success')
+    else:
+        flash('Sector could not be split / تعذر تقسيم القطاع', 'danger')
+    return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
-    from shapely.geometry import shape as shp_shape
-    geom = shp_shape(sector['polygon'])
-    bounds = geom.bounds  # (minx, miny, maxx, maxy)
-    minx, miny, maxx, maxy = bounds
-    width = maxx - minx
-    split_w = width / parts
 
-    from shapely.geometry import box, mapping
-    from shapely.ops import intersect as _  # noqa
-    from shapely.geometry import shape
+@geometry_bp.route('/<int:project_id>/sectors/split_selected', methods=['POST'])
+@login_required
+def sector_split_selected(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
 
-    for i in range(parts):
-        x1 = minx + i * split_w
-        x2 = minx + (i + 1) * split_w
-        clip_box = box(x1, miny, x2, maxy)
-        clipped = geom.intersection(clip_box)
-        if clipped.is_empty:
-            continue
+    try:
+        sector_ids = [int(v) for v in request.form.getlist('sector_ids')]
+    except ValueError:
+        sector_ids = []
+    if not sector_ids:
+        flash('Select at least 1 sector to split / اختر قطاعا واحدا على الأقل للتقسيم', 'warning')
+        return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
-        new_sector = {
-            'id': get_next_id('sectors'),
-            'project_id': project_id,
-            'name_en': f"{sector.get('name_en', 'Sector')} - {i+1}",
-            'name_ar': f"{sector.get('name_ar', 'قطاع')} - {i+1}",
-            'polygon': mapping(clipped),
-            'validated': False
-        }
-        mongo.db.sectors.insert_one(new_sector)
+    parts = min(max(request.form.get('parts', default=2, type=int), 2), 10)
+    sectors = list(mongo.db.sectors.find({'id': {'$in': sector_ids}, 'project_id': project_id}))
 
-    mongo.db.sectors.delete_one({'id': sector_id})
-    flash(f'Sector split into {parts} parts / تم تقسيم القطاع إلى {parts} أجزاء', 'success')
+    split_count = sum(1 for sec in sectors if _split_sector(project_id, sec, parts))
+    if split_count:
+        flash(f'{split_count} sector(s) split into {parts} parts each / '
+              f'تم تقسيم {split_count} قطاع إلى {parts} أجزاء لكل منها', 'success')
+    else:
+        flash('No sectors could be split / تعذر تقسيم أي قطاع', 'danger')
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
 
 @geometry_bp.route('/<int:project_id>/sectors/ai_regenerate', methods=['POST'])
 @login_required
 def sector_ai_regenerate(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     # Clear existing sectors
     mongo.db.sectors.delete_many({'project_id': project_id})
     mongo.db.zones.delete_many({'project_id': project_id})
@@ -241,6 +303,10 @@ def sector_ai_regenerate(project_id):
 @geometry_bp.route('/<int:project_id>/sectors/validate', methods=['POST'])
 @login_required
 def sector_validate(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     mongo.db.sectors.update_many(
         {'project_id': project_id},
         {'$set': {'validated': True}}
@@ -289,6 +355,10 @@ def zones_view(project_id):
 @geometry_bp.route('/<int:project_id>/zones/add', methods=['POST'])
 @login_required
 def zone_add(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     sector_id = request.form.get('sector_id', type=int)
     name_en = request.form.get('name_en', '').strip()
     name_ar = request.form.get('name_ar', '').strip()
@@ -302,6 +372,10 @@ def zone_add(project_id):
         coords = json.loads(polygon_coords)
     except Exception:
         flash('Invalid coordinates / إحداثيات غير صالحة', 'danger')
+        return redirect(url_for('geometry.zones_view', project_id=project_id))
+
+    if not mongo.db.sectors.find_one({'id': sector_id, 'project_id': project_id}):
+        flash('Sector not found / القطاع غير موجود', 'danger')
         return redirect(url_for('geometry.zones_view', project_id=project_id))
 
     zone = {
@@ -321,6 +395,10 @@ def zone_add(project_id):
 @geometry_bp.route('/<int:project_id>/zones/<int:zone_id>/edit', methods=['POST'])
 @login_required
 def zone_edit(project_id, zone_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     zone = mongo.db.zones.find_one({'id': zone_id, 'project_id': project_id})
     if not zone:
         flash('Zone not found / المنطقة غير موجودة', 'danger')
@@ -342,7 +420,7 @@ def zone_edit(project_id, zone_id):
             pass
 
     if update:
-        mongo.db.zones.update_one({'id': zone_id}, {'$set': update})
+        mongo.db.zones.update_one({'id': zone_id, 'project_id': project_id}, {'$set': update})
         flash('Zone updated / تم تحديث المنطقة', 'success')
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 
@@ -350,6 +428,10 @@ def zone_edit(project_id, zone_id):
 @geometry_bp.route('/<int:project_id>/zones/<int:zone_id>/rename', methods=['POST'])
 @login_required
 def zone_rename(project_id, zone_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     update = {}
     name_en = request.form.get('name_en', '').strip()
     name_ar = request.form.get('name_ar', '').strip()
@@ -358,7 +440,7 @@ def zone_rename(project_id, zone_id):
     if name_ar:
         update['name_ar'] = name_ar
     if update:
-        mongo.db.zones.update_one({'id': zone_id}, {'$set': update})
+        mongo.db.zones.update_one({'id': zone_id, 'project_id': project_id}, {'$set': update})
         flash('Zone renamed / تمت إعادة تسمية المنطقة', 'success')
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 
@@ -366,65 +448,103 @@ def zone_rename(project_id, zone_id):
 @geometry_bp.route('/<int:project_id>/zones/<int:zone_id>/split', methods=['POST'])
 @login_required
 def zone_split(project_id, zone_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     zone = mongo.db.zones.find_one({'id': zone_id, 'project_id': project_id})
     if not zone:
         flash('Zone not found / المنطقة غير موجودة', 'danger')
         return redirect(url_for('geometry.zones_view', project_id=project_id))
 
-    parts = request.form.get('parts', default=2, type=int)
-    if parts < 2:
-        parts = 2
+    parts = min(max(request.form.get('parts', default=2, type=int), 2), 10)
+    if _split_zone(project_id, zone, parts):
+        flash(f'Zone split into {parts} parts / تم تقسيم المنطقة إلى {parts} أجزاء', 'success')
+    else:
+        flash('Zone could not be split / تعذر تقسيم المنطقة', 'danger')
+    return redirect(url_for('geometry.zones_view', project_id=project_id))
 
-    from shapely.geometry import shape as shp_shape, box, mapping
-    geom = shp_shape(zone['polygon'])
-    bounds = geom.bounds
-    minx, miny, maxx, maxy = bounds
-    width = maxx - minx
-    split_w = width / parts
 
-    for i in range(parts):
-        x1 = minx + i * split_w
-        x2 = minx + (i + 1) * split_w
-        clip_box = box(x1, miny, x2, maxy)
-        clipped = geom.intersection(clip_box)
-        if clipped.is_empty:
-            continue
+@geometry_bp.route('/<int:project_id>/zones/split_selected', methods=['POST'])
+@login_required
+def zone_split_selected(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
 
-        new_zone = {
-            'id': get_next_id('zones'),
-            'project_id': project_id,
-            'sector_id': zone['sector_id'],
-            'name_en': f"{zone.get('name_en', 'Zone')} - {i+1}",
-            'name_ar': f"{zone.get('name_ar', 'منطقة')} - {i+1}",
-            'polygon': mapping(clipped),
-            'validated': False
-        }
-        mongo.db.zones.insert_one(new_zone)
+    try:
+        zone_ids = [int(v) for v in request.form.getlist('zone_ids')]
+    except ValueError:
+        zone_ids = []
+    if not zone_ids:
+        flash('Select at least 1 zone to split / اختر منطقة واحدة على الأقل للتقسيم', 'warning')
+        return redirect(url_for('geometry.zones_view', project_id=project_id))
 
-    mongo.db.zones.delete_one({'id': zone_id})
-    flash(f'Zone split into {parts} parts / تم تقسيم المنطقة إلى {parts} أجزاء', 'success')
+    parts = min(max(request.form.get('parts', default=2, type=int), 2), 10)
+    zones = list(mongo.db.zones.find({'id': {'$in': zone_ids}, 'project_id': project_id}))
+
+    split_count = sum(1 for z in zones if _split_zone(project_id, z, parts))
+    if split_count:
+        flash(f'{split_count} zone(s) split into {parts} parts each / '
+              f'تم تقسيم {split_count} منطقة إلى {parts} أجزاء لكل منها', 'success')
+    else:
+        flash('No zones could be split / تعذر تقسيم أي منطقة', 'danger')
+    return redirect(url_for('geometry.zones_view', project_id=project_id))
+
+
+@geometry_bp.route('/<int:project_id>/zones/swap', methods=['POST'])
+@login_required
+def zone_swap(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    id1 = request.form.get('id1', type=int)
+    id2 = request.form.get('id2', type=int)
+    if id1 and id2 and id1 != id2:
+        z1 = mongo.db.zones.find_one({'id': id1, 'project_id': project_id})
+        z2 = mongo.db.zones.find_one({'id': id2, 'project_id': project_id})
+        if z1 and z2:
+            # Geometry, names and the parent sector travel together, so each zone stays inside its sector
+            for target, source in ((id1, z2), (id2, z1)):
+                mongo.db.zones.update_one(
+                    {'id': target, 'project_id': project_id},
+                    {'$set': {
+                        'polygon': source['polygon'],
+                        'name_en': source.get('name_en'),
+                        'name_ar': source.get('name_ar'),
+                        'sector_id': source.get('sector_id')
+                    }}
+                )
+            flash('Zones swapped / تم تبديل المناطق', 'success')
+            return redirect(url_for('geometry.zones_view', project_id=project_id))
+    flash('Select 2 different zones to swap / اختر منطقتين مختلفتين للتبديل', 'warning')
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 
 
 @geometry_bp.route('/<int:project_id>/zones/merge', methods=['POST'])
 @login_required
 def zone_merge(project_id):
-    zone_ids = request.form.getlist('zone_ids')
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    try:
+        zone_ids = [int(v) for v in request.form.getlist('zone_ids')]
+    except ValueError:
+        zone_ids = []
     if len(zone_ids) < 2:
         flash('Select at least 2 zones to merge / اختر منطقتين على الأقل للدمج', 'warning')
         return redirect(url_for('geometry.zones_view', project_id=project_id))
 
-    zones = list(mongo.db.zones.find({'id': {'$in': [int(z) for z in zone_ids]}, 'project_id': project_id}))
+    zones = list(mongo.db.zones.find({'id': {'$in': zone_ids}, 'project_id': project_id}).sort('id', 1))
     if len(zones) < 2:
         flash('Not enough zones found / لم يتم العثور على مناطق كافية', 'danger')
         return redirect(url_for('geometry.zones_view', project_id=project_id))
 
-    from shapely.geometry import shape as shp_shape
-    from shapely.ops import unary_union, mapping
-    merged = None
-    for z in zones:
-        geom = shp_shape(z['polygon'])
-        merged = geom if merged is None else unary_union([merged, geom])
+    from shapely.geometry import shape as shp_shape, mapping
+    from shapely.ops import unary_union
+    merged = unary_union([shp_shape(z['polygon']) for z in zones])
 
     new_zone = {
         'id': get_next_id('zones'),
@@ -435,8 +555,14 @@ def zone_merge(project_id):
         'polygon': mapping(merged),
         'validated': False
     }
+    old_ids = [z['id'] for z in zones]
     mongo.db.zones.insert_one(new_zone)
-    mongo.db.zones.delete_many({'id': {'$in': [int(z) for z in zone_ids]}})
+    mongo.db.zones.delete_many({'id': {'$in': old_ids}, 'project_id': project_id})
+    # Keep tree rows attached to the merged zone instead of leaving dangling zone ids
+    mongo.db.tree_rows.update_many(
+        {'project_id': project_id, 'zone_id': {'$in': old_ids}},
+        {'$set': {'zone_id': new_zone['id']}}
+    )
     flash('Zones merged / تم دمج المناطق', 'success')
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 
@@ -444,6 +570,10 @@ def zone_merge(project_id):
 @geometry_bp.route('/<int:project_id>/zones/ai_regenerate', methods=['POST'])
 @login_required
 def zone_ai_regenerate(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     mongo.db.zones.delete_many({'project_id': project_id})
     zones = regenerate_zones(project_id)
     flash(f'AI generated {len(zones)} zones / الذكاء الاصطناعي أنشأ {len(zones)} مناطق', 'success')
@@ -453,6 +583,10 @@ def zone_ai_regenerate(project_id):
 @geometry_bp.route('/<int:project_id>/zones/validate', methods=['POST'])
 @login_required
 def zone_validate(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
     mongo.db.zones.update_many(
         {'project_id': project_id},
         {'$set': {'validated': True}}
