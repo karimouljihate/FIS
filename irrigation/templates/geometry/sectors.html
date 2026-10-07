@@ -19,6 +19,14 @@
     <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSectorModal">
         <i class="bi bi-plus-circle"></i> Add Sector / إضافة قطاع
     </button>
+    <form id="removeSectorsForm" method="POST"
+          action="{{ url_for('geometry.sector_remove', project_id=project.id) }}"
+          class="d-inline"
+          data-confirm="Remove the selected sectors and their zones? This cannot be undone. / إزالة القطاعات المحددة ومناطقها؟ لا يمكن التراجع.">
+        <button type="button" class="btn btn-outline-danger" onclick="removeSelectedSectors()">
+            <i class="bi bi-trash"></i> Remove Sector / إزالة قطاع
+        </button>
+    </form>
     {% if sectors|length >= 1 %}
     <button class="btn btn-outline-warning" type="button" onclick="openSplitSelected()">
         <i class="bi bi-scissors"></i> Split Selected / تقسيم المحدد
@@ -393,6 +401,24 @@ function openSplitSelected() {
 
 function toggleAll(source) {
     document.querySelectorAll('.sector-checkbox').forEach(cb => cb.checked = source.checked);
+}
+
+function removeSelectedSectors() {
+    const selected = document.querySelectorAll('.sector-checkbox:checked');
+    if (!selected.length) {
+        alert('Select at least one sector first / اختر قطاعا واحدا على الأقل أولا');
+        return;
+    }
+    const form = document.getElementById('removeSectorsForm');
+    form.querySelectorAll('input[name="sector_ids"]').forEach(el => el.remove());
+    selected.forEach(cb => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'sector_ids';
+        input.value = cb.value;
+        form.appendChild(input);
+    });
+    form.requestSubmit();
 }
 </script>
 {% endblock %}

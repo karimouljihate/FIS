@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.14 - 2026-10-07
+
+### Added
+
+- Geometry - Sectors: "Remove Sector" button (next to "Add Sector") that removes the selected sectors and their related zones, tree rows, trees, and network elements, with a confirmation prompt.
+
+### Fixed
+
+- Zones page no longer raises `'zone' is undefined` (500) after "AI Generate Zones"; removed the leftover per-row AI button that referenced an undefined variable.
+- Global loading spinner now stays visible during navigation (animated GIF now plays) instead of being hidden immediately by `beforeunload`/`pagehide`.
+
 ## 0.3.13 - 2026-10-07
 
 ### Fixed

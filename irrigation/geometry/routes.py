@@ -195,6 +195,42 @@ def sector_merge(project_id):
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
 
+@geometry_bp.route('/<int:project_id>/sectors/remove', methods=['POST'])
+@login_required
+def sector_remove(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    try:
+        sector_ids = [int(v) for v in request.form.getlist('sector_ids')]
+    except ValueError:
+        sector_ids = []
+    if not sector_ids:
+        flash('Select at least one sector to remove / اختر قطاعا واحدا على الأقل للإزالة', 'warning')
+        return redirect(url_for('geometry.sectors_view', project_id=project_id))
+
+    sectors = list(mongo.db.sectors.find(
+        {'id': {'$in': sector_ids}, 'project_id': project_id}, {'id': 1}))
+    if not sectors:
+        flash('No matching sectors found / لم يتم العثور على قطاعات مطابقة', 'warning')
+        return redirect(url_for('geometry.sectors_view', project_id=project_id))
+
+    ids = [s['id'] for s in sectors]
+    zone_ids = [z['id'] for z in mongo.db.zones.find(
+        {'project_id': project_id, 'sector_id': {'$in': ids}}, {'id': 1})]
+
+    if zone_ids:
+        mongo.db.zones.delete_many({'project_id': project_id, 'id': {'$in': zone_ids}})
+        mongo.db.tree_rows.delete_many({'project_id': project_id, 'zone_id': {'$in': zone_ids}})
+        mongo.db.trees.delete_many({'project_id': project_id, 'zone_id': {'$in': zone_ids}})
+        mongo.db.network_elements.delete_many({'project_id': project_id, 'zone_id': {'$in': zone_ids}})
+
+    removed = mongo.db.sectors.delete_many({'id': {'$in': ids}, 'project_id': project_id}).deleted_count
+    flash(f'Removed {removed} sector(s) / تمت إزالة {removed} قطاع', 'success')
+    return redirect(url_for('geometry.sectors_view', project_id=project_id))
+
+
 def _split_polygon_doc(collection, counter_name, project_id, doc, parts, default_en, default_ar):
     """Split one polygon document into `parts` vertical strips (same sector_id etc. are kept).
     Returns the number of new documents created; the original is removed only if something was created."""

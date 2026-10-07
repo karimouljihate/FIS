@@ -274,9 +274,9 @@
                 showLoader();
             }, true);
 
-            // Clear on page unload / page show (back-forward cache).
-            window.addEventListener('pagehide', hideLoader);
-            window.addEventListener('beforeunload', hideLoader);
+            // Keep the spinner visible during navigation. Only clear it when a
+            // page is restored from the back-forward cache (pageshow), otherwise
+            // it is torn down with the page and the new page starts clean.
             window.addEventListener('pageshow', hideLoader);
         })();
     </script>
