@@ -579,31 +579,6 @@ def zone_ai_regenerate(project_id):
     flash(f'AI generated {len(zones)} zones / الذكاء الاصطناعي أنشأ {len(zones)} مناطق', 'success')
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 
-@geometry_bp.route("/<int:project_id>/sectors/<int:sector_id>/zones/ai_regenerate", methods=["POST"])
-@login_required
-def sector_zone_ai_regenerate(project_id, sector_id):
-    """
-    Regenerate zones only for the given sector.
-    """
-    from irrigation.db import db  # adjust import to your DB layer
-    from irrigation.models import Sector, Project  # adjust model names
-
-    project = Project.query.get_or_404(project_id)
-    sector = Sector.query.filter_by(id=sector_id, project_id=project_id).first_or_404()
-
-    # Call a new helper that limits regeneration to this sector
-    from irrigation.engineering.regeneration import regenerate_zones_for_sector
-
-    zones = regenerate_zones_for_sector(sector)
-
-    # Return JSON suitable for front-end refresh
-    return {
-        "success": True,
-        "sector_id": sector_id,
-        "zones_count": len(zones),
-        # optionally include serialized zones if your UI needs it
-    }
-
 @geometry_bp.route('/<int:project_id>/zones/validate', methods=['POST'])
 @login_required
 def zone_validate(project_id):

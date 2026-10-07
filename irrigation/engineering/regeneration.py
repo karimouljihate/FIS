@@ -609,36 +609,3 @@ def get_regeneration_report(project_id):
         ]
     }
     return report
-
-def regenerate_zones_for_sector(sector):
-    """
-    Regenerate zones only within the given sector.
-    Returns a list of created/updated Zone objects.
-    """
-    from irrigation.models import Zone, Project
-    from irrigation.db import db
-
-    project = sector.project  # assuming relationship exists
-
-    # Get sector geometry in projected form
-    lng, lat = get_project_centroid(projected_shape_obj) if project else (0.0, 0.0)
-    sector_geom_geojson = sector.geometry  # GeoJSON dict
-
-    # Project sector geometry
-    sector_shapely, utm_crs = projected_shape(sector_geom_geojson, lng, lat, return_crs=True)
-
-    # Your existing zone-generation logic, but restricted to this sector:
-    # - compute rows, spacing, orientation, etc. only inside sector_shapely
-    # - create Zone records linked to this sector
-
-    zones = []
-    # ... (reuse/adapt the inner loop from regenerate_zones, but using sector_shapely)
-
-    # Example placeholder:
-    # for zone_data in generate_zone_layouts_inside(sector_shapely, sector):
-    #     zone = Zone(**zone_data)
-    #     db.session.add(zone)
-    #     zones.append(zone)
-
-    db.session.commit()
-    return zones

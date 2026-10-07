@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.11 - 2026-10-07
+
+### Removed
+
+- Dead per-sector zone regeneration endpoint (`/sectors/<id>/zones/ai_regenerate`) and its placeholder helper `regenerate_zones_for_sector`, which imported a non-existent `irrigation.db` / ORM models and would have failed at runtime.
+
 ## 0.3.10 - 2026-10-07
 
 ### Fixed
