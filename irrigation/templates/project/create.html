@@ -23,6 +23,32 @@
                         <textarea name="description" class="form-control" rows="2"></textarea>
                     </div>
 
+                    <details class="mb-3">
+                        <summary class="text-primary"><i class="bi bi-gear"></i> Project Settings (optional) / إعدادات المشروع (اختياري)</summary>
+                        <div class="card card-body mt-2">
+                            <h6><i class="bi bi-person-circle"></i> Owner / المالك</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-4"><label class="form-label">Name / الاسم</label><input type="text" name="owner_name" class="form-control"></div>
+                                <div class="col-md-4"><label class="form-label">E-mail / البريد</label><input type="email" name="owner_email" class="form-control"></div>
+                                <div class="col-md-4"><label class="form-label">Phone / الهاتف</label><input type="text" name="owner_phone" class="form-control"></div>
+                            </div>
+                            <h6><i class="bi bi-sliders"></i> Configuration / Layout</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3 col-6"><label class="form-label">Zones / Sector</label><input type="number" name="zones_per_sector" class="form-control" min="1" value="2"></div>
+                                <div class="col-md-3 col-6"><label class="form-label">Row Spacing (m)</label><input type="number" step="0.1" name="row_spacing_m" class="form-control" value="3.0"></div>
+                                <div class="col-md-3 col-6"><label class="form-label">Tree Spacing (m)</label><input type="number" step="0.1" name="tree_spacing_m" class="form-control" value="4.0"></div>
+                                <div class="col-md-3 col-6"><label class="form-label">Emitter Flow (L/h)</label><input type="number" step="0.1" name="emitter_flow_lph" class="form-control" value="2.0"></div>
+                            </div>
+                            <h6><i class="bi bi-rulers"></i> Rules</h6>
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3 col-6"><label class="form-label">Min Sectors</label><input type="number" name="min_sectors" class="form-control" min="1" value="1"></div>
+                                <div class="col-md-3 col-6"><label class="form-label">Max Sectors</label><input type="number" name="max_sectors" class="form-control" min="1" value="8"></div>
+                                <div class="col-md-3 col-6"><label class="form-label">Min Sector Area (m²)</label><input type="number" name="min_sector_area_m2" class="form-control" min="0" value="5000"></div>
+                                <div class="col-md-3 col-6"><label class="form-label">Max Sector Area (m²)</label><input type="number" name="max_sector_area_m2" class="form-control" min="0" value="50000"></div>
+                            </div>
+                        </div>
+                    </details>
+
                     <hr>
                     <h5><i class="bi bi-water"></i> Water Source / مصدر المياه</h5>
                     <div class="row">

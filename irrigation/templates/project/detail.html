@@ -45,7 +45,12 @@
 <div class="row mb-4">
     <div class="col-md-6">
         <div class="card shadow-sm">
-            <div class="card-header"><h6 class="mb-0"><i class="bi bi-info-circle"></i> Project Info / معلومات المشروع</h6></div>
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h6 class="mb-0"><i class="bi bi-info-circle"></i> Project Info / معلومات المشروع</h6>
+                <button class="btn btn-sm btn-outline-primary" data-bs-toggle="modal" data-bs-target="#editSpecModal">
+                    <i class="bi bi-pencil"></i> Edit / تعديل
+                </button>
+            </div>
             <div class="card-body">
                 <table class="table table-sm">
                     <tr><th>Name / الاسم:</th><td>{{ project.name }}</td></tr>
@@ -80,10 +85,193 @@
     </div>
 </div>
 
+<!-- Owner / Configuration / Rules / Tree Plan -->
+<div class="row mb-4 g-3">
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-person-circle"></i> Owner / المالك</h6></div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><th>Name / الاسم:</th><td>{{ spec.owner.name or '-' }}</td></tr>
+                    <tr><th>E-mail / البريد:</th><td>{{ spec.owner.email or '-' }}</td></tr>
+                    <tr><th>Phone / الهاتف:</th><td>{{ spec.owner.phone or '-' }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-sliders"></i> Configuration / Layout / الإعدادات</h6></div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><th>Zones / Sector / مناطق/قطاع:</th><td>{{ spec.config.zones_per_sector }}</td></tr>
+                    <tr><th>Row Spacing (m) / تباعد الصفوف:</th><td>{{ spec.config.row_spacing_m }}</td></tr>
+                    <tr><th>Tree Spacing (m) / تباعد الأشجار:</th><td>{{ spec.config.tree_spacing_m }}</td></tr>
+                    <tr><th>Emitter Flow (L/h) / تدفق النقاط:</th><td>{{ spec.config.emitter_flow_lph }}</td></tr>
+                    <tr><th>Emitters / Tree / نقاط/شجرة:</th><td>{{ spec.config.emitters_per_tree }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-rulers"></i> Rules / القواعد</h6></div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tr><th>Sector count / عدد القطاعات:</th><td>{{ spec.rules.min_sectors }} – {{ spec.rules.max_sectors }}</td></tr>
+                    <tr><th>Sector area (m²) / مساحة القطاع:</th><td>{{ spec.rules.min_sector_area_m2 }} – {{ spec.rules.max_sector_area_m2 }}</td></tr>
+                    <tr><th>Zones / Sector / مناطق/قطاع:</th><td>{{ spec.rules.min_zones_per_sector }} – {{ spec.rules.max_zones_per_sector }}</td></tr>
+                </table>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header"><h6 class="mb-0"><i class="bi bi-tree"></i> Tree Plan / خطة الأشجار</h6></div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <thead>
+                        <tr><th>Variety / النوع</th><th>%</th><th>Scope / النطاق</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for t in spec.tree_plan %}
+                        <tr>
+                            <td>{{ t.variety_en }}{% if t.variety_ar %} <span class="ar-text">({{ t.variety_ar }})</span>{% endif %}</td>
+                            <td>{{ t.percentage }}{% if t.percentage %}%{% endif %}</td>
+                            <td>{{ t.scope }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Project map -->
 <div class="card shadow-sm">
     <div class="card-body">
         <div id="projectMap"></div>
+    </div>
+</div>
+
+<!-- Edit Project Settings Modal -->
+<div class="modal fade" id="editSpecModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('project.settings', project_id=project.id) }}">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-gear"></i> Project Settings / إعدادات المشروع</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <h6 class="text-primary"><i class="bi bi-person-circle"></i> Owner / المالك</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Name / الاسم</label>
+                            <input type="text" name="owner_name" class="form-control" value="{{ spec.owner.name }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">E-mail / البريد</label>
+                            <input type="email" name="owner_email" class="form-control" value="{{ spec.owner.email }}">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Phone / الهاتف</label>
+                            <input type="text" name="owner_phone" class="form-control" value="{{ spec.owner.phone }}">
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary"><i class="bi bi-sliders"></i> Configuration / Layout / الإعدادات</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4 col-6">
+                            <label class="form-label">Zones / Sector / مناطق/قطاع</label>
+                            <input type="number" name="zones_per_sector" class="form-control" min="1" value="{{ spec.config.zones_per_sector }}">
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <label class="form-label">Row Spacing (m) / تباعد الصفوف</label>
+                            <input type="number" step="0.1" name="row_spacing_m" class="form-control" value="{{ spec.config.row_spacing_m }}">
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <label class="form-label">Tree Spacing (m) / تباعد الأشجار</label>
+                            <input type="number" step="0.1" name="tree_spacing_m" class="form-control" value="{{ spec.config.tree_spacing_m }}">
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <label class="form-label">Emitter Flow (L/h) / تدفق النقاط</label>
+                            <input type="number" step="0.1" name="emitter_flow_lph" class="form-control" value="{{ spec.config.emitter_flow_lph }}">
+                        </div>
+                        <div class="col-md-4 col-6">
+                            <label class="form-label">Emitters / Tree / نقاط/شجرة</label>
+                            <input type="number" name="emitters_per_tree" class="form-control" min="1" value="{{ spec.config.emitters_per_tree }}">
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary"><i class="bi bi-rulers"></i> Rules / القواعد</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Min Sectors / أدنى قطاعات</label>
+                            <input type="number" name="min_sectors" class="form-control" min="1" value="{{ spec.rules.min_sectors }}">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Max Sectors / أقصى قطاعات</label>
+                            <input type="number" name="max_sectors" class="form-control" min="1" value="{{ spec.rules.max_sectors }}">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Min Sector Area (m²)</label>
+                            <input type="number" name="min_sector_area_m2" class="form-control" min="0" value="{{ spec.rules.min_sector_area_m2 }}">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Max Sector Area (m²)</label>
+                            <input type="number" name="max_sector_area_m2" class="form-control" min="0" value="{{ spec.rules.max_sector_area_m2 }}">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Min Zones / Sector</label>
+                            <input type="number" name="min_zones_per_sector" class="form-control" min="1" value="{{ spec.rules.min_zones_per_sector }}">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Max Zones / Sector</label>
+                            <input type="number" name="max_zones_per_sector" class="form-control" min="1" value="{{ spec.rules.max_zones_per_sector }}">
+                        </div>
+                    </div>
+
+                    <h6 class="text-primary"><i class="bi bi-tree"></i> Tree Plan / خطة الأشجار</h6>
+                    <table class="table table-sm" id="treePlanTable">
+                        <thead>
+                            <tr>
+                                <th>Variety (EN) / النوع</th>
+                                <th>Variety (AR)</th>
+                                <th>%</th>
+                                <th>Scope / النطاق</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for t in spec.tree_plan %}
+                            <tr>
+                                <td><input type="text" name="tree_variety_en" class="form-control" value="{{ t.variety_en }}" required></td>
+                                <td><input type="text" name="tree_variety_ar" class="form-control" value="{{ t.variety_ar }}"></td>
+                                <td><input type="text" inputmode="decimal" name="tree_percentage" class="form-control" value="{{ t.percentage }}"></td>
+                                <td>
+                                    <select name="tree_scope" class="form-select">
+                                        <option value="per_sector"{% if t.scope == 'per_sector' %} selected{% endif %}>Per Sector / لكل قطاع</option>
+                                        <option value="per_zone"{% if t.scope == 'per_zone' %} selected{% endif %}>Per Zone / لكل منطقة</option>
+                                        <option value="all"{% if t.scope == 'all' %} selected{% endif %}>Whole Project / كل المشروع</option>
+                                    </select>
+                                </td>
+                                <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-outline-success" id="addTreePlanRow">
+                        <i class="bi bi-plus-circle"></i> Add Variety / إضافة نوع
+                    </button>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check"></i> Save / حفظ</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -109,6 +297,25 @@ document.addEventListener('DOMContentLoaded', function() {
         {color: '#28a745', label: 'Trees / الأشجار'},
         {color: '#6610f2', label: 'Valves / الصمامات'}
     ]);
+
+    // Add a new tree plan row
+    document.getElementById('addTreePlanRow').addEventListener('click', function() {
+        const tbody = document.querySelector('#treePlanTable tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" name="tree_variety_en" class="form-control" required></td>
+            <td><input type="text" name="tree_variety_ar" class="form-control"></td>
+            <td><input type="text" inputmode="decimal" name="tree_percentage" class="form-control"></td>
+            <td>
+                <select name="tree_scope" class="form-select">
+                    <option value="per_sector" selected>Per Sector / لكل قطاع</option>
+                    <option value="per_zone">Per Zone / لكل منطقة</option>
+                    <option value="all">Whole Project / كل المشروع</option>
+                </select>
+            </td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>`;
+        tbody.appendChild(tr);
+    });
 });
 </script>
 {% endblock %}
