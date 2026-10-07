@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.13 - 2026-10-07
+
+### Fixed
+
+- Geometry - Zones: the "Validate All" button is now disabled when there are no zones.
+
 ## 0.3.12 - 2026-10-07
 
 ### Added

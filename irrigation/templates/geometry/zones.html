@@ -29,7 +29,7 @@
     </button>
     {% endif %}
     <form method="POST" action="{{ url_for('geometry.zone_validate', project_id=project.id) }}" class="d-inline">
-        <button type="submit" class="btn btn-primary">
+        <button type="submit" class="btn btn-primary"{% if not zones %} disabled{% endif %}>
             <i class="bi bi-check-circle"></i> Validate All / التحقق من الكل
         </button>
     </form>
