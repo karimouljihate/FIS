@@ -80,6 +80,15 @@
                                     data-bs-target="#splitZoneModal{{ item.zone.id }}" title="Split / تقسيم">
                                 <i class="bi bi-scissors"></i>
                             </button>
+                            <button
+                                type="button"
+                                class="btn btn-icon ai-generate-sector-zones"
+                                data-project-id="{{ zone.project_id }}"
+                                data-sector-id="{{ zone.sector.id }}"
+                                title="AI generate zones in this sector"
+                            >
+                                <i class="fa fa-robot"></i>
+                            </button>
                         </td>
                     </tr>
 

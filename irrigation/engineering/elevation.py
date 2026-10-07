@@ -27,8 +27,8 @@ from shapely.ops import unary_union
 
 from irrigation.extensions import mongo
 from irrigation.engineering.projection import (
-    projected_shape, unproject_shape, get_project_centroid,
-    project_geometry, haversine_length_meters
+    projected_shape, unproject_shape, get_project_centroid, project_geometry,
+    haversine_length_meters
 )
 
 

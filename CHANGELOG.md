@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.8 - 2026-10-07
+
+### Added
+
+- Global centered animated loading overlay on every navigation and form submission.
+
+### Fixed
+
+- Projection utilities now accept 3D coordinates and `boundary`/`polygon` geometry fields.
+- `projected_shape` returns a shapely shape by default and supports `return_crs=True`.
+
 ## 0.3.7 - 2026-10-05
 
 ### Changed

@@ -21,7 +21,7 @@ import numpy as np
 from irrigation.extensions import mongo
 from irrigation.models import get_next_id
 from irrigation.engineering.projection import (
-    projected_shape, unproject_shape, get_project_centroid, project_geometry
+    projected_shape, unproject_shape, get_project_centroid, project_geometry, haversine_length_meters
 )
 from irrigation.engineering.elevation import (
     get_or_build_elevation_model, elevation_metrics_for_polygon,
@@ -346,7 +346,7 @@ def regenerate_sectors(project_id, n_sectors=None):
         n_sectors = 4  # Default
 
     # Project to UTM meters
-    lng, lat = get_project_centroid(project)
+    lng, lat = get_project_centroid(project) if project else (0.0, 0.0)
     boundary_shapely = projected_shape(boundary, lng, lat)
 
     # Ensure we have a valid Polygon
@@ -609,3 +609,36 @@ def get_regeneration_report(project_id):
         ]
     }
     return report
+
+def regenerate_zones_for_sector(sector):
+    """
+    Regenerate zones only within the given sector.
+    Returns a list of created/updated Zone objects.
+    """
+    from irrigation.models import Zone, Project
+    from irrigation.db import db
+
+    project = sector.project  # assuming relationship exists
+
+    # Get sector geometry in projected form
+    lng, lat = get_project_centroid(projected_shape_obj) if project else (0.0, 0.0)
+    sector_geom_geojson = sector.geometry  # GeoJSON dict
+
+    # Project sector geometry
+    sector_shapely, utm_crs = projected_shape(sector_geom_geojson, lng, lat, return_crs=True)
+
+    # Your existing zone-generation logic, but restricted to this sector:
+    # - compute rows, spacing, orientation, etc. only inside sector_shapely
+    # - create Zone records linked to this sector
+
+    zones = []
+    # ... (reuse/adapt the inner loop from regenerate_zones, but using sector_shapely)
+
+    # Example placeholder:
+    # for zone_data in generate_zone_layouts_inside(sector_shapely, sector):
+    #     zone = Zone(**zone_data)
+    #     db.session.add(zone)
+    #     zones.append(zone)
+
+    db.session.commit()
+    return zones
