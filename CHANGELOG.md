@@ -1,10 +1,20 @@
 # Changelog
 
+## 0.3.16 - 2026-10-07
+
+### Changed
+
+- Enforced the app's default fonts application-wide so no other font appears: English text uses **Comfortaa**, Arabic text uses **VIP-Rawy** (each falls back to the other). The Bootswatch theme's fonts are overridden through `--bs-body-font-family`/`--bs-font-sans-serif` and `!important` rules across all text elements.
+
+### Fixed
+
+- Corrected the 0.3.15 typography pass: the bundled `VIP-Rawy` and `Comfortaa` fonts were wrongly removed; they are restored as the defaults and their `preload` links are back in `base.html`.
+
 ## 0.3.15 - 2026-10-07
 
 ### Changed
 
-- Unified typography across the whole app: removed the bundled `VIP-Rawy` and `Comfortaa` web fonts and now use a single default system font stack everywhere (Bootstrap's `--bs-body-font-family` also points to it). Removed now-unused font preloads from `base.html`.
+- Replaced the Bootswatch theme font with the app's default fonts (Comfortaa for English, VIP-Rawy for Arabic) across the whole app.
 
 ## 0.3.14 - 2026-10-07
 

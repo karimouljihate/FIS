@@ -1,20 +1,68 @@
+@font-face {
+    font-family: 'VIP-Rawy';
+    src: url('../fonts/VIP-Rawy-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'VIP-Rawy';
+    src: url('../fonts/VIP-Rawy-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Comfortaa';
+    src: url('../fonts/Comfortaa-Regular.ttf') format('truetype');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Comfortaa';
+    src: url('../fonts/Comfortaa-Light.ttf') format('truetype');
+    font-weight: 300;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Comfortaa';
+    src: url('../fonts/Comfortaa-Bold.ttf') format('truetype');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
 :root {
-    --font-default: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Noto Sans Arabic', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
-    --font-en: var(--font-default);
-    --font-ar: var(--font-default);
-    --bs-body-font-family: var(--font-default);
+    /* English default: Comfortaa. Arabic glyphs fall back to VIP-Rawy. */
+    --font-en: 'Comfortaa', 'VIP-Rawy', sans-serif;
+    /* Arabic default: VIP-Rawy. */
+    --font-ar: 'VIP-Rawy', 'Comfortaa', sans-serif;
+    /* Make Bootstrap/Bootswatch use the same defaults. */
+    --bs-body-font-family: var(--font-en);
+    --bs-font-sans-serif: var(--font-en);
 }
 
-/* Single default font across the whole application. */
-html, body, h1, h2, h3, h4, h5, h6, p, a, li, td, th, label, small, strong,
-.en-text, .ar-text, .navbar, .nav-link, .btn, .card, .table, .form-control,
-.form-select, .form-label, .badge, .modal, .dropdown-menu, .list-group-item,
-button, input, select, textarea {
-    font-family: var(--font-default) !important;
+/* The two default fonts everywhere — no other fonts. */
+html, body, h1, h2, h3, h4, h5, h6, p, a, li, dl, dt, dd, td, th, label,
+small, strong, b, em, ul, ol, button, input, select, textarea,
+.en-text, .navbar, .nav-link, .btn, .card, .table, .form-control, .form-select,
+.form-label, .form-check-label, .badge, .modal, .dropdown-menu, .list-group-item,
+.card-header, .navbar-brand, .breadcrumb, .alert, .nav-item, .form-text {
+    font-family: var(--font-en) !important;
 }
 
-/* Arabic text uses the same default font stack */
-.ar-text {
+/* Arabic text uses VIP-Rawy */
+.ar-text,
+[lang="ar"],
+.lang-ar,
+.bilingual .ar {
+    font-family: var(--font-ar) !important;
     direction: rtl;
 }
 
@@ -32,7 +80,7 @@ button, input, select, textarea {
 }
 
 .bilingual .ar {
-    font-family: var(--font-default);
+    font-family: var(--font-ar);
     direction: rtl;
 }
 
@@ -175,8 +223,7 @@ footer {
 }
 
 .projects-page {
-    --font-en: var(--font-default);
-    font-family: var(--font-default);
+    font-family: var(--font-en);
 }
 
 .projects-page-header {
@@ -230,7 +277,7 @@ footer {
 .geometry-sectors-title-en {
     grid-column: 1;
     justify-self: start;
-    font-family: var(--font-default) !important;
+    font-family: var(--font-en) !important;
 }
 
 .geometry-sectors-icon {
@@ -244,7 +291,7 @@ footer {
     grid-column: 3;
     justify-self: end;
     text-align: right;
-    font-family: var(--font-default) !important;
+    font-family: var(--font-ar) !important;
 }
 
 .geometry-zones-header {
@@ -262,7 +309,7 @@ footer {
 .geometry-zones-title-en {
     grid-column: 1;
     justify-self: start;
-    font-family: var(--font-default) !important;
+    font-family: var(--font-en) !important;
 }
 
 .geometry-zones-icon {
@@ -276,12 +323,12 @@ footer {
     grid-column: 3;
     justify-self: end;
     text-align: right;
-    font-family: var(--font-default) !important;
+    font-family: var(--font-ar) !important;
 }
 
 .latin-number,
 .projects-page .latin-number {
-    font-family: var(--font-default) !important;
+    font-family: var(--font-en) !important;
     direction: ltr;
     unicode-bidi: isolate;
 }
@@ -289,7 +336,7 @@ footer {
 .form-control,
 .form-select,
 textarea {
-    font-family: var(--font-default) !important;
+    font-family: var(--font-en) !important;
 }
 
 @media (max-width: 767.98px) {
@@ -557,7 +604,7 @@ textarea {
 .geometry-map-card .leaflet-control,
 .geometry-map-card .leaflet-popup-content,
 .geometry-map-card .map-legend {
-    font-family: var(--font-default) !important;
+    font-family: var(--font-en) !important;
 }
 
 .geometry-map-card .ar-text {
@@ -786,7 +833,7 @@ textarea {
 }
 
 .global-loading-text {
-  font-family: var(--font-default);
+  font-family: var(--font-en);
   font-size: 0.85rem;
   color: #0d6efd;
   letter-spacing: 0.02em;
