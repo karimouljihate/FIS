@@ -360,8 +360,8 @@ def regenerate_sectors(project_id, n_sectors=None):
     water_point = None
     if project.get('water_source') and project['water_source'].get('coordinates'):
         ws_geojson = project['water_source']
-        ws_projected = project_geometry(ws_geojson, lng, lat)
-        water_point = Point(ws_projected['coordinates'])
+        ws_projected, _ = project_geometry(ws_geojson, lng, lat)
+        water_point = ws_projected if isinstance(ws_projected, Point) else Point(ws_projected)
 
     # Fetch or build terrain elevation model
     elevation_model = None

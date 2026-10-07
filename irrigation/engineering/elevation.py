@@ -277,12 +277,12 @@ def get_or_build_elevation_model(project_id, project_doc, spacing_m=None, max_po
     water_source = project_doc.get('water_source')
     if water_source and water_source.get('coordinates'):
         ws_lng, ws_lat = water_source['coordinates'][0], water_source['coordinates'][1]
-        ws_projected = project_geometry(water_source, lng, lat)
+        ws_projected, _ = project_geometry(water_source, lng, lat)
         sample_points.append({
             'lng': ws_lng,
             'lat': ws_lat,
-            'x': ws_projected['coordinates'][0] if ws_projected else 0,
-            'y': ws_projected['coordinates'][1] if ws_projected else 0,
+            'x': ws_projected.x if ws_projected else 0,
+            'y': ws_projected.y if ws_projected else 0,
             'is_water_source': True
         })
 

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.10 - 2026-10-07
+
+### Fixed
+
+- AI regeneration no longer crashes with `unproject_shape() takes 2 positional arguments but 3 were given`; `unproject_shape` now accepts both `(shape, utm_crs)` and `(shape, lng, lat)`.
+- Updated all `project_geometry` call sites (regeneration, elevation, validation) to the `(shapely_geometry, crs)` return contract instead of a GeoJSON dict.
+
 ## 0.3.9 - 2026-10-07
 
 ### Changed

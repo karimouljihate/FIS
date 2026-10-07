@@ -267,8 +267,8 @@ def _validate_network_connectivity(checks, project_id, project, lng, lat):
     main_pipes = list(mongo.db.network_elements.find({'project_id': project_id, 'type': 'main_pipe'}))
 
     if water_source and water_source.get('coordinates') and main_pipes:
-        ws_projected = project_geometry(water_source, lng, lat)
-        ws_point = Point(ws_projected['coordinates'])
+        ws_projected, _ = project_geometry(water_source, lng, lat)
+        ws_point = ws_projected if isinstance(ws_projected, Point) else Point(ws_projected)
 
         connected = False
         for pipe in main_pipes:

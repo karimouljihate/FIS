@@ -125,32 +125,50 @@ def projected_shape(
 
 
 def unproject_shape(
-    projected_shape_obj: Any, utm_crs: pyproj.CRS
+    projected_shape_obj: Any, lng_or_crs: Any, lat: Any = None
 ) -> Dict[str, Any]:
     """
     Convert a projected Shapely shape (in UTM meters) back to a GeoJSON-like
     dict in WGS84 (lon/lat).
 
+    Accepts either ``unproject_shape(shape, utm_crs)`` or the
+    ``unproject_shape(shape, lng, lat)`` form; the latter derives the UTM CRS
+    from the given center.
+
     Parameters
     ----------
     projected_shape_obj : shapely.geometry
         Shape in UTM coordinates.
-    utm_crs : pyproj.CRS
-        The UTM CRS of the shape.
+    lng_or_crs : float | pyproj.CRS
+        Center longitude, or the UTM CRS of the shape.
+    lat : float, optional
+        Center latitude (when lng_or_crs is a longitude).
 
     Returns
     -------
     dict
         GeoJSON-like dict with 'type' and 'coordinates' in WGS84.
     """
+    if lat is None and isinstance(lng_or_crs, pyproj.CRS):
+        utm_crs = lng_or_crs
+    elif lat is not None:
+        utm_crs = get_utm_crs(float(lng_or_crs), float(lat))
+    else:
+        raise ValueError(
+            "unproject_shape requires either a UTM CRS or (lng, lat)"
+        )
+
     transformer = pyproj.Transformer.from_crs(utm_crs, wgs84, always_xy=True)
 
     def transform_back(coords):
         if not isinstance(coords, (list, tuple)):
             return None
-        # Base case: (x, y)
-        if len(coords) == 2 and all(isinstance(c, (int, float)) for c in coords):
-            x, y = coords
+        # Base case: (x, y) or (x, y, z)
+        if (
+            len(coords) >= 2
+            and all(isinstance(c, (int, float)) for c in coords[:2])
+        ):
+            x, y = coords[0], coords[1]
             try:
                 lon, lat = transformer.transform(x, y)
                 return (lon, lat)
