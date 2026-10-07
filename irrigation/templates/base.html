@@ -222,7 +222,6 @@
             const overlay = document.getElementById('globalLoadingOverlay');
             if (!overlay) return;
 
-            let showTimer = null;
             let isShowing = false;
 
             function showLoader() {
@@ -233,48 +232,37 @@
             }
 
             function hideLoader() {
-                if (showTimer) {
-                    clearTimeout(showTimer);
-                    showTimer = null;
-                }
                 if (!isShowing) return;
                 isShowing = false;
                 overlay.classList.remove('is-visible');
                 overlay.setAttribute('aria-hidden', 'true');
             }
 
-            // Show briefly on any click that triggers navigation or submission.
-            function showSoon(delay = 120) {
-                if (showTimer) clearTimeout(showTimer);
-                showTimer = setTimeout(showLoader, delay);
-            }
-
+            // Show the spinner for real navigation (anchor clicks).
             document.addEventListener('click', (event) => {
-                const target = event.target.closest('a, button, input[type="submit"], input[type="button"]');
-                if (!target) return;
+                const link = event.target.closest('a[href]');
+                if (!link) return;
+                if (link.dataset.noLoader !== undefined) return;
+                if (link.hasAttribute('data-confirm')) return;
+                if (link.hasAttribute('data-bs-toggle') || link.hasAttribute('data-bs-dismiss')) return;
 
-                // Skip disabled, new-tab links, pure toggles, and inert controls.
-                if (target.disabled) return;
-                if (target.dataset.noLoader !== undefined) return;
-                if (target.getAttribute('data-bs-toggle')) return;
-                if (target.classList.contains('btn-close')) return;
+                const href = link.getAttribute('href') || '';
+                if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+                if (link.target && link.target !== '_self') return;
+                if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
 
-                if (target.tagName === 'A') {
-                    const href = target.getAttribute('href') || '';
-                    if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
-                    if (target.target && target.target !== '_self') return;
-                    if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
-                }
-
-                showSoon();
+                showLoader();
             }, true);
 
+            // Show the spinner for real form submissions. Buttons guarded by a
+            // confirmation modal preventDefault on click, so this only runs after
+            // the user confirms. Forms with data-confirm are checked below.
             document.addEventListener('submit', (event) => {
                 const form = event.target;
                 if (!(form instanceof HTMLFormElement)) return;
                 if (form.dataset.confirm && form.dataset.confirmed !== 'true') return;
                 if (form.dataset.noLoader !== undefined) return;
-                showSoon();
+                showLoader();
             }, true);
 
             // Clear on page unload / page show (back-forward cache).

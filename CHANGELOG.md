@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.9 - 2026-10-07
+
+### Changed
+
+- Loading spinner now appears only after the confirmation modal is accepted for confirm-protected actions, and immediately for all other navigation and form submissions.
+
 ## 0.3.8 - 2026-10-07
 
 ### Added
