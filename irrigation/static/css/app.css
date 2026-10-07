@@ -1,56 +1,20 @@
-@font-face {
-    font-family: 'VIP-Rawy';
-    src: url('../fonts/VIP-Rawy-Regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'VIP-Rawy';
-    src: url('../fonts/VIP-Rawy-Bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'Comfortaa';
-    src: url('../fonts/Comfortaa-Regular.ttf') format('truetype');
-    font-weight: 400;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'Comfortaa';
-    src: url('../fonts/Comfortaa-Light.ttf') format('truetype');
-    font-weight: 300;
-    font-style: normal;
-    font-display: swap;
-}
-
-@font-face {
-    font-family: 'Comfortaa';
-    src: url('../fonts/Comfortaa-Bold.ttf') format('truetype');
-    font-weight: 700;
-    font-style: normal;
-    font-display: swap;
-}
-
 :root {
-    --font-en: 'VIP-Rawy', 'Comfortaa', 'Segoe UI', sans-serif;
-    --font-ar: 'VIP-Rawy', 'Amiri', serif;
+    --font-default: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', 'Noto Sans Arabic', sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
+    --font-en: var(--font-default);
+    --font-ar: var(--font-default);
+    --bs-body-font-family: var(--font-default);
 }
 
-/* Prefer VIP-Rawy for Arabic glyphs and Comfortaa for Latin glyphs. */
-.en-text, body, .navbar, .btn, .card, .table, .form-control, .form-label, .badge {
-    font-family: var(--font-en) !important;
+/* Single default font across the whole application. */
+html, body, h1, h2, h3, h4, h5, h6, p, a, li, td, th, label, small, strong,
+.en-text, .ar-text, .navbar, .nav-link, .btn, .card, .table, .form-control,
+.form-select, .form-label, .badge, .modal, .dropdown-menu, .list-group-item,
+button, input, select, textarea {
+    font-family: var(--font-default) !important;
 }
 
-/* Arabic text uses VIP-Rawy */
+/* Arabic text uses the same default font stack */
 .ar-text {
-    font-family: var(--font-ar) !important;
     direction: rtl;
 }
 
@@ -68,7 +32,7 @@
 }
 
 .bilingual .ar {
-    font-family: var(--font-ar);
+    font-family: var(--font-default);
     direction: rtl;
 }
 
@@ -211,8 +175,8 @@ footer {
 }
 
 .projects-page {
-    --font-en: 'Comfortaa', 'VIP-Rawy', 'Segoe UI', sans-serif;
-    font-family: var(--font-en);
+    --font-en: var(--font-default);
+    font-family: var(--font-default);
 }
 
 .projects-page-header {
@@ -266,7 +230,7 @@ footer {
 .geometry-sectors-title-en {
     grid-column: 1;
     justify-self: start;
-    font-family: 'Comfortaa', 'Segoe UI', sans-serif !important;
+    font-family: var(--font-default) !important;
 }
 
 .geometry-sectors-icon {
@@ -280,7 +244,7 @@ footer {
     grid-column: 3;
     justify-self: end;
     text-align: right;
-    font-family: 'VIP-Rawy', 'Amiri', serif !important;
+    font-family: var(--font-default) !important;
 }
 
 .geometry-zones-header {
@@ -298,7 +262,7 @@ footer {
 .geometry-zones-title-en {
     grid-column: 1;
     justify-self: start;
-    font-family: 'Comfortaa', 'Segoe UI', sans-serif !important;
+    font-family: var(--font-default) !important;
 }
 
 .geometry-zones-icon {
@@ -312,12 +276,12 @@ footer {
     grid-column: 3;
     justify-self: end;
     text-align: right;
-    font-family: 'VIP-Rawy', 'Amiri', serif !important;
+    font-family: var(--font-default) !important;
 }
 
 .latin-number,
 .projects-page .latin-number {
-    font-family: 'Comfortaa', 'Segoe UI', sans-serif !important;
+    font-family: var(--font-default) !important;
     direction: ltr;
     unicode-bidi: isolate;
 }
@@ -325,7 +289,7 @@ footer {
 .form-control,
 .form-select,
 textarea {
-    font-family: 'Comfortaa', 'VIP-Rawy', 'Segoe UI', sans-serif !important;
+    font-family: var(--font-default) !important;
 }
 
 @media (max-width: 767.98px) {
@@ -593,7 +557,7 @@ textarea {
 .geometry-map-card .leaflet-control,
 .geometry-map-card .leaflet-popup-content,
 .geometry-map-card .map-legend {
-    font-family: 'Comfortaa', 'VIP-Rawy', 'Segoe UI', sans-serif !important;
+    font-family: var(--font-default) !important;
 }
 
 .geometry-map-card .ar-text {
@@ -822,7 +786,7 @@ textarea {
 }
 
 .global-loading-text {
-  font-family: 'Comfortaa', sans-serif;
+  font-family: var(--font-default);
   font-size: 0.85rem;
   color: #0d6efd;
   letter-spacing: 0.02em;

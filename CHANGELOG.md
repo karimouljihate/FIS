@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.15 - 2026-10-07
+
+### Changed
+
+- Unified typography across the whole app: removed the bundled `VIP-Rawy` and `Comfortaa` web fonts and now use a single default system font stack everywhere (Bootstrap's `--bs-body-font-family` also points to it). Removed now-unused font preloads from `base.html`.
+
 ## 0.3.14 - 2026-10-07
 
 ### Added
