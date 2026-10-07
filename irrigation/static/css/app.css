@@ -191,11 +191,15 @@ footer {
 }
 
 .flash-toast-container {
+    position: fixed;
+    top: 70%;
+    right: 1rem;                 /* distance from right edge */
+    transform: translateY(-70%); /* move up by 50% of its own height */
     z-index: 1090;
 }
 
 .flash-toast {
-    width: min(50rem, calc(100vw - 2rem));
+    width: min(30rem, calc(200vw - 2rem));
 }
 
 .projects-page {

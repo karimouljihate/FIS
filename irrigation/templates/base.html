@@ -161,7 +161,7 @@
 
     {% with messages = get_flashed_messages(with_categories=true) %}
         {% if messages %}
-        <div class="toast-container position-fixed top-0 end-0 p-3 flash-toast-container" aria-live="assertive" aria-atomic="true">
+        <div class="toast-container position-fixed bottom-0 end-0 p-3 flash-toast-container" aria-live="assertive" aria-atomic="true">
             {% for category, message in messages %}
                 {% set toast_variant = 'danger' if category in ['error', 'danger'] else category %}
                 {% if toast_variant not in ['success', 'info', 'warning', 'danger'] %}
