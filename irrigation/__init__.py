@@ -3,7 +3,7 @@ from flask import Flask, render_template
 from irrigation.extensions import mongo, login_manager
 from irrigation.utils.logger import setup_logging
 
-__version__ = '0.3.11'
+__version__ = '0.3.12'
 
 
 def create_app():
@@ -49,6 +49,10 @@ def create_app():
     app.register_blueprint(engineering_bp, url_prefix='/engineering')
 
     # Error handlers
+    @app.context_processor
+    def inject_version():
+        return {'app_version': __version__}
+
     @app.errorhandler(404)
     def not_found(e):
         return render_template('errors/404.html'), 404

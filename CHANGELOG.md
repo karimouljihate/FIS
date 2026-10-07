@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.12 - 2026-10-07
+
+### Added
+
+- Version badge in the footer (right side), sourced from `__version__` via an app context processor.
+
 ## 0.3.11 - 2026-10-07
 
 ### Removed
