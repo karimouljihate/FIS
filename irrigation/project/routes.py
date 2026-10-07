@@ -18,21 +18,21 @@ def _default_spec():
         'config': {
             'zones_per_sector': 2,
             'row_spacing_m': 3.0,
-            'tree_spacing_m': 4.0,
             'emitter_flow_lph': 2.0,
             'emitters_per_tree': 2,
         },
         'rules': {
             'min_sectors': 1,
             'max_sectors': 8,
+            'area_per_sector_m2': 10000,
             'min_sector_area_m2': 5000,
             'max_sector_area_m2': 50000,
             'min_zones_per_sector': 1,
             'max_zones_per_sector': 8,
         },
         'tree_plan': [
-            {'variety_en': 'Olive', 'variety_ar': 'زيتون', 'percentage': 60, 'scope': 'per_sector'},
-            {'variety_en': 'Almond', 'variety_ar': 'لوز', 'percentage': 40, 'scope': 'per_sector'},
+            {'variety_en': 'Olive', 'variety_ar': 'زيتون', 'percentage': 60, 'scope': 'per_sector', 'tree_spacing_m': 5.0},
+            {'variety_en': 'Almond', 'variety_ar': 'لوز', 'percentage': 40, 'scope': 'per_sector', 'tree_spacing_m': 6.0},
         ],
     }
 
@@ -72,17 +72,24 @@ def _spec_from_form(request):
     varieties_ar = request.form.getlist('tree_variety_ar')
     percentages = request.form.getlist('tree_percentage')
     scopes = request.form.getlist('tree_scope')
+    tree_spacings = request.form.getlist('tree_spacing')
 
     tree_plan = []
     for i, en in enumerate(varieties_en):
         en = en.strip()
         if not en:
             continue
+        spacing = tree_spacings[i].strip() if i < len(tree_spacings) else ''
+        try:
+            spacing = float(spacing) if spacing else 0
+        except ValueError:
+            spacing = 0
         tree_plan.append({
             'variety_en': en,
             'variety_ar': varieties_ar[i].strip() if i < len(varieties_ar) else '',
             'percentage': percentages[i].strip() if i < len(percentages) else '',
             'scope': scopes[i].strip() if i < len(scopes) else 'per_sector',
+            'tree_spacing_m': spacing,
         })
 
     return {
@@ -94,13 +101,13 @@ def _spec_from_form(request):
         'config': {
             'zones_per_sector': f('zones_per_sector', int, 2),
             'row_spacing_m': f('row_spacing_m', float, 3.0),
-            'tree_spacing_m': f('tree_spacing_m', float, 4.0),
             'emitter_flow_lph': f('emitter_flow_lph', float, 2.0),
             'emitters_per_tree': f('emitters_per_tree', int, 2),
         },
         'rules': {
             'min_sectors': f('min_sectors', int, 1),
             'max_sectors': f('max_sectors', int, 8),
+            'area_per_sector_m2': f('area_per_sector_m2', int, 10000),
             'min_sector_area_m2': f('min_sector_area_m2', int, 5000),
             'max_sector_area_m2': f('max_sector_area_m2', int, 50000),
             'min_zones_per_sector': f('min_zones_per_sector', int, 1),
