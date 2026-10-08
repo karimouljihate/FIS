@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.18 - 2026-10-08
+
+### Fixed
+
+- Edit Project modal (`#editSpecModal`) was never shown when the "Edit / تعديل" button was clicked: the `modal-dialog` div was self-closed on the same line, placing `modal-content` outside the Bootstrap modal structure. Corrected the HTML nesting so the modal opens correctly.
+
 ## 0.3.17 - 2026-10-07
 
 ### Added
