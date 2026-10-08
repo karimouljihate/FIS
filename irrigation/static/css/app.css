@@ -747,6 +747,28 @@ textarea {
     border-radius: 0.75rem 0.75rem 0 0;
 }
 
+/* Raise modal above the fixed app footer (z-index 1030) */
+.modal,
+.modal-backdrop {
+    z-index: 1055;
+}
+
+/* Scrollable modal: cap height so modal-footer buttons are always visible.
+   Accounts for: sticky navbar (~60px) + fixed footer (~40px) + 2×1rem margin. */
+.modal-dialog-scrollable {
+    max-height: calc(100vh - 132px);
+    margin-top: 16px;
+    margin-bottom: 76px; /* footer height 40px + 36px breathing room */
+}
+
+.modal-dialog-scrollable .modal-content {
+    max-height: 100%;
+}
+
+.modal-dialog-scrollable .modal-body {
+    overflow-y: auto;
+}
+
 /* Bilingual toggle for the whole page */
 .page-rtl {
     direction: rtl;

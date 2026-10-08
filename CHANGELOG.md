@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.19 - 2026-10-08
+
+### Fixed
+
+- Edit Project modal footer buttons (Cancel / Save) were hidden behind the app's fixed footer and the modal body was not scrollable: removed the conflicting `modal-dialog-centered` class and added CSS rules to cap the scrollable modal height accounting for the sticky navbar and fixed footer, raise the modal/backdrop `z-index` above the footer, and explicitly enable `overflow-y: auto` on the modal body.
+
 ## 0.3.18 - 2026-10-08
 
 ### Fixed
