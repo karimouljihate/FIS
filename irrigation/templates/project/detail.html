@@ -251,6 +251,12 @@
                                 <th style="width: 35%; text-align: right;">أقصى مساحة القطاع</th>
                             </tr>
 
+                            <tr>
+                                <th style="width: 35%; text-align: left;">Zones / Sector</th>
+                                <td style="width: 30%; text-align: center;">{{ spec.rules.min_zones_per_sector }} – {{ spec.rules.max_zones_per_sector }}</td>
+                                <th style="width: 35%; text-align: right;">مناطق/قطاع</th>
+                            </tr>
+
                         </table>
                     </div>
                 </div>
@@ -289,12 +295,6 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-6"></div>
-            
-
-        </div>
-
-        <div class="row mb-2">
             <div class="col-md-6">
                 <div class="card shadow-sm h-100">
                     <div class="card-header">
@@ -312,6 +312,12 @@
                 </div>
             </div>
             <div class="col-md-6"></div>
+            
+
+        </div>
+
+        <div class="row mb-2">
+            
             
 
         </div>
@@ -413,7 +419,20 @@
                     <h6 class="text-primary"><i class="bi bi-rulers"></i> Rules
                         / القواعد</h6>
                     <div class="row g-2 mb-3">
-                        
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Min Sectors / أدنى
+                                قطاعات</label>
+                            <input type="number" name="min_sectors"
+                                class="form-control" min="1"
+                                value="{{ spec.rules.min_sectors }}">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Max Sectors / أقصى
+                                قطاعات</label>
+                            <input type="number" name="max_sectors"
+                                class="form-control" min="1"
+                                value="{{ spec.rules.max_sectors }}">
+                        </div>
                         <div class="col-md-3 col-6">
                             <label class="form-label">Min Sector Area
                                 (m²)</label>

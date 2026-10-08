@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.3.21 - 2026-10-08
+
+### Changed
+
+- Project page redesign: the separate Info / Progress / Owner / Configuration / Rules / Tree Plan cards are reorganized into a single **Project** container with bilingual split headers (English — icon — Arabic) and trilingual table rows (EN label / value / AR label).
+- New placeholder **Land Documents / وثائق الأراضي** card on the project page (empty table, ready for future content).
+- Edit Project modal header is now a centered bilingual title bar with the close button in the middle; configuration and rules inputs use a compact 4-column grid.
+- Replaced the global `.modal` padding-bottom hack and `.project-settings-modal` rules with scoped `#editSpecModal` CSS: the dialog is capped at `calc(100dvh - 120px)`, `modal-content` is a flex column so header/footer stick while the body scrolls, and a bottom margin keeps the footer above the app's fixed footer.
+
+### Fixed
+
+- Edit Project modal no longer silently resets **Min/Max Sectors** rules to defaults on save: the Min Sectors and Max Sectors inputs were accidentally dropped from the modal and have been restored.
+- Rules card again shows the **Zones / Sector** range, which had been lost in the redesign.
+
 ## 0.3.20 - 2026-10-08
 
 ### Fixed
