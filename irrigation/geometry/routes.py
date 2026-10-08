@@ -324,15 +324,39 @@ def sector_ai_regenerate(project_id):
     if not project:
         return redirect(url_for('project.index'))
 
-    # Clear existing sectors
-    mongo.db.sectors.delete_many({'project_id': project_id})
-    mongo.db.zones.delete_many({'project_id': project_id})
-    mongo.db.network_elements.delete_many({'project_id': project_id})
-    mongo.db.tree_rows.delete_many({'project_id': project_id})
-    mongo.db.trees.delete_many({'project_id': project_id})
+    def _form_float(name):
+        value = request.form.get(name, '').strip()
+        if not value:
+            return None
+        try:
+            return float(value)
+        except ValueError:
+            return None
 
-    sectors = regenerate_sectors(project_id)
-    flash(f'AI generated {len(sectors)} sectors / الذكاء الاصطناعي أنشأ {len(sectors)} قطاعات', 'success')
+    config = {
+        'use_elevation': request.form.get('use_elevation') == 'on',
+        'water_source_mode': request.form.get('water_source_mode', 'project'),
+        'priority': request.form.get('priority', 'balanced'),
+        'inset_m': _form_float('inset_m') or 0,
+        'min_sector_area_m2': _form_float('min_sector_area_m2'),
+        'max_sector_area_m2': _form_float('max_sector_area_m2'),
+        'name_prefix_en': request.form.get('name_prefix_en', '').strip(),
+        'name_prefix_ar': request.form.get('name_prefix_ar', '').strip(),
+    }
+    water_lat = _form_float('water_lat')
+    water_lng = _form_float('water_lng')
+    if water_lat is not None and water_lng is not None:
+        config['water_lat'] = water_lat
+        config['water_lng'] = water_lng
+    if config['water_source_mode'] == 'custom' and ('water_lat' not in config or 'water_lng' not in config):
+        config['water_source_mode'] = 'project'
+
+    n_sectors = request.form.get('n_sectors', type=int)
+    sectors = regenerate_sectors(project_id, n_sectors, config=config)
+    if sectors:
+        flash(f'AI generated {len(sectors)} sectors / الذكاء الاصطناعي أنشأ {len(sectors)} قطاعات', 'success')
+    else:
+        flash('AI generation failed — check that the project has a valid boundary / فشل الإنشاء — تحقق من وجود حدود صالحة للمشروع', 'danger')
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
 

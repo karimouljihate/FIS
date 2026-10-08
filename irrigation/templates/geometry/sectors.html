@@ -40,12 +40,9 @@
         <i class="bi bi-arrow-left-right"></i> Swap / تبديل
     </button>
     {% endif %}
-    <form method="POST" action="{{ url_for('geometry.sector_ai_regenerate', project_id=project.id) }}" class="d-inline">
-        <button type="submit" class="btn btn-warning"
-            data-confirm="AI will rebuild all sectors. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات. متابعة؟">
-            <i class="bi bi-robot"></i> AI Regenerate / إعادة إنشاء بالذكاء الاصطناعي
-        </button>
-    </form>
+    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#aiGenerateModal">
+        <i class="bi bi-robot"></i> AI Generate / إنشاء بالذكاء الاصطناعي
+    </button>
     <form method="POST" action="{{ url_for('geometry.sector_validate', project_id=project.id) }}" class="d-inline">
         <button type="submit" class="btn btn-primary">
             <i class="bi bi-check-circle"></i> Validate All / التحقق من الكل
@@ -331,6 +328,125 @@
     </div>
 </div>
 
+<!-- AI Generate Sectors Modal -->
+<div class="modal fade" id="aiGenerateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('geometry.sector_ai_regenerate', project_id=project.id) }}"
+                data-confirm="AI will rebuild all sectors, zones, network and trees using these parameters. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات والمناطق والشبكة والأشجار بناءً على هذه المعايير. متابعة؟">
+                <div class="modal-header bg-warning">
+                    <h5 class="modal-title"><i class="bi bi-robot"></i> AI Generate Sectors / إنشاء القطاعات بالذكاء الاصطناعي</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+
+                    <!-- Layout & Sizing -->
+                    <h6 class="text-primary"><i class="bi bi-bounding-box"></i> Layout & Sizing / التخطيط والحجم</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Number of Sectors / عدد القطاعات</label>
+                            <input type="number" name="n_sectors" class="form-control" min="1" max="12" value="4">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Min Sector Area (m²) / أقل مساحة</label>
+                            <input type="number" name="min_sector_area_m2" class="form-control" min="0"
+                                value="{{ project.spec.rules.min_sector_area_m2 if project.spec and project.spec.rules else 5000 }}">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Max Sector Area (m²) / أكبر مساحة</label>
+                            <input type="number" name="max_sector_area_m2" class="form-control" min="0"
+                                value="{{ project.spec.rules.max_sector_area_m2 if project.spec and project.spec.rules else 50000 }}">
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Edge Buffer (m) / هامش الحافة</label>
+                            <input type="number" name="inset_m" class="form-control" min="0" step="0.1" value="0"
+                                title="Inset the boundary inward so sectors keep a buffer from the land edge">
+                        </div>
+                    </div>
+
+                    <!-- Orientation & Naming -->
+                    <h6 class="text-primary"><i class="bi bi-fonts"></i> Naming / التسمية</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Name Prefix (EN) / البادئة (EN)</label>
+                            <input type="text" name="name_prefix_en" class="form-control" value="Sector"
+                                placeholder="Sector">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Name Prefix (AR) / البادئة (AR)</label>
+                            <input type="text" name="name_prefix_ar" class="form-control" value="القطاع"
+                                lang="ar" placeholder="القطاع">
+                        </div>
+                    </div>
+
+                    <!-- Water Source -->
+                    <h6 class="text-primary"><i class="bi bi-droplet"></i> Water Point(s) / نقطة أو نقاط المياه</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <label class="form-label">Water Source Mode / مصدر المياه</label>
+                            <select name="water_source_mode" id="aiWaterMode" class="form-select">
+                                <option value="project" {% if project.water_source and project.water_source.coordinates %}selected{% endif %}>
+                                    Use project water source / استخدام مصدر المياه للمشروع
+                                </option>
+                                <option value="custom">Custom point / نقطة مخصصة</option>
+                                <option value="none">Ignore water / تجاهل المياه</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Custom Lat / خط العرض</label>
+                            <input type="number" step="any" name="water_lat" id="aiWaterLat" class="form-control"
+                                placeholder="34.0200" disabled>
+                        </div>
+                        <div class="col-md-3 col-6">
+                            <label class="form-label">Custom Lng / خط الطول</label>
+                            <input type="number" step="any" name="water_lng" id="aiWaterLng" class="form-control"
+                                placeholder="-6.0000" disabled>
+                        </div>
+                    </div>
+                    {% if project.water_source and project.water_source.coordinates %}
+                    <p class="text-muted small mb-3">
+                        Project water source:
+                        [{{ project.water_source.coordinates[1] }}, {{ project.water_source.coordinates[0] }}]
+                    </p>
+                    {% else %}
+                    <p class="text-muted small mb-3">No project water source set / لا يوجد مصدر مياه محدد</p>
+                    {% endif %}
+
+                    <!-- Elevation & Priority -->
+                    <h6 class="text-primary"><i class="bi bi-arrows-vertical"></i> Terrain & Priority / التضاريس والأولوية</h6>
+                    <div class="row g-2 mb-2">
+                        <div class="col-md-6">
+                            <div class="form-check form-switch mt-4">
+                                <input class="form-check-input" type="checkbox" name="use_elevation" id="aiUseElevation"
+                                    checked>
+                                <label class="form-check-label" for="aiUseElevation">
+                                    Use elevation data (Open-Meteo) / استخدام بيانات الارتفاع
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Optimization Priority / أولوية التحسين</label>
+                            <select name="priority" class="form-select">
+                                <option value="balanced" selected>Balanced / متوازن</option>
+                                <option value="water">Water proximity / قرب نقطة المياه</option>
+                                <option value="elevation">Elevation uniformity / تجانس الارتفاع</option>
+                                <option value="area">Area balance / توازن المساحات</option>
+                                <option value="compactness">Compact shape / شكل متماسك</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-robot"></i> Generate / إنشاء
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -376,6 +492,16 @@ document.addEventListener('DOMContentLoaded', function() {
             list.innerHTML += `<div>Sector ID: ${cb.value}</div>`;
         });
     });
+
+    // AI Generate modal: toggle custom water point inputs
+    const waterMode = document.getElementById('aiWaterMode');
+    function toggleCustomWater() {
+        const custom = waterMode.value === 'custom';
+        document.getElementById('aiWaterLat').disabled = !custom;
+        document.getElementById('aiWaterLng').disabled = !custom;
+    }
+    waterMode.addEventListener('change', toggleCustomWater);
+    toggleCustomWater();
 });
 
 function openSplitSelected() {

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.23 - 2026-10-08
+
+### Changed
+
+- **AI Generate Sectors** now opens a parameter modal instead of regenerating immediately. Inputs: number of sectors, min/max sector area (pre-filled from project rules), edge buffer (inward boundary inset in meters), EN/AR name prefixes, water-source mode (project water source / custom lat-lng point / ignore), elevation-data toggle (Open-Meteo), and optimization priority (balanced / water proximity / elevation uniformity / area balance / compactness). The chosen parameters are stored on each generated sector as `ai_config`.
+- The regeneration engine (`regenerate_sectors`) accepts a `config` dict for all the above; scoring weights are now selectable presets (all normalized to 1.0). Min/max sector area soft-adjusts the sector count so each sector plausibly fits the bounds.
+
+### Fixed
+
+- AI regeneration no longer wipes existing sectors/zones/network/trees before checking that generation can proceed: the pre-clear in the route was removed (the engine already clears internally only after a valid partition is found), and a failure now flashes an error instead of a false success.
+
 ## 0.3.22 - 2026-10-08
 
 ### Added

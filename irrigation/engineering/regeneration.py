@@ -51,6 +51,57 @@ WEIGHT_SHAPE_REGULARITY_2D = 0.20
 # Minimum sector area fraction (avoid tiny slivers)
 MIN_AREA_FRACTION = 0.05
 
+# Named weight presets selectable from the AI Generate modal.
+# Each preset provides 'elevation' (6-criterion) and '2d' (4-criterion) weights.
+WEIGHT_PRESETS = {
+    'balanced': {
+        'elevation': {
+            'area': WEIGHT_AREA_BALANCE, 'compact': WEIGHT_COMPACTNESS,
+            'water': WEIGHT_WATER_ACCESS, 'regularity': WEIGHT_SHAPE_REGULARITY,
+            'elev_uniform': WEIGHT_ELEVATION_UNIFORMITY, 'gravity': WEIGHT_GRAVITY_PRESSURE,
+        },
+        '2d': {
+            'area': WEIGHT_AREA_BALANCE_2D, 'compact': WEIGHT_COMPACTNESS_2D,
+            'water': WEIGHT_WATER_ACCESS_2D, 'regularity': WEIGHT_SHAPE_REGULARITY_2D,
+        },
+    },
+    'water': {
+        'elevation': {
+            'area': 0.12, 'compact': 0.10, 'water': 0.35,
+            'regularity': 0.08, 'elev_uniform': 0.15, 'gravity': 0.20,
+        },
+        '2d': {'area': 0.20, 'compact': 0.15, 'water': 0.45, 'regularity': 0.20},
+    },
+    'elevation': {
+        'elevation': {
+            'area': 0.12, 'compact': 0.08, 'water': 0.08,
+            'regularity': 0.07, 'elev_uniform': 0.40, 'gravity': 0.25,
+        },
+        '2d': {'area': 0.40, 'compact': 0.30, 'water': 0.15, 'regularity': 0.15},
+    },
+    'area': {
+        'elevation': {
+            'area': 0.45, 'compact': 0.15, 'water': 0.08,
+            'regularity': 0.12, 'elev_uniform': 0.12, 'gravity': 0.08,
+        },
+        '2d': {'area': 0.55, 'compact': 0.20, 'water': 0.10, 'regularity': 0.15},
+    },
+    'compactness': {
+        'elevation': {
+            'area': 0.15, 'compact': 0.35, 'water': 0.08,
+            'regularity': 0.17, 'elev_uniform': 0.15, 'gravity': 0.10,
+        },
+        '2d': {'area': 0.20, 'compact': 0.40, 'water': 0.15, 'regularity': 0.25},
+    },
+}
+
+
+def _weights_for_preset(preset, has_elevation):
+    """Resolve a weight preset to a flat weights dict for scoring."""
+    preset_weights = WEIGHT_PRESETS.get(preset) or WEIGHT_PRESETS['balanced']
+    key = 'elevation' if has_elevation else '2d'
+    return preset_weights[key]
+
 
 def _extract_polygons(geom):
     """Extract usable Polygon objects from any geometry type.
@@ -180,15 +231,23 @@ def _split_polygon_equal_area(polygon, n_parts):
     return parts
 
 
-def _score_partition(parts, water_source_point=None, elevation_model=None, water_source_elevation=None):
+def _score_partition(parts, water_source_point=None, elevation_model=None,
+                     water_source_elevation=None, weights=None):
     """Score a candidate partition based on multiple criteria.
 
     When elevation_model is available, adds two terrain-aware criteria:
     - Elevation uniformity: prefers sectors with similar internal elevation (contour bands)
     - Gravity pressure: prefers sectors at or below water source elevation (gravity flow)
+
+    `weights` is a flat dict from WEIGHT_PRESETS (keys: area, compact, water,
+    regularity, and optionally elev_uniform, gravity). Defaults to the
+    balanced elevation preset.
     """
     if not parts:
         return -1.0
+
+    if weights is None:
+        weights = _weights_for_preset('balanced', elevation_model is not None)
 
     n = len(parts)
     areas = [p.area for p in parts if p.area > 0]
@@ -270,27 +329,27 @@ def _score_partition(parts, water_source_point=None, elevation_model=None, water
             gravity_score = 0.5
 
         total_score = (
-            WEIGHT_AREA_BALANCE * area_balance_score +
-            WEIGHT_COMPACTNESS * compactness_score +
-            WEIGHT_WATER_ACCESS * water_score +
-            WEIGHT_SHAPE_REGULARITY * regularity_score +
-            WEIGHT_ELEVATION_UNIFORMITY * elevation_uniformity_score +
-            WEIGHT_GRAVITY_PRESSURE * gravity_score
+            weights.get('area', WEIGHT_AREA_BALANCE) * area_balance_score +
+            weights.get('compact', WEIGHT_COMPACTNESS) * compactness_score +
+            weights.get('water', WEIGHT_WATER_ACCESS) * water_score +
+            weights.get('regularity', WEIGHT_SHAPE_REGULARITY) * regularity_score +
+            weights.get('elev_uniform', WEIGHT_ELEVATION_UNIFORMITY) * elevation_uniformity_score +
+            weights.get('gravity', WEIGHT_GRAVITY_PRESSURE) * gravity_score
         )
     else:
         # Fallback: 2D scoring without elevation
         total_score = (
-            WEIGHT_AREA_BALANCE_2D * area_balance_score +
-            WEIGHT_COMPACTNESS_2D * compactness_score +
-            WEIGHT_WATER_ACCESS_2D * water_score +
-            WEIGHT_SHAPE_REGULARITY_2D * regularity_score
+            weights.get('area', WEIGHT_AREA_BALANCE_2D) * area_balance_score +
+            weights.get('compact', WEIGHT_COMPACTNESS_2D) * compactness_score +
+            weights.get('water', WEIGHT_WATER_ACCESS_2D) * water_score +
+            weights.get('regularity', WEIGHT_SHAPE_REGULARITY_2D) * regularity_score
         )
 
     return total_score
 
 
 def _try_partition(polygon, n_parts, angle, water_source_point=None,
-                    elevation_model=None, water_source_elevation=None):
+                    elevation_model=None, water_source_elevation=None, weights=None):
     """Try partitioning at a specific angle and return scored result.
 
     Passes elevation model to scoring for terrain-aware optimization.
@@ -319,18 +378,32 @@ def _try_partition(polygon, n_parts, angle, water_source_point=None,
 
     score = _score_partition(
         original_parts, water_source_point,
-        elevation_model, water_source_elevation
+        elevation_model, water_source_elevation, weights
     )
     return {'parts': original_parts, 'score': score, 'angle': angle}
 
 
-def regenerate_sectors(project_id, n_sectors=None):
+def regenerate_sectors(project_id, n_sectors=None, config=None):
     """AI regeneration: optimally divide land boundary into sectors.
 
     Tries multiple split angles, evaluates area balance, compactness,
     water-source proximity, shape regularity, and terrain elevation,
     then selects the best partition.
+
+    `config` (all optional) supports the AI Generate modal inputs:
+      - n_sectors: int, number of sectors (default 4)
+      - use_elevation: bool — enable terrain-aware scoring (default True)
+      - water_source_mode: 'project' | 'custom' | 'none' (default 'project')
+      - water_lat / water_lng: floats — custom water point when mode='custom'
+      - priority: weight preset key from WEIGHT_PRESETS (default 'balanced')
+      - inset_m: float — inset the boundary inward before splitting, in
+        meters, so sectors keep a buffer from the land edge (default 0)
+      - min_sector_area_m2 / max_sector_area_m2: soft area constraints used
+        to auto-adjust the number of sectors when n_sectors is not given
+      - name_prefix_en / name_prefix_ar: sector name prefixes
     """
+    config = config or {}
+
     project = mongo.db.projects.find_one({'_id': project_id})
     if not project:
         project = mongo.db.projects.find_one({'id': project_id})
@@ -343,7 +416,17 @@ def regenerate_sectors(project_id, n_sectors=None):
 
     # Determine number of sectors
     if n_sectors is None:
-        n_sectors = 4  # Default
+        n_sectors = config.get('n_sectors') or 4  # Default
+
+    use_elevation = config.get('use_elevation', True)
+    water_mode = config.get('water_source_mode', 'project')
+    priority = config.get('priority', 'balanced')
+    try:
+        inset_m = float(config.get('inset_m') or 0)
+    except (TypeError, ValueError):
+        inset_m = 0.0
+    name_prefix_en = (config.get('name_prefix_en') or '').strip() or 'Sector'
+    name_prefix_ar = (config.get('name_prefix_ar') or '').strip() or 'القطاع'
 
     # Project to UTM meters
     lng, lat = get_project_centroid(project) if project else (0.0, 0.0)
@@ -356,23 +439,59 @@ def regenerate_sectors(project_id, n_sectors=None):
     if boundary_shapely.is_empty or boundary_shapely.area <= 0:
         return []
 
+    # Optional inward inset (keeps sectors off the land boundary)
+    if inset_m > 0:
+        inset_poly = boundary_shapely.buffer(-inset_m)
+        inset_largest = _largest_polygon(inset_poly)
+        if inset_largest is not None and inset_largest.area > 0:
+            boundary_shapely = inset_largest
+
+    # Soft area constraints: adjust sector count so each sector plausibly
+    # fits within [min, max] area bounds.
+    min_area = config.get('min_sector_area_m2')
+    max_area = config.get('max_sector_area_m2')
+    if min_area or max_area:
+        total_area = boundary_shapely.area
+        if max_area and float(max_area) > 0:
+            import math as _math
+            n_sectors = max(n_sectors, int(_math.ceil(total_area / float(max_area))))
+        if min_area and float(min_area) > 0:
+            import math as _math
+            n_sectors = min(n_sectors, max(1, int(total_area // float(min_area))))
+        n_sectors = max(1, min(n_sectors, 12))  # hard cap at 12 sectors
+
     # Water source point in projected coordinates
     water_point = None
-    if project.get('water_source') and project['water_source'].get('coordinates'):
-        ws_geojson = project['water_source']
-        ws_projected, _ = project_geometry(ws_geojson, lng, lat)
-        water_point = ws_projected if isinstance(ws_projected, Point) else Point(ws_projected)
+    if water_mode == 'custom':
+        try:
+            w_lng = float(config.get('water_lng'))
+            w_lat = float(config.get('water_lat'))
+            ws_projected, _ = project_geometry(
+                {'type': 'Point', 'coordinates': [w_lng, w_lat]}, lng, lat
+            )
+            water_point = ws_projected if isinstance(ws_projected, Point) else Point(ws_projected)
+        except (TypeError, ValueError):
+            water_point = None
+    elif water_mode == 'project':
+        if project.get('water_source') and project['water_source'].get('coordinates'):
+            ws_geojson = project['water_source']
+            ws_projected, _ = project_geometry(ws_geojson, lng, lat)
+            water_point = ws_projected if isinstance(ws_projected, Point) else Point(ws_projected)
+    # water_mode == 'none' → water_point stays None
 
     # Fetch or build terrain elevation model
     elevation_model = None
     water_source_elevation = None
-    try:
-        elevation_model = get_or_build_elevation_model(project_id, project)
-        if elevation_model:
-            water_source_elevation = elevation_model.get('water_source_elevation_m')
-    except Exception:
-        # Elevation fetch failed — continue with 2D scoring
-        pass
+    if use_elevation:
+        try:
+            elevation_model = get_or_build_elevation_model(project_id, project)
+            if elevation_model:
+                water_source_elevation = elevation_model.get('water_source_elevation_m')
+        except Exception:
+            # Elevation fetch failed — continue with 2D scoring
+            pass
+
+    weights = _weights_for_preset(priority, elevation_model is not None)
 
     # Try all angles and find the best partition
     best_result = None
@@ -381,7 +500,7 @@ def regenerate_sectors(project_id, n_sectors=None):
     for angle in SPLIT_ANGLES:
         result = _try_partition(
             boundary_shapely, n_sectors, angle, water_point,
-            elevation_model, water_source_elevation
+            elevation_model, water_source_elevation, weights
         )
         if result and result['score'] > best_score:
             best_score = result['score']
@@ -390,7 +509,7 @@ def regenerate_sectors(project_id, n_sectors=None):
     if not best_result:
         # Fallback: simple grid
         best_result = _fallback_grid(boundary_shapely, n_sectors, water_point,
-                                      elevation_model, water_source_elevation)
+                                      elevation_model, water_source_elevation, weights)
 
     # Clear existing sectors and related data
     mongo.db.sectors.delete_many({'project_id': project_id})
@@ -404,12 +523,22 @@ def regenerate_sectors(project_id, n_sectors=None):
     sector_names = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
     sector_names_ar = ['أ', 'ب', 'ج', 'د', 'هـ', 'و', 'ز', 'ح']
 
+    ai_config_summary = {
+        'n_sectors': n_sectors,
+        'use_elevation': use_elevation and elevation_model is not None,
+        'water_source_mode': water_mode,
+        'priority': priority,
+        'inset_m': inset_m,
+    }
+
     for i, part in enumerate(best_result['parts']):
         # Unproject back to WGS84
         sector_geojson = unproject_shape(part, lng, lat)
 
-        name_en = f"Sector {sector_names[i] if i < len(sector_names) else i+1}"
-        name_ar = f"القطاع {sector_names_ar[i] if i < len(sector_names_ar) else i+1}"
+        suffix = sector_names[i] if i < len(sector_names) else str(i + 1)
+        suffix_ar = sector_names_ar[i] if i < len(sector_names_ar) else str(i + 1)
+        name_en = f"{name_prefix_en} {suffix}"
+        name_ar = f"{name_prefix_ar} {suffix_ar}"
 
         # Get elevation metrics for this sector
         elev_metrics = None
@@ -426,6 +555,7 @@ def regenerate_sectors(project_id, n_sectors=None):
             'ai_generated': True,
             'ai_score': round(best_result['score'], 4),
             'ai_angle': best_result['angle'],
+            'ai_config': ai_config_summary,
             'area_m2': round(part.area, 2),
             'elevation_aware': elevation_model is not None,
             'elevation_metrics': elev_metrics
@@ -544,7 +674,8 @@ def regenerate_zones(project_id, sector_id=None, zones_per_sector=None):
     return zones
 
 
-def _fallback_grid(polygon, n_parts, water_point, elevation_model=None, water_source_elevation=None):
+def _fallback_grid(polygon, n_parts, water_point, elevation_model=None,
+                   water_source_elevation=None, weights=None):
     """Simple grid-based fallback if optimization fails."""
     bounds = polygon.bounds
     minx, miny, maxx, maxy = bounds
@@ -578,7 +709,7 @@ def _fallback_grid(polygon, n_parts, water_point, elevation_model=None, water_so
             if clipped_polys:
                 parts.append(unary_union(clipped_polys))
 
-    score = _score_partition(parts, water_point, elevation_model, water_source_elevation)
+    score = _score_partition(parts, water_point, elevation_model, water_source_elevation, weights)
     return {'parts': parts, 'score': score, 'angle': 0}
 
 
