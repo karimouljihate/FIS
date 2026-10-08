@@ -838,3 +838,21 @@ textarea {
   color: #0d6efd;
   letter-spacing: 0.02em;
 }
+
+.project-settings-modal .modal-content {
+    max-height: calc(100vh - 1rem);
+}
+
+.project-settings-modal .modal-body {
+    overflow-y: auto;
+    min-height: 0;
+}
+@media (max-width: 767.98px) {
+    .project-settings-modal .modal-dialog {
+        margin: .5rem;
+    }
+
+    .project-settings-modal .modal-content {
+        max-height: calc(100vh - 1rem);
+    }
+}

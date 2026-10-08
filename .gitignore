@@ -10,3 +10,5 @@ uploads/
 logs/
 .DS_Store
 *.log
+patchs/
+zip/
