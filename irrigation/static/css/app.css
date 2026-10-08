@@ -747,17 +747,35 @@ textarea {
     border-radius: 0.75rem 0.75rem 0 0;
 }
 
-/* ── Modal / fixed footer coexistence ────────────────────────────────────────
-   Bootstrap's .modal is position:fixed; inset:0 — it fills the whole viewport,
-   including the 40 px the fixed footer occupies at the bottom.
-   Adding padding-bottom to .modal shrinks its internal scroll area upward so
-   the modal-footer buttons are never hidden behind the app footer.
-   This works regardless of scrollable/centered/xl — it is the only reliable fix.
-   Bootstrap default z-indexes (modal 1050, backdrop 1040) are already above the
-   app footer (1030) so no z-index override is needed.
+/* ── Edit-project modal: scrollable body, always-visible footer ───────────────
+   Bootstrap's modal-dialog-scrollable relies on height:calc(100% - margin*2)
+   which breaks when body is a flex container (100% is unresolvable).
+   Instead we target this modal explicitly:
+     • max-height caps the dialog at viewport minus navbar + footer clearance
+     • modal-content is a flex column → header/footer stick, body scrolls
+     • margin-bottom keeps the dialog above the 44px fixed footer
    ──────────────────────────────────────────────────────────────────────────── */
-.modal {
-    padding-bottom: 52px !important; /* fixed footer height (~40px) + 12px air */
+#editSpecModal .modal-dialog {
+    max-height: calc(100dvh - 120px); /* navbar≈60px + footer≈44px + 16px air */
+    margin-top: 16px;
+    margin-bottom: 60px; /* clears fixed footer */
+}
+
+#editSpecModal .modal-content {
+    max-height: calc(100dvh - 120px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#editSpecModal .modal-body {
+    flex: 1 1 auto;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+#editSpecModal .modal-footer {
+    flex-shrink: 0; /* never compress — always fully visible */
 }
 
 /* Bilingual toggle for the whole page */
@@ -852,20 +870,3 @@ textarea {
   letter-spacing: 0.02em;
 }
 
-.project-settings-modal .modal-content {
-    max-height: calc(100vh - 1rem);
-}
-
-.project-settings-modal .modal-body {
-    overflow-y: auto;
-    min-height: 0;
-}
-@media (max-width: 767.98px) {
-    .project-settings-modal .modal-dialog {
-        margin: .5rem;
-    }
-
-    .project-settings-modal .modal-content {
-        max-height: calc(100vh - 1rem);
-    }
-}
