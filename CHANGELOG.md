@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.20 - 2026-10-08
+
+### Fixed
+
+- Modal footer buttons still inaccessible: previous fix used `max-height` on `.modal-dialog-scrollable` which Bootstrap 5 ignores (the class uses `height: calc(100% - margin*2)` on the dialog element). Replaced with `padding-bottom: 52px !important` on `.modal` itself — this correctly shrinks Bootstrap's internal scroll area upward, keeping the modal-footer buttons always visible above the app's fixed footer.
+
 ## 0.3.19 - 2026-10-08
 
 ### Fixed

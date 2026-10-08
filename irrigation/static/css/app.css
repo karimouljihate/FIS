@@ -747,26 +747,17 @@ textarea {
     border-radius: 0.75rem 0.75rem 0 0;
 }
 
-/* Raise modal above the fixed app footer (z-index 1030) */
-.modal,
-.modal-backdrop {
-    z-index: 1055;
-}
-
-/* Scrollable modal: cap height so modal-footer buttons are always visible.
-   Accounts for: sticky navbar (~60px) + fixed footer (~40px) + 2×1rem margin. */
-.modal-dialog-scrollable {
-    max-height: calc(100vh - 132px);
-    margin-top: 16px;
-    margin-bottom: 76px; /* footer height 40px + 36px breathing room */
-}
-
-.modal-dialog-scrollable .modal-content {
-    max-height: 100%;
-}
-
-.modal-dialog-scrollable .modal-body {
-    overflow-y: auto;
+/* ── Modal / fixed footer coexistence ────────────────────────────────────────
+   Bootstrap's .modal is position:fixed; inset:0 — it fills the whole viewport,
+   including the 40 px the fixed footer occupies at the bottom.
+   Adding padding-bottom to .modal shrinks its internal scroll area upward so
+   the modal-footer buttons are never hidden behind the app footer.
+   This works regardless of scrollable/centered/xl — it is the only reliable fix.
+   Bootstrap default z-indexes (modal 1050, backdrop 1040) are already above the
+   app footer (1030) so no z-index override is needed.
+   ──────────────────────────────────────────────────────────────────────────── */
+.modal {
+    padding-bottom: 52px !important; /* fixed footer height (~40px) + 12px air */
 }
 
 /* Bilingual toggle for the whole page */
