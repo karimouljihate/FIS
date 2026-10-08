@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.22 - 2026-10-08
+
+### Added
+
+- **Estimation tab** in the project workflow (after Hydrology 2): a whole-project quote page that auto-computes quantities from live project data — pipe and dripline lengths per diameter (m), valve and fitting counts by type, and tree count — plus KPI cards for sectors, total area, pipe length and trees. Unit prices are editable and persisted per project in `spec.estimation`, with additional custom line items, notes, currency, discount % and VAT %; subtotals and grand total recalculate live and the page is print-friendly.
+- **Land Documents**: the Edit Project modal now supports multiple land/owner/other document records (name, category, reference, notes, optional file upload). Files are stored in the uploads folder and served through an authenticated download route; the project page's Land Documents card lists them with category badges and download buttons. The settings form now posts as `multipart/form-data`.
+
+### Removed
+
+- Min Sectors / Max Sectors fields from the project Rules card, the Edit Project modal and the create-project form; the sector-count rule is no longer part of the project spec.
+
 ## 0.3.21 - 2026-10-08
 
 ### Changed

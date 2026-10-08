@@ -107,6 +107,15 @@
                 </li>
                 <li class="nav-item">
                     {% if workflow_project_id %}
+                    <a class="nav-link{% if workflow_endpoint in ['estimation.quote_view', 'estimation.quote_save'] %} active{% endif %}" href="{{ url_for('estimation.quote_view', project_id=workflow_project_id) }}">
+                    {% else %}
+                    <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
+                    {% endif %}
+                        <i class="bi bi-calculator"></i> Estimation / التقدير
+                    {% if workflow_project_id %}</a>{% else %}</span>{% endif %}
+                </li>
+                <li class="nav-item">
+                    {% if workflow_project_id %}
                     <a class="nav-link{% if workflow_endpoint == 'engineering.validation_view' %} active{% endif %}" href="{{ url_for('engineering.validation_view', project_id=workflow_project_id) }}">
                     {% else %}
                     <span class="nav-link disabled" aria-disabled="true" title="Open a project first">

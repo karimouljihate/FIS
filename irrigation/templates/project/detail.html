@@ -228,18 +228,6 @@
                     <div class="card-body">
                         <table class="table table-sm">
                             <tr>
-                                <th style="width: 35%; text-align: left;">Min Sectors</th>
-                                <td style="width: 30%; text-align: center;">{{ spec.rules.min_sectors }}</td>
-                                <th style="width: 35%; text-align: right;">أدنى قطاعات</th>
-                            </tr>
-
-                            <tr>
-                                <th style="width: 35%; text-align: left;">Max Sectors</th>
-                                <td style="width: 30%; text-align: center;">{{ spec.rules.max_sectors }}</td>
-                                <th style="width: 35%; text-align: right;">أقصى قطاعات</th>
-                            </tr>
-
-                            <tr>
                                 <th style="width: 35%; text-align: left;">Min Sector Area (m²)</th>
                                 <td style="width: 30%; text-align: center;">{{ spec.rules.min_sector_area_m2 }}</td>
                                 <th style="width: 35%; text-align: right;">أدنى مساحة القطاع</th>
@@ -306,7 +294,45 @@
                     </div>
                     <div class="card-body">
                         <table class="table table-sm">
-                            
+                            <thead>
+                                <tr>
+                                    <th>Name / الاسم</th>
+                                    <th>Category / التصنيف</th>
+                                    <th>Reference / المرجع</th>
+                                    <th>File / الملف</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in spec.land_documents %}
+                                <tr>
+                                    <td>{{ d.name }}</td>
+                                    <td>
+                                        {% if d.category == 'owner' %}
+                                        <span class="badge bg-primary">Owner / المالك</span>
+                                        {% elif d.category == 'other' %}
+                                        <span class="badge bg-secondary">Other / أخرى</span>
+                                        {% else %}
+                                        <span class="badge bg-success">Land / الأرض</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ d.reference or '-' }}</td>
+                                    <td>
+                                        {% if d.file %}
+                                        <a href="{{ url_for('project.download_land_document', project_id=project.id, doc_index=loop.index0) }}"
+                                           class="btn btn-sm btn-outline-primary">
+                                            <i class="bi bi-download"></i> {{ d.file_original or 'Download' }}
+                                        </a>
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="4" class="text-muted text-center">No documents / لا توجد وثائق</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
                         </table>
                     </div>
                 </div>
@@ -342,7 +368,8 @@
         role="document">
         <div class="modal-content">
             <form method="POST"
-                action="{{ url_for('project.settings', project_id=project.id) }}">
+                action="{{ url_for('project.settings', project_id=project.id) }}"
+                enctype="multipart/form-data">
                 <div class="modal-header bg-primary text-white">
                     <h5 class="modal-title w-100 mb-0">
                         <div class="row">
@@ -419,20 +446,6 @@
                     <h6 class="text-primary"><i class="bi bi-rulers"></i> Rules
                         / القواعد</h6>
                     <div class="row g-2 mb-3">
-                        <div class="col-md-3 col-6">
-                            <label class="form-label">Min Sectors / أدنى
-                                قطاعات</label>
-                            <input type="number" name="min_sectors"
-                                class="form-control" min="1"
-                                value="{{ spec.rules.min_sectors }}">
-                        </div>
-                        <div class="col-md-3 col-6">
-                            <label class="form-label">Max Sectors / أقصى
-                                قطاعات</label>
-                            <input type="number" name="max_sectors"
-                                class="form-control" min="1"
-                                value="{{ spec.rules.max_sectors }}">
-                        </div>
                         <div class="col-md-3 col-6">
                             <label class="form-label">Min Sector Area
                                 (m²)</label>
@@ -517,6 +530,73 @@
                         <i class="bi bi-plus-circle"></i> Add Variety / إضافة
                         نوع
                     </button>
+
+                    <h6 class="text-primary mt-3"><i class="bi bi-files"></i>
+                        Land Documents / وثائق الأراضي</h6>
+                    <table class="table table-sm" id="landDocsTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 22%;">Name / الاسم</th>
+                                <th style="width: 16%;">Category /
+                                    التصنيف</th>
+                                <th style="width: 18%;">Reference /
+                                    المرجع</th>
+                                <th style="width: 20%;">Notes /
+                                    ملاحظات</th>
+                                <th style="width: 18%;">File / الملف</th>
+                                <th style="width: 6%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for d in spec.land_documents %}
+                            <tr>
+                                <td><input type="text" name="doc_name"
+                                        class="form-control"
+                                        value="{{ d.name }}" required></td>
+                                <td>
+                                    <select name="doc_category"
+                                        class="form-select">
+                                        <option value="land" {% if d.category
+                                            == 'land' %} selected{% endif
+                                            %}>Land / الأرض</option>
+                                        <option value="owner" {% if d.category
+                                            == 'owner' %} selected{% endif
+                                            %}>Owner / المالك</option>
+                                        <option value="other" {% if d.category
+                                            == 'other' %} selected{% endif
+                                            %}>Other / أخرى</option>
+                                    </select>
+                                </td>
+                                <td><input type="text" name="doc_reference"
+                                        class="form-control"
+                                        value="{{ d.reference }}"></td>
+                                <td><input type="text" name="doc_notes"
+                                        class="form-control"
+                                        value="{{ d.notes }}"></td>
+                                <td>
+                                    {% if d.file %}
+                                    <div class="small text-truncate"
+                                        title="{{ d.file_original }}">{{ d.file_original }}</div>
+                                    {% endif %}
+                                    <input type="file" name="doc_file"
+                                        class="form-control form-control-sm">
+                                </td>
+                                <td>
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        onclick="this.closest('tr').remove()">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-outline-success"
+                        id="addLandDocRow">
+                        <i class="bi bi-plus-circle"></i> Add Document /
+                        إضافة وثيقة
+                    </button>
                 </div>
 
                 <div class="modal-footer">
@@ -569,6 +649,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     <option value="all">Whole Project / كل المشروع</option>
                 </select>
             </td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>`;
+        tbody.appendChild(tr);
+    });
+
+    // Add a new land document row
+    document.getElementById('addLandDocRow').addEventListener('click', function() {
+        const tbody = document.querySelector('#landDocsTable tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><input type="text" name="doc_name" class="form-control" required></td>
+            <td>
+                <select name="doc_category" class="form-select">
+                    <option value="land" selected>Land / الأرض</option>
+                    <option value="owner">Owner / المالك</option>
+                    <option value="other">Other / أخرى</option>
+                </select>
+            </td>
+            <td><input type="text" name="doc_reference" class="form-control"></td>
+            <td><input type="text" name="doc_notes" class="form-control"></td>
+            <td><input type="file" name="doc_file" class="form-control form-control-sm"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>`;
         tbody.appendChild(tr);
     });

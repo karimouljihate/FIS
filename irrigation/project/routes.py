@@ -22,8 +22,6 @@ def _default_spec():
             'emitters_per_tree': 2,
         },
         'rules': {
-            'min_sectors': 1,
-            'max_sectors': 8,
             'area_per_sector_m2': 10000,
             'min_sector_area_m2': 5000,
             'max_sector_area_m2': 50000,
@@ -34,6 +32,7 @@ def _default_spec():
             {'variety_en': 'Olive', 'variety_ar': 'زيتون', 'percentage': 60, 'scope': 'per_sector', 'tree_spacing_m': 5.0},
             {'variety_en': 'Almond', 'variety_ar': 'لوز', 'percentage': 40, 'scope': 'per_sector', 'tree_spacing_m': 6.0},
         ],
+        'land_documents': [],
     }
 
 
@@ -105,8 +104,6 @@ def _spec_from_form(request):
             'emitters_per_tree': f('emitters_per_tree', int, 2),
         },
         'rules': {
-            'min_sectors': f('min_sectors', int, 1),
-            'max_sectors': f('max_sectors', int, 8),
             'area_per_sector_m2': f('area_per_sector_m2', int, 10000),
             'min_sector_area_m2': f('min_sector_area_m2', int, 5000),
             'max_sector_area_m2': f('max_sector_area_m2', int, 50000),
@@ -115,6 +112,52 @@ def _spec_from_form(request):
         },
         'tree_plan': tree_plan or _default_spec()['tree_plan'],
     }
+
+
+def _land_documents_from_request(project_id, previous_docs=None):
+    """Parse the Land Documents rows (category/name/reference/notes/file) from
+    the settings form, save uploaded files, and return the new document list."""
+    import datetime
+
+    categories = request.form.getlist('doc_category')
+    names = request.form.getlist('doc_name')
+    references = request.form.getlist('doc_reference')
+    notes = request.form.getlist('doc_notes')
+    files = request.files.getlist('doc_file')
+
+    upload_dir = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    docs = []
+    for i, name in enumerate(names):
+        name = name.strip()
+        if not name:
+            continue
+        entry = {
+            'category': (categories[i].strip().lower() if i < len(categories) else 'land') or 'land',
+            'name': name,
+            'reference': references[i].strip() if i < len(references) else '',
+            'notes': notes[i].strip() if i < len(notes) else '',
+            'file': None,
+            'file_original': None,
+        }
+        if i < len(files) and files[i] and files[i].filename:
+            original = secure_filename(files[i].filename)
+            stored = f'project_{project_id}_{int(datetime.datetime.utcnow().timestamp())}_{original}'
+            os.makedirs(upload_dir, exist_ok=True)
+            files[i].save(os.path.join(upload_dir, stored))
+            entry['file'] = stored
+            entry['file_original'] = files[i].filename
+        docs.append(entry)
+
+    # Delete stored files that are no longer referenced by any kept document.
+    kept_files = {d['file'] for d in docs if d.get('file')}
+    for old in (previous_docs or []):
+        old_file = old.get('file')
+        if old_file and old_file not in kept_files:
+            try:
+                os.remove(os.path.join(upload_dir, old_file))
+            except OSError:
+                pass
+    return docs
 
 
 @project_bp.route('/')
@@ -221,6 +264,9 @@ def settings(project_id):
         return redirect(url_for('project.index'))
 
     spec = _spec_from_form(request)
+    spec['land_documents'] = _land_documents_from_request(
+        project_id, (project.get('spec') or {}).get('land_documents') or []
+    )
     if 'location' in request.form:
         mongo.db.projects.update_one(
             {'id': project_id, 'user_id': int(current_user.id)},
@@ -233,6 +279,34 @@ def settings(project_id):
         )
     flash('Project settings saved / تم حفظ إعدادات المشروع', 'success')
     return redirect(url_for('project.detail', project_id=project_id))
+
+
+@project_bp.route('/<int:project_id>/land_documents/<int:doc_index>/download')
+@login_required
+def download_land_document(project_id, doc_index):
+    project = mongo.db.projects.find_one({'id': project_id, 'user_id': int(current_user.id)})
+    if not project:
+        flash('Project not found / المشروع غير موجود', 'danger')
+        return redirect(url_for('project.index'))
+
+    docs = (project.get('spec') or {}).get('land_documents') or []
+    if doc_index < 0 or doc_index >= len(docs):
+        flash('Document not found / الوثيقة غير موجودة', 'danger')
+        return redirect(url_for('project.detail', project_id=project_id))
+
+    doc = docs[doc_index]
+    stored = doc.get('file')
+    if not stored:
+        flash('No file attached to this document / لا يوجد ملف مرتبط بهذه الوثيقة', 'warning')
+        return redirect(url_for('project.detail', project_id=project_id))
+
+    upload_dir = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+    filepath = os.path.join(upload_dir, stored)
+    if not os.path.isfile(filepath):
+        flash('File missing on server / الملف مفقود على الخادم', 'danger')
+        return redirect(url_for('project.detail', project_id=project_id))
+
+    return send_file(filepath, as_attachment=True, download_name=doc.get('file_original') or stored)
 
 
 def _store_kml_features(project_id, project, filename, features):
