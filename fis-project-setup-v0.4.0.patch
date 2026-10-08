@@ -1,0 +1,2231 @@
+--- a/irrigation/project/routes.py
++++ b/irrigation/project/routes.py
+@@ -1,112 +1,48 @@
++import json
+
+ import os
+
+ import re
+
+-from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify, current_app, send_file
+
++from datetime import datetime
+
++
+
++from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, send_file
+
+ from flask_login import login_required, current_user
+
+ from werkzeug.utils import secure_filename
+
++
+
+ from irrigation.extensions import mongo
+
+-from irrigation.models import get_next_id, serialize_doc
+
++from irrigation.models import get_next_id
+
++from irrigation.utils.cad import parse_dxf_file
+
+ from irrigation.utils.kml import parse_kml_content, parse_kmz_file, export_project_to_kml
+
+-from bson import ObjectId
+
++from irrigation.utils.land import build_land_summary
+
+ 
+
+ project_bp = Blueprint('project', __name__)
+
+ 
+
+-
+
+-@project_bp.route('/')
+
+-@login_required
+
+-def index():
+
+-    projects = list(mongo.db.projects.find({'user_id': int(current_user.id)}).sort('created_at', -1))
+
+-    for p in projects:
+
+-        p['_id'] = str(p['_id'])
+
+-    return render_template('project/index.html', projects=projects)
+
+-
+
+-
+
+-@project_bp.route('/create', methods=['GET', 'POST'])
+
+-@login_required
+
+-def create():
+
+-    if request.method == 'POST':
+
+-        name = request.form.get('name', '').strip()
+
+-        location = request.form.get('location', '').strip()
+
+-        description = request.form.get('description', '').strip()
+
+-        water_source_lat = request.form.get('water_source_lat', '').strip()
+
+-        water_source_lng = request.form.get('water_source_lng', '').strip()
+
+-
+
+-        # Manual land boundary coordinates
+
+-        boundary_coords = request.form.get('boundary_coords', '').strip()
+
+-
+
+-        project_doc = {
+
+-            'id': get_next_id('projects'),
+
+-            'user_id': int(current_user.id),
+
+-            'name': name,
+
+-            'location': location,
+
+-            'description': description,
+
+-            'water_source': {},
+
+-            'boundary': None,
+
+-            'kml_file': None,
+
+-            'status': 'created',
+
+-            'created_at': __import__('datetime').datetime.utcnow()
+
+-        }
+
+-
+
+-        if water_source_lat and water_source_lng:
+
+-            project_doc['water_source'] = {
+
+-                'type': 'Point',
+
+-                'coordinates': [float(water_source_lng), float(water_source_lat)]
+
+-            }
+
+-
+
+-        if boundary_coords:
+
+-            try:
+
+-                import json
+
+-                coords = json.loads(boundary_coords)
+
+-                project_doc['boundary'] = {
+
+-                    'type': 'Polygon',
+
+-                    'coordinates': [coords]
+
+-                }
+
+-            except Exception:
+
+-                flash('Invalid boundary coordinates / إحداثيات الحدود غير صالحة', 'danger')
+
+-
+
+-        result = mongo.db.projects.insert_one(project_doc)
+
+-        project_id = project_doc['id']
+
+-
+
+-        flash('Project created successfully / تم إنشاء المشروع بنجاح', 'success')
+
+-        return redirect(url_for('project.detail', project_id=project_id))
+
+-
+
+-    return render_template('project/create.html')
+
+-
+
+-
+
+-@project_bp.route('/<int:project_id>')
+
+-@login_required
+
+-def detail(project_id):
+
+-    project = mongo.db.projects.find_one({'id': project_id, 'user_id': int(current_user.id)})
+
+-    if not project:
+
+-        flash('Project not found / المشروع غير موجود', 'danger')
+
+-        return redirect(url_for('project.index'))
+
+-
+
+-    project['_id'] = str(project['_id'])
+
+-
+
+-    # Get geometry elements for the map
+
+-    sectors = list(mongo.db.sectors.find({'project_id': project_id}))
+
+-    zones = list(mongo.db.zones.find({'project_id': project_id}))
+
+-    network = list(mongo.db.network_elements.find({'project_id': project_id}))
+
+-    tree_rows = list(mongo.db.tree_rows.find({'project_id': project_id}))
+
+-    trees = list(mongo.db.trees.find({'project_id': project_id}))
+
+-
+
+-    for s in sectors + zones + network + tree_rows + trees:
+
+-        s['_id'] = str(s['_id'])
+
+-
+
+-    return render_template('project/detail.html',
+
+-                           project=project,
+
+-                           sectors=sectors,
+
+-                           zones=zones,
+
+-                           network=network,
+
+-                           tree_rows=tree_rows,
+
+-                           trees=trees)
+
+-
+
+-
+
+-def _store_kml_features(project_id, project, filename, features):
+
++ALLOWED_PROJECT_FILES = {'.kml', '.kmz', '.dxf', '.dwg'}
+
++PARSED_PROJECT_FILES = {'.kml', '.kmz', '.dxf'}
+
++
+
++
+
++def _project_for_user(project_id):
+
++    return mongo.db.projects.find_one(
+
++        {'id': project_id, 'user_id': int(current_user.id)}
+
++    )
+
++
+
++
+
++def _process_land_file(filepath, filename):
+
++    extension = os.path.splitext(filename)[1].lower()
+
++    if extension == '.kmz':
+
++        return parse_kmz_file(filepath)
+
++    if extension == '.kml':
+
++        with open(filepath, 'r', encoding='utf-8') as handle:
+
++            return parse_kml_content(handle.read())
+
++    if extension == '.dxf':
+
++        return parse_dxf_file(filepath)
+
++    return []
+
++
+
++
+
++def _classify_features(features):
+
+     from shapely.geometry import shape as shp_shape
+
+ 
+
+     polygon_features = [
+
+         feature for feature in features
+
+-        if feature['geometry'].get('type') in ('Polygon', 'MultiPolygon')
+
++        if feature.get('geometry', {}).get('type') in ('Polygon', 'MultiPolygon')
+
+     ]
+
+     boundary_feature = max(
+
+         polygon_features,
+
+@@ -116,15 +52,23 @@
+     water_feature = next(
+
+         (
+
+             feature for feature in features
+
+-            if feature['geometry'].get('type') in ('Point', 'MultiPoint')
+
+-            and re.search(r'well|water|source', feature['name'], re.IGNORECASE)
+
++            if feature.get('geometry', {}).get('type') in ('Point', 'MultiPoint')
+
++            and re.search(
+
++                r'well|water|source',
+
++                feature.get('name', ''),
+
++                re.IGNORECASE
+
++            )
+
+         ),
+
+         None
+
+     )
+
+     sector_features = [
+
+         feature for feature in polygon_features
+
+         if feature is not boundary_feature
+
+-        and re.match(r'^(?:s\s*\d+|sector\s*\d*)$', feature['name'].strip(), re.IGNORECASE)
+
++        and re.match(
+
++            r'^(?:s\s*\d+|sector\s*\d*)$',
+
++            feature.get('name', '').strip(),
+
++            re.IGNORECASE
+
++        )
+
+     ]
+
+ 
+
+     for feature in features:
+
+@@ -137,71 +81,332 @@
+         else:
+
+             feature['category'] = 'overlay'
+
+ 
+
+-    mongo.db.sectors.delete_many({'project_id': project_id, 'source': 'kml'})
+
++    return boundary_feature, water_feature, sector_features
+
++
+
++
+
++def _store_imported_land(project_id, project, filename, features):
+
++    boundary_feature, water_feature, sector_features = _classify_features(features)
+
++    boundary = boundary_feature['geometry'] if boundary_feature else None
+
++    land = build_land_summary(
+
++        boundary=boundary,
+
++        water_source=water_feature['geometry'] if water_feature else None,
+
++        source_file=filename,
+
++        source_type=os.path.splitext(filename)[1].lower().lstrip('.')
+
++    )
+
++
+
++    mongo.db.sectors.delete_many({'project_id': project_id, 'source': 'project_import'})
+
+     for feature in sector_features:
+
+         mongo.db.sectors.insert_one({
+
+             'id': get_next_id('sectors'),
+
+             'project_id': project_id,
+
+-            'name_en': feature['name'],
+
++            'name_en': feature.get('name', ''),
+
+             'name_ar': '',
+
+             'polygon': feature['geometry'],
+
+             'validated': False,
+
+-            'source': 'kml'
+
++            'source': 'project_import'
+
+         })
+
+ 
+
+     update = {
+
+-        'kml_file': filename,
+
+-        'kml_features': features
+
+-    }
+
+-    if boundary_feature:
+
+-        update['boundary'] = boundary_feature['geometry']
+
++        'source_file': {
+
++            'name': filename,
+
++            'type': os.path.splitext(filename)[1].lower().lstrip('.')
+
++        },
+
++        'kml_file': filename if filename.lower().endswith(('.kml', '.kmz')) else project.get('kml_file'),
+
++        'kml_features': features,
+
++        'land': land
+
++    }
+
++    if boundary:
+
++        update['boundary'] = boundary
+
+     if water_feature:
+
+         update['water_source'] = water_feature['geometry']
+
++
+
+     mongo.db.projects.update_one(
+
+         {'id': project_id, 'user_id': project['user_id']},
+
+         {'$set': update}
+
+     )
+
+-    return boundary_feature is not None
+
+-
+
+-
+
+-@project_bp.route('/<int:project_id>/upload_kml', methods=['POST'])
+
+-@login_required
+
+-def upload_kml(project_id):
+
+-    project = mongo.db.projects.find_one({'id': project_id, 'user_id': int(current_user.id)})
+
+-    if not project:
+
+-        flash('Project not found / المشروع غير موجود', 'danger')
+
+-        return redirect(url_for('project.index'))
+
+-
+
+-    if 'kml_file' not in request.files:
+
+-        flash('No file uploaded / لم يتم رفع ملف', 'danger')
+
+-        return redirect(url_for('project.detail', project_id=project_id))
+
+-
+
+-    file = request.files['kml_file']
+
+-    if file.filename == '':
+
+-        flash('No file selected / لم يتم اختيار ملف', 'danger')
+
+-        return redirect(url_for('project.detail', project_id=project_id))
+
++    return boundary_feature is not None, water_feature is not None, len(sector_features)
+
++
+
++
+
++def _save_project_file(project_id, project, file):
+
++    if not file or not file.filename:
+
++        return None
+
+ 
+
+     filename = secure_filename(file.filename)
+
++    extension = os.path.splitext(filename)[1].lower()
+
++    if extension not in ALLOWED_PROJECT_FILES:
+
++        raise ValueError('Unsupported file type. Use KML, KMZ, DXF, or DWG.')
+
++
+
+     upload_dir = current_app.config.get('UPLOAD_FOLDER', 'uploads')
+
+     os.makedirs(upload_dir, exist_ok=True)
+
+     filepath = os.path.join(upload_dir, f'project_{project_id}_{filename}')
+
+     file.save(filepath)
+
+ 
+
+-    features = []
+
+-    if filename.lower().endswith('.kmz'):
+
+-        features = parse_kmz_file(filepath)
+
+-    elif filename.lower().endswith('.kml'):
+
+-        with open(filepath, 'r', encoding='utf-8') as f:
+
+-            features = parse_kml_content(f.read())
+
+-
+
+-    if features:
+
+-        has_boundary = _store_kml_features(project_id, project, filename, features)
+
+-        if has_boundary:
+
+-            flash(f'Loaded {len(features)} features from KML / تم تحميل {len(features)} عنصر', 'success')
+
++    if extension == '.dwg':
+
++        mongo.db.projects.update_one(
+
++            {'id': project_id, 'user_id': project['user_id']},
+
++            {'$set': {
+
++                'source_file': {'name': filename, 'type': 'dwg', 'parsed': False},
+
++                'land': {
+
++                    **project.get('land', {}),
+
++                    'source_file': {'name': filename, 'type': 'dwg'},
+
++                    'import_status': 'uploaded'
+
++                }
+
++            }}
+
++        )
+
++        return 'dwg', False, False, 0
+
++
+
++    features = _process_land_file(filepath, filename)
+
++    if not features:
+
++        raise ValueError('The file could not be parsed or contains no supported geometry.')
+
++
+
++    result = _store_imported_land(project_id, project, filename, features)
+
++    return extension.lstrip('.'), *result
+
++
+
++
+
++@project_bp.route('/')
+
++@login_required
+
++def index():
+
++    projects = list(
+
++        mongo.db.projects.find({'user_id': int(current_user.id)}).sort('created_at', -1)
+
++    )
+
++    for project in projects:
+
++        project['_id'] = str(project['_id'])
+
++    return render_template('project/index.html', projects=projects)
+
++
+
++
+
++@project_bp.route('/create', methods=['GET', 'POST'])
+
++@login_required
+
++def create():
+
++    if request.method == 'POST':
+
++        name = request.form.get('name', '').strip()
+
++        description = request.form.get('description', '').strip()
+
++
+
++        if not name:
+
++            flash('Project name is required / اسم المشروع مطلوب', 'danger')
+
++            return render_template('project/create.html')
+
++
+
++        project_id = get_next_id('projects')
+
++        project_doc = {
+
++            'id': project_id,
+
++            'user_id': int(current_user.id),
+
++            'name': name,
+
++            'location': request.form.get('location', '').strip(),
+
++            'description': description,
+
++            'water_source': {},
+
++            'boundary': None,
+
++            'kml_file': None,
+
++            'source_file': None,
+
++            'land': {},
+
++            'owner': {},
+
++            'configuration': {},
+
++            'rules': {},
+
++            'tree_plans': [],
+
++            'setup': {
+
++                'project': True,
+
++                'land': False,
+
++                'owner': False,
+
++                'configuration': False,
+
++                'rules': False,
+
++                'tree_plan': False
+
++            },
+
++            'status': 'draft',
+
++            'created_at': datetime.utcnow()
+
++        }
+
++
+
++        try:
+
++            water_lat = request.form.get('water_source_lat', '').strip()
+
++            water_lng = request.form.get('water_source_lng', '').strip()
+
++            if water_lat or water_lng:
+
++                if not water_lat or not water_lng:
+
++                    raise ValueError('Both water source coordinates are required.')
+
++                lat = float(water_lat)
+
++                lng = float(water_lng)
+
++                if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+
++                    raise ValueError('Water source coordinates are outside valid ranges.')
+
++                project_doc['water_source'] = {
+
++                    'type': 'Point',
+
++                    'coordinates': [lng, lat]
+
++                }
+
++
+
++            boundary_coords = request.form.get('boundary_coords', '').strip()
+
++            if boundary_coords:
+
++                coords = json.loads(boundary_coords)
+
++                if not isinstance(coords, list) or len(coords) < 4 or coords[0] != coords[-1]:
+
++                    raise ValueError('Boundary must contain at least 4 points and be closed.')
+
++                project_doc['boundary'] = {
+
++                    'type': 'Polygon',
+
++                    'coordinates': [coords]
+
++                }
+
++                project_doc['land'] = build_land_summary(
+
++                    project_doc['boundary'],
+
++                    project_doc['water_source'] or None,
+
++                    None,
+
++                    'manual'
+
++                )
+
++                project_doc['setup']['land'] = True
+
++
+
++            mongo.db.projects.insert_one(project_doc)
+
++
+
++            uploaded = request.files.get('project_file')
+
++            if uploaded and uploaded.filename:
+
++                _save_project_file(project_id, project_doc, uploaded)
+
++                project_doc = mongo.db.projects.find_one({'id': project_id})
+
++
+
++            flash('Project created successfully / تم إنشاء المشروع بنجاح', 'success')
+
++            return redirect(url_for('project.detail', project_id=project_id))
+
++
+
++        except (ValueError, json.JSONDecodeError) as exc:
+
++            mongo.db.projects.delete_one({'id': project_id, 'user_id': int(current_user.id)})
+
++            flash(f'Project creation failed: {exc}', 'danger')
+
++            return render_template('project/create.html')
+
++        except Exception as exc:
+
++            mongo.db.projects.delete_one({'id': project_id, 'user_id': int(current_user.id)})
+
++            current_app.logger.exception('Project creation/import failed')
+
++            flash(f'Project creation failed: {exc}', 'danger')
+
++            return render_template('project/create.html')
+
++
+
++    return render_template('project/create.html')
+
++
+
++
+
++@project_bp.route('/<int:project_id>')
+
++@login_required
+
++def detail(project_id):
+
++    project = _project_for_user(project_id)
+
++    if not project:
+
++        flash('Project not found / المشروع غير موجود', 'danger')
+
++        return redirect(url_for('project.index'))
+
++
+
++    project['_id'] = str(project['_id'])
+
++    counts = {
+
++        'sectors': mongo.db.sectors.count_documents({'project_id': project_id}),
+
++        'zones': mongo.db.zones.count_documents({'project_id': project_id}),
+
++        'network': mongo.db.network_elements.count_documents({'project_id': project_id}),
+
++        'tree_rows': mongo.db.tree_rows.count_documents({'project_id': project_id}),
+
++        'trees': mongo.db.trees.count_documents({'project_id': project_id})
+
++    }
+
++    return render_template('project/detail.html', project=project, counts=counts)
+
++
+
++
+
++@project_bp.route('/<int:project_id>/setup', methods=['POST'])
+
++@login_required
+
++def save_setup(project_id):
+
++    project = _project_for_user(project_id)
+
++    if not project:
+
++        flash('Project not found / المشروع غير موجود', 'danger')
+
++        return redirect(url_for('project.index'))
+
++
+
++    owner = {
+
++        'type': request.form.get('owner_type', 'individual').strip(),
+
++        'full_name': request.form.get('owner_full_name', '').strip(),
+
++        'company': request.form.get('owner_company', '').strip(),
+
++        'id_number': request.form.get('owner_id_number', '').strip(),
+
++        'address': request.form.get('owner_address', '').strip(),
+
++        'city': request.form.get('owner_city', '').strip(),
+
++        'country': request.form.get('owner_country', '').strip(),
+
++        'phone': request.form.get('owner_phone', '').strip(),
+
++        'email': request.form.get('owner_email', '').strip(),
+
++        'ownership_percent': request.form.get('owner_percent', '').strip(),
+
++        'notes': request.form.get('owner_notes', '').strip()
+
++    }
+
++
+
++    configuration = {
+
++        'irrigation_method': request.form.get('irrigation_method', '').strip(),
+
++        'water_source_type': request.form.get('water_source_type', '').strip(),
+
++        'irrigation_system': request.form.get('irrigation_system', '').strip(),
+
++        'energy_source': request.form.get('energy_source', '').strip(),
+
++        'design_flow_lps': request.form.get('design_flow_lps', '').strip(),
+
++        'available_pressure_bar': request.form.get('available_pressure_bar', '').strip(),
+
++        'pump': request.form.get('pump', '').strip()
+
++    }
+
++
+
++    rules = {
+
++        'max_sector_flow_lps': request.form.get('max_sector_flow_lps', '').strip(),
+
++        'max_pipe_velocity_ms': request.form.get('max_pipe_velocity_ms', '').strip(),
+
++        'min_pressure_bar': request.form.get('min_pressure_bar', '').strip(),
+
++        'max_pressure_bar': request.form.get('max_pressure_bar', '').strip(),
+
++        'max_irrigation_minutes': request.form.get('max_irrigation_minutes', '').strip(),
+
++        'max_slope_percent': request.form.get('max_slope_percent', '').strip(),
+
++        'min_tree_spacing_m': request.form.get('min_tree_spacing_m', '').strip(),
+
++        'min_row_spacing_m': request.form.get('min_row_spacing_m', '').strip(),
+
++        'auto_zone_split': request.form.get('auto_zone_split') == 'on',
+
++        'auto_optimization': request.form.get('auto_optimization') == 'on'
+
++    }
+
++
+
++    tree_plan = {
+
++        'crop': request.form.get('tree_crop', '').strip(),
+
++        'variety': request.form.get('tree_variety', '').strip(),
+
++        'plantation_type': request.form.get('tree_plantation_type', '').strip(),
+
++        'row_spacing_m': request.form.get('tree_row_spacing_m', '').strip(),
+
++        'tree_spacing_m': request.form.get('tree_spacing_m', '').strip(),
+
++        'row_orientation': request.form.get('tree_row_orientation', '').strip(),
+
++        'expected_trees_per_ha': request.form.get('tree_density', '').strip(),
+
++        'rootstock': request.form.get('tree_rootstock', '').strip(),
+
++        'planting_year': request.form.get('tree_planting_year', '').strip()
+
++    }
+
++
+
++    setup = project.get('setup', {})
+
++    setup.update({
+
++        'owner': bool(owner['full_name'] or owner['company']),
+
++        'configuration': bool(any(configuration.values())),
+
++        'rules': bool(any(value not in ('', False) for value in rules.values())),
+
++        'tree_plan': bool(any(tree_plan.values()))
+
++    })
+
++    setup['project'] = True
+
++    setup['land'] = bool(project.get('land', {}).get('boundary'))
+
++
+
++    status = 'ready' if all(setup.values()) else 'draft'
+
++
+
++    mongo.db.projects.update_one(
+
++        {'id': project_id, 'user_id': int(current_user.id)},
+
++        {'$set': {
+
++            'owner': owner,
+
++            'configuration': configuration,
+
++            'rules': rules,
+
++            'tree_plans': [tree_plan] if any(tree_plan.values()) else [],
+
++            'setup': setup,
+
++            'status': status,
+
++            'updated_at': datetime.utcnow()
+
++        }}
+
++    )
+
++    flash('Project setup saved / تم حفظ إعدادات المشروع', 'success')
+
++    return redirect(url_for('project.detail', project_id=project_id))
+
++
+
++
+
++@project_bp.route('/<int:project_id>/upload_kml', methods=['POST'])
+
++@login_required
+
++def upload_kml(project_id):
+
++    project = _project_for_user(project_id)
+
++    if not project:
+
++        flash('Project not found / المشروع غير موجود', 'danger')
+
++        return redirect(url_for('project.index'))
+
++
+
++    file = request.files.get('kml_file')
+
++    if not file or not file.filename:
+
++        flash('No file selected / لم يتم اختيار ملف', 'danger')
+
++        return redirect(url_for('project.detail', project_id=project_id))
+
++
+
++    try:
+
++        extension, has_boundary, has_water, sector_count = _save_project_file(
+
++            project_id, project, file
+
++        )
+
++        if extension == 'dwg':
+
++            flash(
+
++                'DWG uploaded. Geometry extraction requires conversion to DXF or KML/KMZ / '
+
++                'تم رفع DWG. استخراج الهندسة يتطلب تحويله إلى DXF أو KML/KMZ',
+
++                'warning'
+
++            )
+
+         else:
+
+-            flash(f'Loaded {len(features)} KML features; no polygon boundary was found / تم تحميل {len(features)} عنصر دون حدود مضلع', 'warning')
+
+-    else:
+
+-        flash('Could not parse KML file / تعذر تحليل ملف KML', 'danger')
+
++            message = f'Imported {extension.upper()} land data / تم استيراد بيانات الأرض'
+
++            if has_boundary:
+
++                message += ' — boundary detected'
+
++            if has_water:
+
++                message += ' — water source detected'
+
++            if sector_count:
+
++                message += f' — {sector_count} sectors'
+
++            flash(message, 'success')
+
++    except Exception as exc:
+
++        current_app.logger.exception('Project land import failed')
+
++        flash(f'Land import failed: {exc}', 'danger')
+
+ 
+
+     return redirect(url_for('project.detail', project_id=project_id))
+
+ 
+
+@@ -209,7 +414,7 @@
+ @project_bp.route('/<int:project_id>/export_kml')
+
+ @login_required
+
+ def export_kml(project_id):
+
+-    project = mongo.db.projects.find_one({'id': project_id, 'user_id': int(current_user.id)})
+
++    project = _project_for_user(project_id)
+
+     if not project:
+
+         flash('Project not found / المشروع غير موجود', 'danger')
+
+         return redirect(url_for('project.index'))
+
+@@ -231,11 +436,20 @@
+ @project_bp.route('/<int:project_id>/delete', methods=['POST'])
+
+ @login_required
+
+ def delete(project_id):
+
++    project = _project_for_user(project_id)
+
++    if not project:
+
++        flash('Project not found / المشروع غير موجود', 'danger')
+
++        return redirect(url_for('project.index'))
+
++
+
+     mongo.db.projects.delete_one({'id': project_id, 'user_id': int(current_user.id)})
+
+-    mongo.db.sectors.delete_many({'project_id': project_id})
+
+-    mongo.db.zones.delete_many({'project_id': project_id})
+
+-    mongo.db.network_elements.delete_many({'project_id': project_id})
+
+-    mongo.db.tree_rows.delete_many({'project_id': project_id})
+
+-    mongo.db.trees.delete_many({'project_id': project_id})
+
++    for collection in (
+
++        mongo.db.sectors,
+
++        mongo.db.zones,
+
++        mongo.db.network_elements,
+
++        mongo.db.tree_rows,
+
++        mongo.db.trees
+
++    ):
+
++        collection.delete_many({'project_id': project_id})
+
++
+
+     flash('Project deleted / تم حذف المشروع', 'info')
+
+     return redirect(url_for('project.index'))
+
+--- /dev/null
++++ a/irrigation/templates/project/create.html
+@@ -0,0 +1,85 @@
++{% extends "base.html" %}
+
++{% block title %}Create Project / إنشاء مشروع{% endblock %}
+
++
+
++{% block content %}
+
++<div class="project-setup-page">
+
++    <div class="project-setup-header mb-4">
+
++        <div>
+
++            <h2><i class="bi bi-folder-plus"></i> Create New Project</h2>
+
++            <div class="ar-text" lang="ar">إنشاء مشروع جديد</div>
+
++        </div>
+
++    </div>
+
++
+
++    <form method="POST" enctype="multipart/form-data">
+
++        <div class="card shadow-sm mb-4">
+
++            <div class="card-header bg-primary text-white">
+
++                <h5 class="mb-0"><i class="bi bi-folder"></i> Project / المشروع</h5>
+
++            </div>
+
++            <div class="card-body">
+
++                <div class="row g-3">
+
++                    <div class="col-md-8">
+
++                        <label class="form-label">Project Name / اسم المشروع *</label>
+
++                        <input type="text" name="name" class="form-control" maxlength="150"
+
++                               required autofocus>
+
++                    </div>
+
++                    <div class="col-md-4">
+
++                        <label class="form-label">Location / الموقع</label>
+
++                        <input type="text" name="location" class="form-control">
+
++                    </div>
+
++                    <div class="col-12">
+
++                        <label class="form-label">Description / الوصف</label>
+
++                        <textarea name="description" class="form-control" rows="2"></textarea>
+
++                    </div>
+
++                    <div class="col-12">
+
++                        <label class="form-label">Initial Land File / ملف الأرض الأولي</label>
+
++                        <input type="file" name="project_file" class="form-control"
+
++                               accept=".kml,.kmz,.dxf,.dwg">
+
++                        <div class="form-text">
+
++                            KML, KMZ and DXF are parsed automatically. DWG is stored for reference and
+
++                            should be converted to DXF/KML/KMZ for geometry extraction.
+
++                        </div>
+
++                    </div>
+
++                </div>
+
++            </div>
+
++        </div>
+
++
+
++        <div class="card shadow-sm mb-4">
+
++            <div class="card-header">
+
++                <h5 class="mb-0"><i class="bi bi-water"></i> Optional Water Source / مصدر المياه</h5>
+
++            </div>
+
++            <div class="card-body">
+
++                <div class="row g-3">
+
++                    <div class="col-md-6">
+
++                        <label class="form-label">Latitude / خط العرض</label>
+
++                        <input type="number" step="any" name="water_source_lat" class="form-control">
+
++                    </div>
+
++                    <div class="col-md-6">
+
++                        <label class="form-label">Longitude / خط الطول</label>
+
++                        <input type="number" step="any" name="water_source_lng" class="form-control">
+
++                    </div>
+
++                </div>
+
++            </div>
+
++        </div>
+
++
+
++        <div class="card shadow-sm mb-4">
+
++            <div class="card-header">
+
++                <h5 class="mb-0"><i class="bi bi-bounding-box"></i> Optional Manual Boundary / الحدود اليدوية</h5>
+
++            </div>
+
++            <div class="card-body">
+
++                <textarea name="boundary_coords" class="form-control" rows="3"
+
++                          placeholder='[[lng1,lat1],[lng2,lat2],[lng3,lat3],[lng1,lat1]]'></textarea>
+
++                <div class="form-text">Use [longitude, latitude] pairs. The first and last point must match.</div>
+
++            </div>
+
++        </div>
+
++
+
++        <div class="d-flex gap-2 justify-content-end">
+
++            <a href="{{ url_for('project.index') }}" class="btn btn-outline-secondary">
+
++                Cancel / إلغاء
+
++            </a>
+
++            <button type="submit" class="btn btn-success px-4">
+
++                <i class="bi bi-check-circle"></i> Create Project / إنشاء المشروع
+
++            </button>
+
++        </div>
+
++    </form>
+
++</div>
+
++{% endblock %}
+
+--- /dev/null
++++ a/irrigation/templates/project/detail.html
+@@ -0,0 +1,210 @@
++{% extends "base.html" %}
+
++{% block title %}{{ project.name }} - Project Setup{% endblock %}
+
++
+
++{% block content %}
+
++<div class="project-setup-page">
+
++    <div class="d-flex justify-content-between align-items-start mb-4">
+
++        <div>
+
++            <h2><i class="bi bi-folder-fill"></i> {{ project.name }}</h2>
+
++            <div class="ar-text" lang="ar">إعداد المشروع</div>
+
++        </div>
+
++        <div class="d-flex gap-2">
+
++            <a href="{{ url_for('project.index') }}" class="btn btn-outline-secondary">Back / رجوع</a>
+
++            <a href="{{ url_for('project.export_kml', project_id=project.id) }}" class="btn btn-success">
+
++                <i class="bi bi-download"></i> Export KML
+
++            </a>
+
++        </div>
+
++    </div>
+
++
+
++    {% set setup = project.setup or {} %}
+
++    <div class="card shadow-sm mb-4">
+
++        <div class="card-body">
+
++            <div class="d-flex justify-content-between">
+
++                <strong>Project Setup / إعداد المشروع</strong>
+
++                <span class="badge {{ 'bg-success' if project.status == 'ready' else 'bg-warning text-dark' }}">
+
++                    {{ project.status }}
+
++                </span>
+
++            </div>
+
++            {% set completed = [setup.project, setup.land, setup.owner, setup.configuration, setup.rules, setup.tree_plan] | select | list | length %}
+
++            <div class="progress mt-3" role="progressbar">
+
++                <div class="progress-bar" style="width: {{ (completed / 6 * 100) | round(0) }}%">
+
++                    {{ completed }}/6
+
++                </div>
+
++            </div>
+
++            <div class="small text-muted mt-2">
+
++                Project → Land → Owner → Configuration → Rules → Tree Plan
+
++            </div>
+
++        </div>
+
++    </div>
+
++
+
++    <form method="POST" action="{{ url_for('project.save_setup', project_id=project.id) }}">
+
++        <div class="row g-4">
+
++            <div class="col-12">
+
++                <div class="card shadow-sm h-100">
+
++                    <div class="card-header bg-light">
+
++                        <h5 class="mb-0"><i class="bi bi-map"></i> Land / الأرض</h5>
+
++                    </div>
+
++                    <div class="card-body">
+
++                        {% set land = project.land or {} %}
+
++                        <div class="row g-3">
+
++                            <div class="col-md-3"><strong>Area</strong><br>{{ land.area_ha or '-' }} ha</div>
+
++                            <div class="col-md-3"><strong>Perimeter</strong><br>{{ land.perimeter_m or '-' }} m</div>
+
++                            <div class="col-md-3"><strong>Geometry</strong><br>{{ land.geometry_status or ('Detected' if land.boundary else 'Not set') }}</div>
+
++                            <div class="col-md-3"><strong>Source</strong><br>{{ (land.source_file.name if land.source_file else '-') }}</div>
+
++                        </div>
+
++                        <hr>
+
++                        <div class="row g-3">
+
++                            <div class="col-md-6">
+
++                                <strong>Center</strong><br>
+
++                                {% if land.centroid and land.centroid.coordinates %}
+
++                                    {{ land.centroid.coordinates[1] }}, {{ land.centroid.coordinates[0] }}
+
++                                {% else %}-{% endif %}
+
++                            </div>
+
++                            <div class="col-md-6">
+
++                                <strong>Water Source</strong><br>
+
++                                {% if project.water_source and project.water_source.coordinates %}
+
++                                    {{ project.water_source.coordinates[1] }}, {{ project.water_source.coordinates[0] }}
+
++                                {% else %}Not set / غير محدد{% endif %}
+
++                            </div>
+
++                        </div>
+
++                        <div class="mt-3">
+
++                            <a href="{{ url_for('project.detail', project_id=project.id) }}" class="btn btn-sm btn-outline-primary">
+
++                                Land is imported/managed from the project source file
+
++                            </a>
+
++                        </div>
+
++                    </div>
+
++                </div>
+
++            </div>
+
++
+
++            <div class="col-12">
+
++                <div class="card shadow-sm">
+
++                    <div class="card-header bg-light">
+
++                        <h5 class="mb-0"><i class="bi bi-person-badge"></i> Owner / المالك</h5>
+
++                    </div>
+
++                    <div class="card-body">
+
++                        {% set owner = project.owner or {} %}
+
++                        <div class="row g-3">
+
++                            <div class="col-md-3"><label class="form-label">Type</label>
+
++                                <select name="owner_type" class="form-select">
+
++                                    <option value="individual" {{ 'selected' if owner.type == 'individual' }}>Individual</option>
+
++                                    <option value="company" {{ 'selected' if owner.type == 'company' }}>Company</option>
+
++                                    <option value="co_ownership" {{ 'selected' if owner.type == 'co_ownership' }}>Co-ownership</option>
+
++                                </select>
+
++                            </div>
+
++                            <div class="col-md-5"><label class="form-label">Full Name *</label>
+
++                                <input name="owner_full_name" class="form-control" value="{{ owner.full_name or '' }}">
+
++                            </div>
+
++                            <div class="col-md-4"><label class="form-label">Company</label>
+
++                                <input name="owner_company" class="form-control" value="{{ owner.company or '' }}">
+
++                            </div>
+
++                            <div class="col-md-4"><label class="form-label">ID / Passport</label>
+
++                                <input name="owner_id_number" class="form-control" value="{{ owner.id_number or '' }}">
+
++                            </div>
+
++                            <div class="col-md-8"><label class="form-label">Address</label>
+
++                                <input name="owner_address" class="form-control" value="{{ owner.address or '' }}">
+
++                            </div>
+
++                            <div class="col-md-4"><label class="form-label">City</label>
+
++                                <input name="owner_city" class="form-control" value="{{ owner.city or '' }}">
+
++                            </div>
+
++                            <div class="col-md-4"><label class="form-label">Country</label>
+
++                                <input name="owner_country" class="form-control" value="{{ owner.country or '' }}">
+
++                            </div>
+
++                            <div class="col-md-4"><label class="form-label">Ownership %</label>
+
++                                <input name="owner_percent" type="number" min="0" max="100" step="0.01" class="form-control" value="{{ owner.ownership_percent or '' }}">
+
++                            </div>
+
++                            <div class="col-md-6"><label class="form-label">Phone</label>
+
++                                <input name="owner_phone" class="form-control" value="{{ owner.phone or '' }}">
+
++                            </div>
+
++                            <div class="col-md-6"><label class="form-label">Email</label>
+
++                                <input name="owner_email" type="email" class="form-control" value="{{ owner.email or '' }}">
+
++                            </div>
+
++                            <div class="col-12"><label class="form-label">Notes</label>
+
++                                <textarea name="owner_notes" class="form-control">{{ owner.notes or '' }}</textarea>
+
++                            </div>
+
++                        </div>
+
++                    </div>
+
++                </div>
+
++            </div>
+
++
+
++            <div class="col-md-6">
+
++                <div class="card shadow-sm h-100">
+
++                    <div class="card-header bg-light"><h5 class="mb-0"><i class="bi bi-sliders"></i> Configuration / الإعدادات</h5></div>
+
++                    <div class="card-body">
+
++                        {% set c = project.configuration or {} %}
+
++                        <div class="mb-3"><label class="form-label">Irrigation Method</label><input name="irrigation_method" class="form-control" value="{{ c.irrigation_method or '' }}" placeholder="Drip"></div>
+
++                        <div class="mb-3"><label class="form-label">Water Source Type</label><input name="water_source_type" class="form-control" value="{{ c.water_source_type or '' }}" placeholder="Well"></div>
+
++                        <div class="mb-3"><label class="form-label">Irrigation System</label><input name="irrigation_system" class="form-control" value="{{ c.irrigation_system or '' }}" placeholder="Automatic"></div>
+
++                        <div class="mb-3"><label class="form-label">Energy Source</label><input name="energy_source" class="form-control" value="{{ c.energy_source or '' }}" placeholder="Solar"></div>
+
++                        <div class="row">
+
++                            <div class="col-6"><label class="form-label">Design Flow (L/s)</label><input name="design_flow_lps" type="number" step="any" class="form-control" value="{{ c.design_flow_lps or '' }}"></div>
+
++                            <div class="col-6"><label class="form-label">Pressure (bar)</label><input name="available_pressure_bar" type="number" step="any" class="form-control" value="{{ c.available_pressure_bar or '' }}"></div>
+
++                        </div>
+
++                        <div class="mt-3"><label class="form-label">Pump</label><input name="pump" class="form-control" value="{{ c.pump or '' }}"></div>
+
++                    </div>
+
++                </div>
+
++            </div>
+
++
+
++            <div class="col-md-6">
+
++                <div class="card shadow-sm h-100">
+
++                    <div class="card-header bg-light"><h5 class="mb-0"><i class="bi bi-list-check"></i> Rules / القواعد</h5></div>
+
++                    <div class="card-body">
+
++                        {% set r = project.rules or {} %}
+
++                        <div class="row g-3">
+
++                            <div class="col-6"><label class="form-label">Max Sector Flow (L/s)</label><input name="max_sector_flow_lps" type="number" step="any" class="form-control" value="{{ r.max_sector_flow_lps or '' }}"></div>
+
++                            <div class="col-6"><label class="form-label">Max Pipe Velocity (m/s)</label><input name="max_pipe_velocity_ms" type="number" step="any" class="form-control" value="{{ r.max_pipe_velocity_ms or '' }}"></div>
+
++                            <div class="col-6"><label class="form-label">Min Pressure (bar)</label><input name="min_pressure_bar" type="number" step="any" class="form-control" value="{{ r.min_pressure_bar or '' }}"></div>
+
++                            <div class="col-6"><label class="form-label">Max Pressure (bar)</label><input name="max_pressure_bar" type="number" step="any" class="form-control" value="{{ r.max_pressure_bar or '' }}"></div>
+
++                            <div class="col-6"><label class="form-label">Max Irrigation (min)</label><input name="max_irrigation_minutes" type="number" class="form-control" value="{{ r.max_irrigation_minutes or '' }}"></div>
+
++                            <div class="col-6"><label class="form-label">Max Slope (%)</label><input name="max_slope_percent" type="number" step="any" class="form-control" value="{{ r.max_slope_percent or '' }}"></div>
+
++                            <div class="col-6"><label class="form-label">Min Tree Spacing (m)</label><input name="min_tree_spacing_m" type="number" step="any" class="form-control" value="{{ r.min_tree_spacing_m or '' }}"></div>
+
++                            <div class="col-6"><label class="form-label">Min Row Spacing (m)</label><input name="min_row_spacing_m" type="number" step="any" class="form-control" value="{{ r.min_row_spacing_m or '' }}"></div>
+
++                        </div>
+
++                        <div class="form-check mt-3"><input class="form-check-input" type="checkbox" name="auto_zone_split" {{ 'checked' if r.auto_zone_split }}><label class="form-check-label">Allow automatic zone split</label></div>
+
++                        <div class="form-check"><input class="form-check-input" type="checkbox" name="auto_optimization" {{ 'checked' if r.auto_optimization }}><label class="form-check-label">Allow automatic optimization</label></div>
+
++                    </div>
+
++                </div>
+
++            </div>
+
++
+
++            <div class="col-12">
+
++                {% set plans = project.tree_plans or [] %}
+
++                {% set t = plans[0] if plans else {} %}
+
++                <div class="card shadow-sm">
+
++                    <div class="card-header bg-light"><h5 class="mb-0"><i class="bi bi-tree"></i> Tree Plan / مخطط الأشجار</h5></div>
+
++                    <div class="card-body">
+
++                        <div class="row g-3">
+
++                            <div class="col-md-4"><label class="form-label">Crop</label><input name="tree_crop" class="form-control" value="{{ t.crop or '' }}" placeholder="Olive"></div>
+
++                            <div class="col-md-4"><label class="form-label">Variety</label><input name="tree_variety" class="form-control" value="{{ t.variety or '' }}"></div>
+
++                            <div class="col-md-4"><label class="form-label">Plantation Type</label><input name="tree_plantation_type" class="form-control" value="{{ t.plantation_type or '' }}"></div>
+
++                            <div class="col-md-3"><label class="form-label">Row Spacing (m)</label><input name="tree_row_spacing_m" type="number" step="any" class="form-control" value="{{ t.row_spacing_m or '' }}"></div>
+
++                            <div class="col-md-3"><label class="form-label">Tree Spacing (m)</label><input name="tree_spacing_m" type="number" step="any" class="form-control" value="{{ t.tree_spacing_m or '' }}"></div>
+
++                            <div class="col-md-3"><label class="form-label">Row Orientation</label><input name="tree_row_orientation" class="form-control" value="{{ t.row_orientation or '' }}" placeholder="Automatic"></div>
+
++                            <div class="col-md-3"><label class="form-label">Trees / ha</label><input name="tree_density" type="number" step="any" class="form-control" value="{{ t.expected_trees_per_ha or '' }}"></div>
+
++                            <div class="col-md-6"><label class="form-label">Rootstock</label><input name="tree_rootstock" class="form-control" value="{{ t.rootstock or '' }}"></div>
+
++                            <div class="col-md-6"><label class="form-label">Planting Year</label><input name="tree_planting_year" type="number" class="form-control" value="{{ t.planting_year or '' }}"></div>
+
++                        </div>
+
++                    </div>
+
++                </div>
+
++            </div>
+
++        </div>
+
++
+
++        <div class="d-flex justify-content-end mt-4">
+
++            <button class="btn btn-success btn-lg px-4" type="submit">
+
++                <i class="bi bi-save"></i> Save Project Setup / حفظ إعدادات المشروع
+
++            </button>
+
++        </div>
+
++    </form>
+
++
+
++    <div class="card shadow-sm mt-4">
+
++        <div class="card-header"><h5 class="mb-0"><i class="bi bi-diagram-3"></i> Project Progress / تقدم المشروع</h5></div>
+
++        <div class="card-body">
+
++            <div class="row text-center">
+
++                <div class="col"><strong>{{ counts.sectors }}</strong><br>Sectors</div>
+
++                <div class="col"><strong>{{ counts.zones }}</strong><br>Zones</div>
+
++                <div class="col"><strong>{{ counts.network }}</strong><br>Network</div>
+
++                <div class="col"><strong>{{ counts.tree_rows }}</strong><br>Rows</div>
+
++                <div class="col"><strong>{{ counts.trees }}</strong><br>Trees</div>
+
++            </div>
+
++        </div>
+
++    </div>
+
++</div>
+
++{% endblock %}
+
+--- /dev/null
++++ a/irrigation/utils/land.py
+@@ -0,0 +1,56 @@
++"""Land geometry extraction and summary helpers for Project setup."""
+
++from shapely.geometry import shape, mapping
+
++from shapely.ops import transform
+
++from pyproj import CRS, Transformer
+
++
+
++
+
++def _metric_transformer(geometry):
+
++    centroid = geometry.centroid
+
++    lon = centroid.x
+
++    lat = centroid.y
+
++    zone = int((lon + 180) / 6) + 1
+
++    epsg = 32600 + zone if lat >= 0 else 32700 + zone
+
++    transformer = Transformer.from_crs(
+
++        CRS.from_epsg(4326), CRS.from_epsg(epsg), always_xy=True
+
++    )
+
++    return transformer
+
++
+
++
+
++def build_land_summary(boundary=None, water_source=None,
+
++                       source_file=None, source_type=None):
+
++    result = {
+
++        'boundary': boundary,
+
++        'area_m2': None,
+
++        'area_ha': None,
+
++        'perimeter_m': None,
+
++        'centroid': None,
+
++        'geometry_status': 'not_set',
+
++        'source_file': (
+
++            {'name': source_file, 'type': source_type}
+
++            if source_file else None
+
++        )
+
++    }
+
++    if not boundary:
+
++        return result
+
++
+
++    try:
+
++        geometry = shape(boundary)
+
++        if geometry.is_empty:
+
++            return result
+
++
+
++        if geometry.geom_type not in ('Polygon', 'MultiPolygon'):
+
++            result['geometry_status'] = 'invalid_type'
+
++            return result
+
++
+
++        result['geometry_status'] = 'valid' if geometry.is_valid else 'invalid'
+
++        result['centroid'] = mapping(geometry.centroid)
+
++
+
++        transformer = _metric_transformer(geometry)
+
++        metric_geometry = transform(transformer.transform, geometry)
+
++        result['area_m2'] = round(metric_geometry.area, 2)
+
++        result['area_ha'] = round(metric_geometry.area / 10000.0, 4)
+
++        result['perimeter_m'] = round(metric_geometry.length, 2)
+
++    except Exception:
+
++        result['geometry_status'] = 'invalid'
+
++
+
++    return result
+
+--- /dev/null
++++ a/irrigation/utils/cad.py
+@@ -0,0 +1,67 @@
++"""AutoCAD DXF import helpers for Project setup.
+
++
+
++DXF coordinates are treated as WGS84 longitude/latitude coordinates.
+
++For projected/local CAD drawings, the user should georeference/convert the
+
++drawing to WGS84 before importing.
+
++"""
+
++import ezdxf
+
++from shapely.geometry import Point, LineString, Polygon, mapping
+
++
+
++
+
++def _entity_geometry(entity):
+
++    dxftype = entity.dxftype()
+
++
+
++    if dxftype == 'POINT':
+
++        p = entity.dxf.location
+
++        return Point(p.x, p.y)
+
++
+
++    if dxftype == 'LINE':
+
++        start = entity.dxf.start
+
++        end = entity.dxf.end
+
++        return LineString([(start.x, start.y), (end.x, end.y)])
+
++
+
++    if dxftype == 'LWPOLYLINE':
+
++        points = [(p[0], p[1]) for p in entity.get_points()]
+
++        if len(points) < 2:
+
++            return None
+
++        closed = bool(entity.closed)
+
++        if closed and len(points) >= 3:
+
++            return Polygon(points)
+
++        return LineString(points)
+
++
+
++    if dxftype == 'POLYLINE':
+
++        points = [
+
++            (vertex.dxf.location.x, vertex.dxf.location.y)
+
++            for vertex in entity.vertices
+
++        ]
+
++        if len(points) < 2:
+
++            return None
+
++        closed = bool(entity.is_closed)
+
++        if closed and len(points) >= 3:
+
++            return Polygon(points)
+
++        return LineString(points)
+
++
+
++    return None
+
++
+
++
+
++def parse_dxf_file(path):
+
++    document = ezdxf.readfile(path)
+
++    modelspace = document.modelspace()
+
++    features = []
+
++
+
++    for index, entity in enumerate(modelspace):
+
++        try:
+
++            geometry = _entity_geometry(entity)
+
++        except Exception:
+
++            continue
+
++        if geometry is None or geometry.is_empty:
+
++            continue
+
++
+
++        features.append({
+
++            'name': entity.dxf.layer or f'DXF {index + 1}',
+
++            'geometry': mapping(geometry),
+
++            'source': 'dxf',
+
++            'entity_type': entity.dxftype()
+
++        })
+
++
+
++    return features
+
+--- /dev/null
++++ a/irrigation/__init__.py
+@@ -0,0 +1,57 @@
++import os
+
++from flask import Flask, render_template
+
++from irrigation.extensions import mongo, login_manager
+
++from irrigation.utils.logger import setup_logging
+
++
+
++__version__ = '0.4.0'
+
++
+
++
+
++def create_app():
+
++    app = Flask(__name__, instance_relative_config=False)
+
++    app.config.from_object('config.Config')
+
++
+
++    os.makedirs(app.config.get('UPLOAD_FOLDER', 'uploads'), exist_ok=True)
+
++
+
++    # Extensions
+
++    mongo.init_app(app)
+
++    login_manager.init_app(app)
+
++
+
++    # Logging
+
++    setup_logging(app)
+
++    app.logger.info("Irrigation Planner starting up...")
+
++
+
++    from irrigation.models import serialize_doc
+
++
+
++    @login_manager.user_loader
+
++    def load_user(user_id):
+
++        from irrigation.auth.user import User
+
++        user_doc = mongo.db.users.find_one({'id': int(user_id)})
+
++        if user_doc:
+
++            return User(user_doc)
+
++        return None
+
++
+
++    from irrigation.auth.routes import auth_bp
+
++    from irrigation.project.routes import project_bp
+
++    from irrigation.geometry.routes import geometry_bp
+
++    from irrigation.hydrology.routes import hydrology_bp
+
++    from irrigation.trees.routes import trees_bp
+
++    from irrigation.api.routes import api_bp
+
++    from irrigation.engineering.routes import engineering_bp
+
++
+
++    app.register_blueprint(auth_bp)
+
++    app.register_blueprint(project_bp)
+
++    app.register_blueprint(geometry_bp)
+
++    app.register_blueprint(hydrology_bp)
+
++    app.register_blueprint(trees_bp)
+
++    app.register_blueprint(api_bp)
+
++    app.register_blueprint(engineering_bp, url_prefix='/engineering')
+
++
+
++    @app.errorhandler(404)
+
++    def not_found(e):
+
++        return render_template('errors/404.html'), 404
+
++
+
++    @app.errorhandler(500)
+
++    def server_error(e):
+
++        return render_template('errors/500.html'), 500
+
++
+
++    return app
+
+--- a/requirements.txt
++++ b/requirements.txt
+@@ -9,3 +9,4 @@
+ python-dotenv==1.0.0
+
+ pyproj==3.6.1
+
+ numpy==1.26.3
+
++ezdxf==1.4.2
+
+--- a/README.md
++++ b/README.md
+@@ -1,12 +1,14 @@
+ # FIS (Farming Irrigation System)
+
+ 
+
+-Version: **0.3.7**
+
++Version: **0.4.0**
+
+ 
+
+ FIS is a Flask irrigation-planning application for organizing farm projects, field geometry, irrigation networks, trees, and engineering validation.
+
+ 
+
+ ## Features
+
+ 
+
+ - Manage projects, boundaries, sectors, zones, rows, and trees.
+
++- Project setup with mandatory project names, optional KML/KMZ/DXF/DWG source files, and automatic Land summaries.
+
++- Capture Owner, Configuration, Rules, and Tree Plan information as part of Project setup.
+
+ - Import KML/KMZ geometry, including field boundaries and sector features.
+
+ - Draw polygons, lines, and markers with the Geometry map editor.
+
+ - Select and multi-select sectors/zones from the map and sync them with table actions.
+
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,4 +1,30 @@
+ # Changelog
+
++
+
++## 0.4.0 - 2026-10-08
+
++
+
++### Added
+
++
+
++- Reworked Project creation into a Project Setup workflow.
+
++- Require a project name when creating a project.
+
++- Allow an initial KML, KMZ, DXF, or DWG file to be linked during project creation.
+
++- Automatically extract Land boundary, area, perimeter, centroid, water source, and imported sectors when supported.
+
++- Add Project cards for Land, Owner, Configuration, Rules, and Tree Plan.
+
++- Add Project setup completion tracking and draft/ready status.
+
++- Add DXF parsing through `ezdxf`.
+
++
+
++### Changed
+
++
+
++- Project detail now uses database counts instead of loading all geometry/tree documents.
+
++- Preserve uploaded DWG files while clearly marking that geometry extraction requires conversion.
+
++- Store Project setup data in structured project fields for later Geometry/Hydrology/Trees/Report workflows.
+
++
+
++### Fixed
+
++
+
++- Reject empty Project names.
+
++- Validate manual water-source coordinates and closed manual boundaries.
+
++- Make project deletion verify ownership before deleting dependent data.
+
++
+
++## 0.3.7 - 2026-10-05
+
+ 
+
+ ## 0.3.7 - 2026-10-05
+
+ 
+
