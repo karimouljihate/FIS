@@ -33,6 +33,7 @@ def _default_spec():
             {'variety_en': 'Almond', 'variety_ar': 'لوز', 'percentage': 40, 'scope': 'per_sector', 'tree_spacing_m': 6.0},
         ],
         'land_documents': [],
+        'water_sources': [],
     }
 
 
@@ -91,6 +92,43 @@ def _spec_from_form(request):
             'tree_spacing_m': spacing,
         })
 
+    # Water sources (wells, basins, other)
+    ws_types = request.form.getlist('ws_type')
+    ws_names = request.form.getlist('ws_name')
+    ws_lats = request.form.getlist('ws_lat')
+    ws_lngs = request.form.getlist('ws_lng')
+    ws_flows = request.form.getlist('ws_flow_lpm')
+    ws_notes = request.form.getlist('ws_notes')
+    water_sources = []
+    for i, wtype in enumerate(ws_types):
+        wtype = wtype.strip().lower()
+        name = ws_names[i].strip() if i < len(ws_names) else ''
+        lat_s = ws_lats[i].strip() if i < len(ws_lats) else ''
+        lng_s = ws_lngs[i].strip() if i < len(ws_lngs) else ''
+        if not wtype and not name and not lat_s:
+            continue
+        try:
+            lat = float(lat_s) if lat_s else None
+        except ValueError:
+            lat = None
+        try:
+            lng = float(lng_s) if lng_s else None
+        except ValueError:
+            lng = None
+        flow_s = ws_flows[i].strip() if i < len(ws_flows) else ''
+        try:
+            flow = float(flow_s) if flow_s else None
+        except ValueError:
+            flow = None
+        water_sources.append({
+            'type': wtype or 'other',
+            'name': name,
+            'lat': lat,
+            'lng': lng,
+            'flow_lpm': flow,
+            'notes': ws_notes[i].strip() if i < len(ws_notes) else '',
+        })
+
     return {
         'owner': {
             'name': f('owner_name'),
@@ -111,6 +149,7 @@ def _spec_from_form(request):
             'max_zones_per_sector': f('max_zones_per_sector', int, 8),
         },
         'tree_plan': tree_plan or _default_spec()['tree_plan'],
+        'water_sources': water_sources,
     }
 
 
@@ -267,16 +306,24 @@ def settings(project_id):
     spec['land_documents'] = _land_documents_from_request(
         project_id, (project.get('spec') or {}).get('land_documents') or []
     )
+
+    # Keep the legacy single Point (used by regeneration/hydrology/elevation
+    # and KML export) in sync with the first water source that has a position.
+    update_fields = {'spec': spec}
+    for w in spec['water_sources']:
+        if w.get('lat') is not None and w.get('lng') is not None:
+            update_fields['water_source'] = {
+                'type': 'Point',
+                'coordinates': [w['lng'], w['lat']]
+            }
+            break
     if 'location' in request.form:
-        mongo.db.projects.update_one(
-            {'id': project_id, 'user_id': int(current_user.id)},
-            {'$set': {'spec': spec, 'location': request.form.get('location', '').strip()}}
-        )
-    else:
-        mongo.db.projects.update_one(
-            {'id': project_id, 'user_id': int(current_user.id)},
-            {'$set': {'spec': spec}}
-        )
+        update_fields['location'] = request.form.get('location', '').strip()
+
+    mongo.db.projects.update_one(
+        {'id': project_id, 'user_id': int(current_user.id)},
+        {'$set': update_fields}
+    )
     flash('Project settings saved / تم حفظ إعدادات المشروع', 'success')
     return redirect(url_for('project.detail', project_id=project_id))
 

@@ -252,6 +252,67 @@
         
         </div>
         <div class="row mb-2">
+            <div class="col-12">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header">
+                        <div class="row">
+                            <div class="col text-start" style="flex: 0 0 25%; max-width: 25%;">Water Sources</div>
+                            <div class="col text-center" style="flex: 0 0 50%; max-width: 50%;"><i class="bi bi-droplet-half"></i></div>
+                            <div class="col text-end" style="flex: 0 0 25%; max-width: 25%;">مصادر المياه</div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-sm">
+                            <thead>
+                                <tr>
+                                    <th>Type / النوع</th>
+                                    <th>Name / الاسم</th>
+                                    <th>Location / الموقع</th>
+                                    <th class="text-end">Flow (L/min) / التدفق</th>
+                                    <th>Notes / ملاحظات</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for w in spec.water_sources %}
+                                <tr>
+                                    <td>
+                                        {% if w.type == 'well' %}
+                                        <span class="badge bg-primary"><i class="bi bi-droplet"></i> Well / بئر</span>
+                                        {% elif w.type == 'basin' %}
+                                        <span class="badge bg-info"><i class="bi bi-bucket"></i> Basin / حوض</span>
+                                        {% elif w.type == 'reservoir' %}
+                                        <span class="badge bg-success"><i class="bi bi-water"></i> Reservoir / خزان</span>
+                                        {% elif w.type == 'pump' %}
+                                        <span class="badge bg-warning text-dark"><i class="bi bi-power"></i> Pump / مضخة</span>
+                                        {% elif w.type == 'canal' %}
+                                        <span class="badge bg-secondary"><i class="bi bi-signpost-split"></i> Canal / قناة</span>
+                                        {% else %}
+                                        <span class="badge bg-dark"><i class="bi bi-question-circle"></i> Other / أخرى</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ w.name or '-' }}</td>
+                                    <td>
+                                        {% if w.lat is not none and w.lng is not none %}
+                                        [{{ w.lat }}, {{ w.lng }}]
+                                        {% else %}
+                                        <span class="text-muted">-</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="text-end">{{ w.flow_lpm if w.flow_lpm is not none else '-' }}</td>
+                                    <td>{{ w.notes or '-' }}</td>
+                                </tr>
+                                {% else %}
+                                <tr>
+                                    <td colspan="5" class="text-muted text-center">No water sources / لا توجد مصادر مياه</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="row mb-2">
             <div class="col-md-6">
                 <div class="card shadow-sm h-100">
                     <div class="card-header">
@@ -597,6 +658,77 @@
                         <i class="bi bi-plus-circle"></i> Add Document /
                         إضافة وثيقة
                     </button>
+
+                    <h6 class="text-primary mt-3"><i class="bi bi-droplet-half"></i>
+                        Water Sources / مصادر المياه</h6>
+                    <table class="table table-sm" id="waterSourcesTable">
+                        <thead>
+                            <tr>
+                                <th style="width: 16%;">Type / النوع</th>
+                                <th style="width: 18%;">Name / الاسم</th>
+                                <th style="width: 13%;">Lat / خط العرض</th>
+                                <th style="width: 13%;">Lng / خط الطول</th>
+                                <th style="width: 13%;">Flow (L/min) /
+                                    التدفق</th>
+                                <th style="width: 21%;">Notes /
+                                    ملاحظات</th>
+                                <th style="width: 6%;"></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for w in spec.water_sources %}
+                            <tr>
+                                <td>
+                                    <select name="ws_type" class="form-select">
+                                        <option value="well" {% if w.type ==
+                                            'well' %} selected{% endif %}>Well
+                                            / بئر</option>
+                                        <option value="basin" {% if w.type ==
+                                            'basin' %} selected{% endif %}>Basin
+                                            / حوض</option>
+                                        <option value="reservoir" {% if w.type
+                                            == 'reservoir' %} selected{%
+                                            endif %}>Reservoir / خزان</option>
+                                        <option value="pump" {% if w.type ==
+                                            'pump' %} selected{% endif %}>Pump
+                                            / مضخة</option>
+                                        <option value="canal" {% if w.type ==
+                                            'canal' %} selected{% endif %}>Canal
+                                            / قناة</option>
+                                        <option value="other" {% if w.type ==
+                                            'other' %} selected{% endif %}>Other
+                                            / أخرى</option>
+                                    </select>
+                                </td>
+                                <td><input type="text" name="ws_name"
+                                        class="form-control" value="{{ w.name }}"></td>
+                                <td><input type="number" step="any"
+                                        name="ws_lat" class="form-control"
+                                        value="{{ w.lat if w.lat is not none }}"></td>
+                                <td><input type="number" step="any"
+                                        name="ws_lng" class="form-control"
+                                        value="{{ w.lng if w.lng is not none }}"></td>
+                                <td><input type="number" step="0.1" min="0"
+                                        name="ws_flow_lpm" class="form-control"
+                                        value="{{ w.flow_lpm if w.flow_lpm is not none }}"></td>
+                                <td><input type="text" name="ws_notes"
+                                        class="form-control" value="{{ w.notes }}"></td>
+                                <td>
+                                    <button type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        onclick="this.closest('tr').remove()">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-outline-success"
+                        id="addWaterSourceRow">
+                        <i class="bi bi-plus-circle"></i> Add Source /
+                        إضافة مصدر
+                    </button>
                 </div>
 
                 <div class="modal-footer">
@@ -669,6 +801,30 @@ document.addEventListener('DOMContentLoaded', function() {
             <td><input type="text" name="doc_reference" class="form-control"></td>
             <td><input type="text" name="doc_notes" class="form-control"></td>
             <td><input type="file" name="doc_file" class="form-control form-control-sm"></td>
+            <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>`;
+        tbody.appendChild(tr);
+    });
+
+    // Add a new water source row
+    document.getElementById('addWaterSourceRow').addEventListener('click', function() {
+        const tbody = document.querySelector('#waterSourcesTable tbody');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td>
+                <select name="ws_type" class="form-select">
+                    <option value="well" selected>Well / بئر</option>
+                    <option value="basin">Basin / حوض</option>
+                    <option value="reservoir">Reservoir / خزان</option>
+                    <option value="pump">Pump / مضخة</option>
+                    <option value="canal">Canal / قناة</option>
+                    <option value="other">Other / أخرى</option>
+                </select>
+            </td>
+            <td><input type="text" name="ws_name" class="form-control"></td>
+            <td><input type="number" step="any" name="ws_lat" class="form-control"></td>
+            <td><input type="number" step="any" name="ws_lng" class="form-control"></td>
+            <td><input type="number" step="0.1" min="0" name="ws_flow_lpm" class="form-control"></td>
+            <td><input type="text" name="ws_notes" class="form-control"></td>
             <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="this.closest('tr').remove()"><i class="bi bi-trash"></i></button></td>`;
         tbody.appendChild(tr);
     });

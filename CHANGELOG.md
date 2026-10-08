@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.24 - 2026-10-08
+
+### Added
+
+- **Water Sources card** on the project page: lists all declared water sources with a type badge (Well / Basin / Reservoir / Pump / Canal / Other, bilingual EN/AR), name, coordinates, flow rate (L/min) and notes; shows an empty-state row when none exist.
+- **Water Sources section** in the Edit Project modal: dynamic add/remove rows for multiple sources, each with type, name, lat, lng, flow (L/min) and notes. Saved into `spec.water_sources`.
+- Legacy single `project.water_source` Point is kept in sync with the first water source that has coordinates, so regeneration, hydrology, elevation and KML export continue to work unchanged.
+
+### Changed
+
+- The settings route now builds one `$set` update (spec + optional location + optional water source Point) instead of branching per field.
+
 ## 0.3.23 - 2026-10-08
 
 ### Changed
