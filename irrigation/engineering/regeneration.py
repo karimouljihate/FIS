@@ -383,6 +383,100 @@ def _try_partition(polygon, n_parts, angle, water_source_point=None,
     return {'parts': original_parts, 'score': score, 'angle': angle}
 
 
+def _split_polygon_by_elevation(polygon, n_parts, elevation_model):
+    """Partition a polygon into equal-area bands that follow the terrain
+    gradient (fall line), so sectors run along elevation contours.
+
+    Cells inside the polygon are ordered by their projection onto the
+    dominant gradient direction and split into ``n_parts`` equal-area
+    contour bands (low elevation → high elevation).
+
+    Returns the bands as a list of Polygon/MultiPolygon, or ``[]`` when
+    the elevation data is unusable (too few samples / flat terrain).
+    """
+    if elevation_model is None or n_parts < 2:
+        return []
+    samples = [s for s in elevation_model.get('samples') or [] if s.get('elevation_m') is not None]
+    if len(samples) < 2:
+        return []
+
+    poly = polygon if isinstance(polygon, Polygon) else _largest_polygon(polygon)
+    if poly is None or poly.is_empty:
+        return []
+
+    sx = np.array([s['x'] for s in samples], dtype=float)
+    sy = np.array([s['y'] for s in samples], dtype=float)
+    sz = np.array([s['elevation_m'] for s in samples], dtype=float)
+
+    # Least-squares planar fit z = a*x + b*y + c → gradient vector (a, b)
+    try:
+        coef, *_ = np.linalg.lstsq(
+            np.column_stack([sx, sy, np.ones_like(sx)]), sz, rcond=None
+        )
+        ga, gb = float(coef[0]), float(coef[1])
+    except Exception:
+        return []
+    if math.hypot(ga, gb) < 1e-9:
+        return []  # flat terrain — weight has no discriminating direction
+
+    minx, miny, maxx, maxy = poly.bounds
+    width, height = maxx - minx, maxy - miny
+    if width <= 0 or height <= 0:
+        return []
+
+    cell = max(min(width, height) / 64.0, 1.0)
+    cols = max(4, int(width / cell) + 1)
+    rows = max(4, int(height / cell) + 1)
+    if cols * rows > 8000:
+        scale = math.sqrt((cols * rows) / 8000.0)
+        cols, rows = max(4, int(cols / scale)), max(4, int(rows / scale))
+
+    xs = np.linspace(minx + cell / 2.0, maxx - cell / 2.0, cols)
+    ys = np.linspace(miny + cell / 2.0, maxy - cell / 2.0, rows)
+    gx, gy = np.meshgrid(xs, ys)
+    pts = np.column_stack([gx.ravel(), gy.ravel()])
+
+    inside = np.array([poly.covers(Point(float(x), float(y))) for x, y in pts])
+    cells_xy = pts[inside]
+    if len(cells_xy) < n_parts:
+        return []
+
+    # Order cells along the fall line and cut them into equal-area bands.
+    proj = cells_xy[:, 0] * ga + cells_xy[:, 1] * gb
+    order = np.argsort(proj)
+
+    parts = []
+    for grp in np.array_split(order, n_parts):
+        band = cells_xy[grp]
+        squares = [
+            box(float(cx) - cell / 2.0, float(cy) - cell / 2.0,
+                float(cx) + cell / 2.0, float(cy) + cell / 2.0)
+            for cx, cy in band
+        ]
+        try:
+            part = unary_union(squares)
+            if part.is_empty:
+                continue
+            if not part.is_valid:
+                part = part.buffer(0)
+            parts.append(part.simplify(max(cell * 0.25, 0.5), preserve_topology=True))
+        except Exception:
+            continue
+
+    return parts
+
+
+def _try_elevation_partition(polygon, n_parts, elevation_model, water_source_point=None,
+                             water_source_elevation=None, weights=None):
+    """Build an elevation contour-band partition and score it."""
+    parts = _split_polygon_by_elevation(polygon, n_parts, elevation_model)
+    if len(parts) < n_parts:
+        return None
+    score = _score_partition(parts, water_source_point, elevation_model,
+                             water_source_elevation, weights)
+    return {'parts': parts, 'score': score, 'angle': 'elevation'}
+
+
 def regenerate_sectors(project_id, n_sectors=None, config=None):
     """AI regeneration: optimally divide land boundary into sectors.
 
@@ -491,7 +585,13 @@ def regenerate_sectors(project_id, n_sectors=None, config=None):
             # Elevation fetch failed — continue with 2D scoring
             pass
 
-    weights = _weights_for_preset(priority, elevation_model is not None)
+    has_elevation = elevation_model is not None and bool(elevation_model.get('stats'))
+    if elevation_model is not None and not has_elevation:
+        # Elevation fetch produced no usable data — fall back to 2D scoring.
+        elevation_model = None
+        water_source_elevation = None
+
+    weights = _weights_for_preset(priority, has_elevation)
 
     # Try all angles and find the best partition
     best_result = None
@@ -505,6 +605,16 @@ def regenerate_sectors(project_id, n_sectors=None, config=None):
         if result and result['score'] > best_score:
             best_score = result['score']
             best_result = result
+
+    # Elevation-aware contour bands, when real terrain data is available.
+    if has_elevation:
+        elev_result = _try_elevation_partition(
+            boundary_shapely, n_sectors, elevation_model,
+            water_point, water_source_elevation, weights
+        )
+        if elev_result and elev_result['score'] > best_score:
+            best_score = elev_result['score']
+            best_result = elev_result
 
     if not best_result:
         # Fallback: simple grid
@@ -525,10 +635,11 @@ def regenerate_sectors(project_id, n_sectors=None, config=None):
 
     ai_config_summary = {
         'n_sectors': n_sectors,
-        'use_elevation': use_elevation and elevation_model is not None,
+        'use_elevation': has_elevation,
         'water_source_mode': water_mode,
         'priority': priority,
         'inset_m': inset_m,
+        'strategy': best_result.get('angle') if isinstance(best_result.get('angle'), str) else 'strips',
     }
 
     for i, part in enumerate(best_result['parts']):

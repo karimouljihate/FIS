@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.33 - 2026-10-09
+
+### Fixed
+
+- **AI Generate Sectors ignored elevation**: two root causes fixed. (1) A failed or empty elevation fetch was still treated as "usable" (and cached forever), so the elevation scoring terms collapsed to neutral constants and the elevation toggle had no effect. Elevation is now only considered usable when the model contains real samples/stats; empty cached models are discarded and rebuilt, and models without data are no longer cached. (2) The partition search only produced straight equal-area strips, which spread each strip across the full elevation range, so the elevation criteria could not discriminate between candidates.
+
+### Added
+
+- **Elevation contour-band sectorization**: when real terrain data is available, sectors are now partitioned into equal-area bands that follow the dominant ground gradient (fall line/contours) — cells inside the boundary are projected onto the fitted elevation-gradient direction and cut into equal-area bands. This candidate is scored alongside the strip partitions and wins when terrain makes it better, producing terrain-aware sector positions (low → high elevation). Flat terrain or missing data falls back to the existing strip strategy.
+
 ## 0.3.32 - 2026-10-09
 
 ### Added

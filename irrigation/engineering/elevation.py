@@ -263,8 +263,17 @@ def get_or_build_elevation_model(project_id, project_doc, spacing_m=None, max_po
     })
 
     if cached_model:
-        cached_model['_id'] = str(cached_model['_id'])
-        return cached_model
+        # Discard a stale cached model that has no usable elevation values
+        # (e.g. an earlier API failure) so it is rebuilt instead of forcing
+        # all terrain-aware scoring to stay neutral.
+        if cached_model.get('stats'):
+            cached_model['_id'] = str(cached_model['_id'])
+            return cached_model
+        mongo.db.project_elevation_models.delete_one({
+            'project_id': project_id,
+            'boundary_hash': boundary_hash,
+            'spacing_m': spacing_m
+        })
 
     # Build new elevation model
     lng, lat = get_project_centroid(project_doc)
@@ -363,11 +372,12 @@ def get_or_build_elevation_model(project_id, project_doc, spacing_m=None, max_po
         'created_at': datetime.utcnow()
     }
 
-    # Save to database
-    try:
-        mongo.db.project_elevation_models.insert_one(dict(model))
-    except Exception:
-        pass
+    # Save to database (only cache models that actually contain elevation data)
+    if stats:
+        try:
+            mongo.db.project_elevation_models.insert_one(dict(model))
+        except Exception:
+            pass
 
     model['_id'] = str(model.get('_id', ''))
 
