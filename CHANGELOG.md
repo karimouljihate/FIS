@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.27 - 2026-10-09
+
+### Added
+
+- **Sectors table action row**: a new first header row with icon-only circular buttons for Add, Remove, Split, Merge, Swap, AI Generate and Validate, mirroring the functionality of the existing toolbar buttons.
+
 ## 0.3.26 - 2026-10-09
 
 ### Added

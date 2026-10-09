@@ -56,6 +56,43 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
+                    <tr class="table-light">
+                        <th colspan="7" class="text-center">
+                            <button class="btn btn-circle btn-success" data-bs-toggle="modal"
+                                    data-bs-target="#addSectorModal" title="Add / إضافة">
+                                <i class="bi bi-plus-circle"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-danger" type="button"
+                                    onclick="removeSelectedSectors()" title="Remove / إزالة">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            {% if sectors|length >= 1 %}
+                            <button class="btn btn-circle btn-outline-warning" type="button"
+                                    onclick="openSplitSelected()" title="Split / تقسيم">
+                                <i class="bi bi-scissors"></i>
+                            </button>
+                            {% endif %}
+                            {% if sectors|length >= 2 %}
+                            <button class="btn btn-circle btn-outline-primary" data-bs-toggle="modal"
+                                    data-bs-target="#mergeModal" title="Merge / دمج">
+                                <i class="bi bi-union"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-primary" data-bs-toggle="modal"
+                                    data-bs-target="#swapModal" title="Swap / تبديل">
+                                <i class="bi bi-arrow-left-right"></i>
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-circle btn-warning" data-bs-toggle="modal"
+                                    data-bs-target="#aiGenerateModal" title="AI Generate / إنشاء بالذكاء الاصطناعي">
+                                <i class="bi bi-robot"></i>
+                            </button>
+                            <form method="POST" action="{{ url_for('geometry.sector_validate', project_id=project.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-circle btn-primary" title="Validate / التحقق">
+                                    <i class="bi bi-check-circle"></i>
+                                </button>
+                            </form>
+                        </th>
+                    </tr>
                     <tr>
                         <th width="40"><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
                         <th>ID</th>
