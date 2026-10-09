@@ -72,6 +72,35 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0" id="pipeTable">
                 <thead>
+                    <tr class="table-light">
+                        <th colspan="11" class="text-center">
+                            <button class="btn btn-circle btn-success" id="pipeHeaderAdd" type="button"
+                                    data-bs-toggle="modal" data-bs-target="#addZonePipeModal" title="Add / إضافة">
+                                <i class="bi bi-plus-circle"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-primary" id="pipeHeaderEdit" type="button"
+                                    onclick="openPipeEdit()" title="Edit / تعديل">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-info" id="pipeHeaderRename" type="button"
+                                    onclick="pipeEditorRenameSelected()" title="Rename / إعادة تسمية">
+                                <i class="bi bi-input-cursor-text"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-danger" id="pipeHeaderRemove" type="button"
+                                    onclick="pipeEditorRemoveSelected()" title="Remove / إزالة">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <button class="btn btn-circle btn-warning" type="button" data-bs-toggle="modal"
+                                    data-bs-target="#aiPipingModal" title="AI Generate / إنشاء بالذكاء الاصطناعي">
+                                <i class="bi bi-robot"></i>
+                            </button>
+                            <form method="POST" action="{{ url_for('hydrology.sub_pipe_validate', project_id=project.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-circle btn-primary" title="Validate / التحقق">
+                                    <i class="bi bi-check-circle"></i>
+                                </button>
+                            </form>
+                        </th>
+                    </tr>
                     <tr>
                         <th width="40"><input type="checkbox" id="selectAllPipes" onclick="toggleAllPipes(this)"></th>
                         <th>ID</th>
@@ -225,6 +254,12 @@ document.addEventListener('DOMContentLoaded', function() {
         trace: {
             main: { modalId: 'addMainPipeModal', fieldId: 'mpCoords' },
             zone: { modalId: 'addZonePipeModal', fieldId: 'subPipeCoords' }
+        },
+        selectors: {
+            add: '#pipeHeaderAdd',
+            edit: '#pipeHeaderEdit',
+            rename: '#pipeHeaderRename',
+            remove: '#pipeHeaderRemove'
         },
         urls: {
             update: '{{ url_for("hydrology.pipe_update", project_id=project.id, pipe_type="sub_pipe") }}',

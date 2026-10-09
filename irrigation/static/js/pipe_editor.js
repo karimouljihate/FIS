@@ -242,10 +242,9 @@
         }
         const selector = cfg.selectors && cfg.selectors[role];
         if (selector) {
-            const toolbarButton = document.querySelector(selector);
-            if (toolbarButton) {
+            document.querySelectorAll(selector).forEach(function (toolbarButton) {
                 toolbarButton.disabled = !enabled;
-            }
+            });
         }
     }
 
@@ -326,6 +325,7 @@
 
     window.openPipeRename = function (id) { openRenameById(id); };
     window.removePipeById = function (id) { removeByIds([id]); };
+    window.openPipeEdit = function () { openEdit(); };
     window.pipeEditorRenameSelected = function () { openRename(); };
     window.pipeEditorRemoveSelected = function () { removeSelected(); };
 })();

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.29 - 2026-10-09
+
+### Added
+
+- **Main Pipe and Zone Pipe tables**: a first header row with icon-only circular buttons for Add, Edit, Rename, Remove, AI Generate and Validate, mirroring the Sectors/Zones action rows. The Add/Edit/Rename/Remove buttons share the pipe editor's selection-aware enable/disable logic (`pipe_editor.js` now toggles all matching selector buttons, and exposes `openPipeEdit` for the Edit button).
+
 ## 0.3.28 - 2026-10-09
 
 ### Added
