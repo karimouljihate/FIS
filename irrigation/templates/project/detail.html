@@ -42,8 +42,16 @@
         </form>
         {% if project.kml_file %}
         <div class="mt-2">
-            <span class="badge bg-success"><i class="bi bi-check-circle"></i> {{
-                project.kml_file }}</span>
+            <button type="button" class="btn btn-success btn-sm"
+                data-bs-toggle="modal" data-bs-target="#kmlElementsModal"
+                title="View KML/KMZ elements / عرض عناصر الملف">
+                <i class="bi bi-check-circle"></i> {{ project.kml_file }}
+                <span class="badge bg-light text-dark">
+                    <i class="bi bi-diagram-3"></i>
+                    {{ (project.kml_features or [])|length }} elements /
+                    عناصر
+                </span>
+            </button>
         </div>
         {% endif %}
     </div>
@@ -739,6 +747,69 @@
                     </button>
                 </div>
             </form>
+        </div>
+    </div>
+</div>
+
+<!-- KML Elements Modal -->
+<div class="modal fade" id="kmlElementsModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header bg-info text-white">
+                <h5 class="modal-title"><i class="bi bi-file-earmark-code"></i> KML/KMZ Elements / عناصر الملف</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                {% set kml_features = project.kml_features or [] %}
+                {% set n_boundary = kml_features|selectattr('category', 'equalto', 'boundary')|list|length %}
+                {% set n_sector = kml_features|selectattr('category', 'equalto', 'sector')|list|length %}
+                {% set n_ws = kml_features|selectattr('category', 'equalto', 'water_source')|list|length %}
+                {% set n_overlay = kml_features|selectattr('category', 'equalto', 'overlay')|list|length %}
+                <div class="mb-2">
+                    <span class="badge bg-secondary">Total / المجموع: {{ kml_features|length }}</span>
+                    <span class="badge bg-success">{{ n_boundary }} Boundary / حدود</span>
+                    <span class="badge bg-primary">{{ n_sector }} Sectors / قطاعات</span>
+                    <span class="badge bg-info">{{ n_ws }} Water Sources / مصادر مياه</span>
+                    <span class="badge bg-dark">{{ n_overlay }} Overlays / تراكبات</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name / الاسم</th>
+                                <th>Category / التصنيف</th>
+                                <th>Geometry / الهندسة</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for f in kml_features %}
+                            <tr>
+                                <td>{{ loop.index }}</td>
+                                <td>{{ f.name or '-' }}</td>
+                                <td>
+                                    {% if f.category == 'boundary' %}
+                                    <span class="badge bg-success">Boundary / حدود</span>
+                                    {% elif f.category == 'sector' %}
+                                    <span class="badge bg-primary">Sector / قطاع</span>
+                                    {% elif f.category == 'water_source' %}
+                                    <span class="badge bg-info">Water Source / مصدر مياه</span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">Overlay / تراكب</span>
+                                    {% endif %}
+                                </td>
+                                <td>{{ f.geometry.type }}</td>
+                            </tr>
+                            {% else %}
+                            <tr><td colspan="4" class="text-center text-muted py-3">No elements / لا توجد عناصر</td></tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close / إغلاق</button>
+            </div>
         </div>
     </div>
 </div>

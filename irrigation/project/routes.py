@@ -356,6 +356,41 @@ def download_land_document(project_id, doc_index):
     return send_file(filepath, as_attachment=True, download_name=doc.get('file_original') or stored)
 
 
+def _classify_kml_water_source(name):
+    """Classify a KML point feature name into a water source type."""
+    n = (name or '').strip().lower()
+    if re.search(r'\b(well|bore|boring|puit)\b|بئر', n):
+        return 'well'
+    if re.search(r'\bbasin\b|حوض|أحواض', n):
+        return 'basin'
+    if re.search(r'\b(reservoir|tank)\b|خزان', n):
+        return 'reservoir'
+    if re.search(r'\bpump|مضخة|مضخه|مضحات', n):
+        return 'pump'
+    if re.search(r'\bcanal|قناة|ترعة|قنال|قنوات', n):
+        return 'canal'
+    if re.search(r'water|source|مياه|مصدر|عين|لاين|طريق|رواد|نهر|بركة', n):
+        return 'other'
+    return 'other'
+
+
+def _kml_point_latlng(feature):
+    """Return ``(lat, lng)`` of a KML Point / MultiPoint feature."""
+    geom_type = feature['geometry'].get('type')
+    try:
+        if geom_type == 'Point':
+            lng, lat = feature['geometry']['coordinates'][:2]
+            return float(lat), float(lng)
+        if geom_type == 'MultiPoint':
+            for pt in feature['geometry'].get('coordinates') or []:
+                if pt:
+                    lng, lat = pt[:2]
+                    return float(lat), float(lng)
+    except (TypeError, ValueError, IndexError):
+        pass
+    return None, None
+
+
 def _store_kml_features(project_id, project, filename, features):
     from shapely.geometry import shape as shp_shape
 
@@ -363,18 +398,14 @@ def _store_kml_features(project_id, project, filename, features):
         feature for feature in features
         if feature['geometry'].get('type') in ('Polygon', 'MultiPolygon')
     ]
+    point_features = [
+        feature for feature in features
+        if feature['geometry'].get('type') in ('Point', 'MultiPoint')
+    ]
     boundary_feature = max(
         polygon_features,
         key=lambda feature: shp_shape(feature['geometry']).area,
         default=None
-    )
-    water_feature = next(
-        (
-            feature for feature in features
-            if feature['geometry'].get('type') in ('Point', 'MultiPoint')
-            and re.search(r'well|water|source', feature['name'], re.IGNORECASE)
-        ),
-        None
     )
     sector_features = [
         feature for feature in polygon_features
@@ -387,7 +418,7 @@ def _store_kml_features(project_id, project, filename, features):
             feature['category'] = 'boundary'
         elif feature in sector_features:
             feature['category'] = 'sector'
-        elif feature is water_feature:
+        elif feature in point_features:
             feature['category'] = 'water_source'
         else:
             feature['category'] = 'overlay'
@@ -404,14 +435,54 @@ def _store_kml_features(project_id, project, filename, features):
             'source': 'kml'
         })
 
+    # Every point feature becomes a water source entry in the project spec.
+    water_entries = []
+    for feature in point_features:
+        lat, lng = _kml_point_latlng(feature)
+        if lat is None:
+            continue
+        water_entries.append({
+            'type': _classify_kml_water_source(feature['name']),
+            'name': feature['name'] or '',
+            'lat': lat,
+            'lng': lng,
+            'flow_lpm': None,
+            'notes': f'Imported from {filename}',
+        })
+
+    # Merge KML water sources into the spec, deduped by name + position.
+    spec = _get_spec(project)
+    existing = list(spec.get('water_sources') or [])
+
+    def _ws_key(w):
+        return (
+            str(w.get('name') or '').strip().lower(),
+            round(float(w.get('lat') or 0), 6),
+            round(float(w.get('lng') or 0), 6),
+        )
+
+    seen = {_ws_key(w) for w in existing}
+    for entry in water_entries:
+        key = _ws_key(entry)
+        if key in seen:
+            continue
+        existing.append(entry)
+        seen.add(key)
+    spec['water_sources'] = existing
+
     update = {
         'kml_file': filename,
-        'kml_features': features
+        'kml_features': features,
+        'spec': spec,
     }
     if boundary_feature:
         update['boundary'] = boundary_feature['geometry']
-    if water_feature:
-        update['water_source'] = water_feature['geometry']
+    if water_entries:
+        first = water_entries[0]
+        update['water_source'] = {
+            'type': 'Point',
+            'coordinates': [first['lng'], first['lat']]
+        }
     mongo.db.projects.update_one(
         {'id': project_id, 'user_id': project['user_id']},
         {'$set': update}

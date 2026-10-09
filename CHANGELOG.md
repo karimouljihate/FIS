@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.32 - 2026-10-09
+
+### Added
+
+- **KML/KMZ upload (Project page)**: the uploaded-file indicator is now a clickable button containing a badge with the total element count; clicking it opens a modal form that enumerates every element inside the file (name, category, geometry type plus per-category counts: boundary, sectors, water sources, overlays).
+- **Water sources from KML**: every Point/MultiPoint feature in an uploaded KML/KMZ file is now imported into the project spec `water_sources` list (classified by name into well / basin / reservoir / pump / canal / other), so the Project Water Sources table and spec-based flows are populated. Imports are deduped by name + position across re-uploads, notes record the source file, and the legacy single `project.water_source` Point stays in sync with the first imported source.
+
+### Changed
+
+- **KML feature classification**: point features are categorised as `water_source` (all points), polygons as `boundary`/`sector`/`overlay` as before; `water_feature` single-point detection was replaced by the full water-source list.
+
 ## 0.3.31 - 2026-10-09
 
 ### Added
