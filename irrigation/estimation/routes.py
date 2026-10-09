@@ -61,7 +61,7 @@ def compute_quantities(project):
             if key not in pipe_groups:
                 label = {
                     'main_pipe': ('Main Pipe', 'الأنبوب الرئيسي'),
-                    'sub_pipe': ('Sub Pipe', 'الأنبوب الفرعي'),
+                    'sub_pipe': ('Zone / Lateral Pipe', 'أنبوب المنطقة / فرعي'),
                     'dripline': ('Dripline', 'خط التنقيط'),
                 }[etype]
                 pipe_groups[key] = {
@@ -83,6 +83,7 @@ def compute_quantities(project):
         'check_valve': ('Check Valve', 'صمام منعكس', 'fittings'),
         'air_release': ('Air Release Valve', 'صمام تهوية', 'fittings'),
         'pressure_reducer': ('Pressure Reducer', 'خافض ضغط', 'fittings'),
+        'reduction': ('Reduction', 'تقليل قطر', 'fittings'),
         'other': ('Other Fittings', 'ملحقات أخرى', 'fittings'),
     }
     point_counts = {}

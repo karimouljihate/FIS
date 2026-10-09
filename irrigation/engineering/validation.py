@@ -204,9 +204,14 @@ def _validate_hydraulics(checks, project_id, project, config, lng, lat):
     # === Main pipes ===
     main_pipes = list(mongo.db.network_elements.find({'project_id': project_id, 'type': 'main_pipe'}))
     for pipe in main_pipes:
-        # Main pipe carries total project flow
-        total_tree_count = mongo.db.trees.count_documents({'project_id': project_id})
-        total_flow = zone_flow_demand_m3s(total_tree_count, emitter_flow, emitters_per_tree)
+        # Main pipe carries total project flow (unless a per-segment flow was
+        # computed by the AI piping generator).
+        stored = pipe.get('properties', {}).get('flow_lps')
+        if stored is not None:
+            total_flow = stored / 1000.0
+        else:
+            total_tree_count = mongo.db.trees.count_documents({'project_id': project_id})
+            total_flow = zone_flow_demand_m3s(total_tree_count, emitter_flow, emitters_per_tree)
 
         validate_pipe_velocity(
             checks, pipe, total_flow,
@@ -230,12 +235,16 @@ def _validate_hydraulics(checks, project_id, project, config, lng, lat):
     # === Sub pipes ===
     sub_pipes = list(mongo.db.network_elements.find({'project_id': project_id, 'type': 'sub_pipe'}))
     for pipe in sub_pipes:
-        zone_id = pipe.get('properties', {}).get('zone_id')
-        if zone_id:
-            tree_count = mongo.db.trees.count_documents({'project_id': project_id, 'zone_id': zone_id})
-            zone_flow = zone_flow_demand_m3s(tree_count, emitter_flow, emitters_per_tree)
+        stored = pipe.get('properties', {}).get('flow_lps')
+        if stored is not None:
+            zone_flow = stored / 1000.0
         else:
-            zone_flow = 0.001
+            zone_id = pipe.get('properties', {}).get('zone_id')
+            if zone_id:
+                tree_count = mongo.db.trees.count_documents({'project_id': project_id, 'zone_id': zone_id})
+                zone_flow = zone_flow_demand_m3s(tree_count, emitter_flow, emitters_per_tree)
+            else:
+                zone_flow = 0.001
 
         validate_pipe_velocity(
             checks, pipe, zone_flow,
@@ -266,15 +275,23 @@ def _validate_network_connectivity(checks, project_id, project, lng, lat):
     water_source = project.get('water_source')
     main_pipes = list(mongo.db.network_elements.find({'project_id': project_id, 'type': 'main_pipe'}))
 
-    if water_source and water_source.get('coordinates') and main_pipes:
+    # Project all main pipes once and index them for fast neighbour queries.
+    main_geoms = [
+        (p, projected_shape(p['geometry'], lng, lat))
+        for p in main_pipes if p.get('geometry')
+    ]
+    if main_geoms:
+        from shapely.strtree import STRtree
+        main_tree = STRtree([g for _, g in main_geoms])
+    else:
+        main_tree = None
+
+    if water_source and water_source.get('coordinates') and main_geoms:
         ws_projected, _ = project_geometry(water_source, lng, lat)
         ws_point = ws_projected if isinstance(ws_projected, Point) else Point(ws_projected)
 
         connected = False
-        for pipe in main_pipes:
-            if not pipe.get('geometry'):
-                continue
-            pipe_geom = projected_shape(pipe['geometry'], lng, lat)
+        for _, pipe_geom in main_geoms:
             # Check if water source is within 10m of pipe start or end
             if pipe_geom.coords:
                 start = Point(pipe_geom.coords[0])
@@ -304,8 +321,11 @@ def _validate_network_connectivity(checks, project_id, project, lng, lat):
                 message_ar='الأنبوب الرئيسي متصل بمصدر المياه'
             ))
 
-    # Check sub pipes connect to main pipes
+    # Project all sub pipes once.
     sub_pipes = list(mongo.db.network_elements.find({'project_id': project_id, 'type': 'sub_pipe'}))
+    zone_pipes = {id(p): (p, projected_shape(p['geometry'], lng, lat))
+                  for p in sub_pipes if p.get('properties', {}).get('zone_id') and p.get('geometry')}
+
     for sub in sub_pipes:
         if not sub.get('geometry'):
             continue
@@ -314,14 +334,25 @@ def _validate_network_connectivity(checks, project_id, project, lng, lat):
         if not sub_start:
             continue
 
+        # Laterals (row-attached sub pipes) may tap a zone pipe instead of the MP
+        parents = main_geoms if main_tree is not None else []
+        if sub.get('properties', {}).get('row_id'):
+            parents = parents + [px for px in zone_pipes.values() if px[0] is not sub]
+
         connected = False
-        for main in main_pipes:
-            if not main.get('geometry'):
-                continue
-            main_geom = projected_shape(main['geometry'], lng, lat)
-            if main_geom.distance(sub_start) < 10:
-                connected = True
-                break
+        if main_tree is not None:
+            for idx in main_tree.query(sub_start):
+                if main_geoms[int(idx)][1].distance(sub_start) < 10:
+                    connected = True
+                    break
+        if not connected and parents:
+            for _, geom in parents:
+                try:
+                    if geom.distance(sub_start) < 10:
+                        connected = True
+                        break
+                except Exception:
+                    continue
 
         if not connected:
             checks.append(HydraulicCheck(
@@ -654,7 +685,10 @@ def _validate_elevation_head(checks, pipe, pipe_type, elevation_model, source_el
 
     # Calculate friction loss
     flow_m3s = 0.001  # Default
-    if pipe_type == 'Main Pipe':
+    stored = pipe.get('properties', {}).get('flow_lps')
+    if stored is not None:
+        flow_m3s = stored / 1000.0
+    elif pipe_type == 'Main Pipe':
         tree_count = mongo.db.trees.count_documents({'project_id': pipe['project_id']})
         flow_m3s = zone_flow_demand_m3s(
             tree_count, config['emitter_flow_lph'], config['emitters_per_tree']

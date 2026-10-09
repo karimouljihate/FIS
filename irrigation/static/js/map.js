@@ -224,7 +224,7 @@ function initMap(elementId, geojsonUrl, options = {}) {
                     html: `<div style="background:${color};width:8px;height:8px;border-radius:50%;border:1px solid white"></div>`,
                     iconSize: [10, 10]
                 });
-            } else if (type.includes('valve') || type.includes('pipe') || type === 'dripline' || type.includes('air') || type.includes('pressure') || type === 'other') {
+            } else if (type.includes('valve') || type.includes('pipe') || type === 'dripline' || type.includes('air') || type.includes('pressure') || type === 'reduction' || type === 'other') {
                 icon = L.divIcon({
                     className: 'network-marker',
                     html: `<div style="background:${color};width:14px;height:14px;border-radius:3px;border:2px solid white"></div>`,

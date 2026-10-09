@@ -34,6 +34,7 @@
                         <option value="check_valve">Anti-Return Valve / صمام عدم رجوع</option>
                         <option value="air_release">Air Suppressor / تنفيس الهواء</option>
                         <option value="pressure_reducer">Pressure Reducer / خافض الضغط</option>
+                        <option value="reduction">Reduction / تقليل قطر</option>
                         <option value="other">Other / أخرى</option>
                     </select>
                 </div>
@@ -72,6 +73,7 @@
         'check_valve': ('Anti-Return Valves', 'صمامات عدم الرجوع', 'danger'),
         'air_release': ('Air Suppressors', 'طاردات الهواء', 'warning'),
         'pressure_reducer': ('Pressure Reducers', 'خافضات الضغط', 'info'),
+        'reduction': ('Reductions', 'تقليل الأقطار', 'success'),
         'other': ('Other Elements', 'عناصر أخرى', 'secondary')
     } %}
     {% for t, (label_en, label_ar, color) in type_labels.items() %}

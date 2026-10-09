@@ -326,6 +326,39 @@ footer {
     font-family: var(--font-ar) !important;
 }
 
+/* Generic workflow page header (Hydrology 1: Main Pipe / Zone Pipe) */
+.wf-page-header {
+    display: grid;
+    grid-template-columns: 15% 70% 15%;
+    align-items: center;
+}
+
+.wf-title-en,
+.wf-title-ar {
+    margin: 0;
+    white-space: nowrap;
+}
+
+.wf-title-en {
+    grid-column: 1;
+    justify-self: start;
+    font-family: var(--font-en) !important;
+}
+
+.wf-icon {
+    grid-column: 2;
+    justify-self: center;
+    color: var(--bs-primary);
+    font-size: 1.5rem;
+}
+
+.wf-title-ar {
+    grid-column: 3;
+    justify-self: end;
+    text-align: right;
+    font-family: var(--font-ar) !important;
+}
+
 .latin-number,
 .projects-page .latin-number {
     font-family: var(--font-en) !important;
@@ -383,6 +416,29 @@ textarea {
     }
 
     .geometry-zones-title-ar {
+        grid-row: 3;
+    }
+
+    .wf-page-header {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0.35rem;
+    }
+
+    .wf-title-en,
+    .wf-icon,
+    .wf-title-ar {
+        grid-column: 1;
+    }
+
+    .wf-title-en {
+        grid-row: 1;
+    }
+
+    .wf-icon {
+        grid-row: 2;
+    }
+
+    .wf-title-ar {
         grid-row: 3;
     }
 

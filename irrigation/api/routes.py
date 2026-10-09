@@ -150,6 +150,7 @@ def _get_elem_color(elem_type):
         'check_valve': '#17a2b8',
         'air_release': '#ffc107',
         'pressure_reducer': '#fd7e14',
+        'reduction': '#198754',
         'other': '#6c757d',
     }
     return colors.get(elem_type, '#6c757d')

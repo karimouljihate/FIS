@@ -2,6 +2,9 @@ from flask import Blueprint, render_template, redirect, url_for, flash, request,
 from flask_login import login_required, current_user
 from irrigation.extensions import mongo
 from irrigation.models import get_next_id
+from irrigation.engineering.piping import generate_piping_structure
+from irrigation.engineering.hydraulics import calculate_pipe_length_m
+from irrigation.engineering.projection import get_project_centroid
 import json
 
 hydrology_bp = Blueprint('hydrology', __name__)
@@ -50,7 +53,9 @@ def main_pipe(project_id):
 
     water_source = project.get('water_source')
 
-    return render_template('hydrology/main_pipe.html', project=project, sectors=sectors, main_pipes=main_pipes, water_source=water_source)
+    piping_report = mongo.db.piping_reports.find_one({'project_id': project_id})
+
+    return render_template('hydrology/main_pipe.html', project=project, sectors=sectors, main_pipes=main_pipes, water_source=water_source, piping_report=piping_report)
 
 
 @hydrology_bp.route('/<int:project_id>/main_pipe/add', methods=['POST'])
@@ -76,9 +81,11 @@ def main_pipe_add(project_id):
     geometry = {'type': 'LineString', 'coordinates': coords_list}
 
     count = mongo.db.network_elements.count_documents({'project_id': project_id, 'type': 'main_pipe'})
+    props = {'diameter': diameter}
+    props.update(_pipe_length_props(geometry, project))
     add_network_element(project_id, 'main_pipe',
                         f'Main Pipe {count+1}', f'الأنبوب الرئيسي {count+1}',
-                        geometry, {'diameter': diameter})
+                        geometry, props)
 
     flash('Main pipe added / تمت إضافة الأنبوب الرئيسي', 'success')
     return redirect(url_for('hydrology.main_pipe', project_id=project_id))
@@ -93,6 +100,54 @@ def main_pipe_validate(project_id):
     )
     flash('Main pipe validated / تم التحقق من الأنبوب الرئيسي', 'success')
     return redirect(url_for('hydrology.sub_pipe', project_id=project_id))
+
+
+# === AI PIPING STRUCTURE GENERATOR ===
+
+def _truthy(value):
+    return str(value).lower() in ('1', 'on', 'true', 'yes')
+
+
+def _pipe_length_props(geometry, project):
+    """Best-effort pipe length in meters for a manually added element."""
+    try:
+        lng, lat = get_project_centroid(project)
+        return {'length_m': round(calculate_pipe_length_m(geometry, lng, lat), 2)}
+    except Exception:
+        return {}
+
+
+@hydrology_bp.route('/<int:project_id>/piping/generate', methods=['POST'])
+@login_required
+def piping_generate(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    options = {
+        'use_elevation': _truthy(request.form.get('use_elevation')),
+        'replace': _truthy(request.form.get('replace')),
+        'mode': request.form.get('mode', 'direct'),
+        'source_pressure_bar': request.form.get('source_pressure_bar', type=float),
+        'source_flow_lpm': request.form.get('source_flow_lpm', type=float),
+    }
+
+    try:
+        report = generate_piping_structure(project_id, project, options)
+    except ValueError as exc:
+        flash(str(exc), 'danger')
+        return redirect(url_for('hydrology.main_pipe', project_id=project_id))
+    except Exception as exc:
+        flash('Piping generation failed: %s / فشل إنشاء هيكل الأنابيب' % exc, 'danger')
+        return redirect(url_for('hydrology.main_pipe', project_id=project_id))
+
+    c = report.get('counts', {})
+    flash(
+        'Piping structure generated: %d main pipe(s), %d zone pipe(s), '
+        '%d drip line(s) / تم إنشاء هيكل الأنابيب'
+        % (c.get('main_pipe', 0), c.get('zone_pipe', 0), c.get('dripline', 0)),
+        'success')
+    return redirect(url_for('hydrology.main_pipe', project_id=project_id))
 
 
 # === SUB PIPE ===
@@ -112,7 +167,9 @@ def sub_pipe(project_id):
     for p in sub_pipes:
         p['_id'] = str(p['_id'])
 
-    return render_template('hydrology/sub_pipe.html', project=project, zones=zones, sub_pipes=sub_pipes)
+    piping_report = mongo.db.piping_reports.find_one({'project_id': project_id})
+
+    return render_template('hydrology/sub_pipe.html', project=project, zones=zones, sub_pipes=sub_pipes, piping_report=piping_report)
 
 
 @hydrology_bp.route('/<int:project_id>/sub_pipe/add', methods=['POST'])
@@ -139,11 +196,13 @@ def sub_pipe_add(project_id):
     geometry = {'type': 'LineString', 'coordinates': coords_list}
     count = mongo.db.network_elements.count_documents({'project_id': project_id, 'type': 'sub_pipe'})
 
+    props = {'diameter': diameter, 'zone_id': zone_id}
+    props.update(_pipe_length_props(geometry, project))
     add_network_element(project_id, 'sub_pipe',
-                        f'Sub Pipe {count+1}', f'الأنبوب الفرعي {count+1}',
-                        geometry, {'diameter': diameter, 'zone_id': zone_id})
+                        f'Zone Pipe {count+1}', f'أنبوب المنطقة {count+1}',
+                        geometry, props)
 
-    flash('Sub pipe added / تمت إضافة الأنبوب الفرعي', 'success')
+    flash('Zone pipe added / تمت إضافة أنبوب المنطقة', 'success')
     return redirect(url_for('hydrology.sub_pipe', project_id=project_id))
 
 
@@ -154,7 +213,7 @@ def sub_pipe_validate(project_id):
         {'project_id': project_id, 'type': 'sub_pipe'},
         {'$set': {'validated': True}}
     )
-    flash('Sub pipes validated / تم التحقق من الأنابيب الفرعية', 'success')
+    flash('Zone pipes validated / تم التحقق من أنابيب المناطق', 'success')
     return redirect(url_for('trees.rows_view', project_id=project_id))
 
 
@@ -285,9 +344,11 @@ def dripline_add(project_id):
     geometry = {'type': 'LineString', 'coordinates': coords_list}
     count = mongo.db.network_elements.count_documents({'project_id': project_id, 'type': 'dripline'})
 
+    props = {'diameter': diameter, 'row_id': row_id}
+    props.update(_pipe_length_props(geometry, project))
     add_network_element(project_id, 'dripline',
                         f'Drip Line {count+1}', f'خط التنقيط {count+1}',
-                        geometry, {'diameter': diameter, 'row_id': row_id})
+                        geometry, props)
 
     flash('Dripline added / تمت إضافة خط التنقيط', 'success')
     return redirect(url_for('hydrology.dripline', project_id=project_id))
@@ -313,7 +374,7 @@ def network_elements(project_id):
     if not project:
         return redirect(url_for('project.index'))
 
-    elem_types = ['check_valve', 'air_release', 'pressure_reducer', 'other']
+    elem_types = ['check_valve', 'air_release', 'pressure_reducer', 'reduction', 'other']
     elements = {}
     for t in elem_types:
         elements[t] = list(mongo.db.network_elements.find({'project_id': project_id, 'type': t}))
@@ -351,6 +412,7 @@ def network_add(project_id):
         'check_valve': ('Check Valve', 'صمام عدم رجوع'),
         'air_release': ('Air Release', 'تنفيس الهواء'),
         'pressure_reducer': ('Pressure Reducer', 'خافض الضغط'),
+        'reduction': ('Reduction', 'تقليل قطر'),
         'other': ('Other Element', 'عنصر آخر'),
     }
 
@@ -373,7 +435,7 @@ def network_add(project_id):
 @login_required
 def network_validate(project_id):
     mongo.db.network_elements.update_many(
-        {'project_id': project_id, 'type': {'$in': ['check_valve', 'air_release', 'pressure_reducer', 'other']}},
+        {'project_id': project_id, 'type': {'$in': ['check_valve', 'air_release', 'pressure_reducer', 'reduction', 'other']}},
         {'$set': {'validated': True}}
     )
     mongo.db.projects.update_one(

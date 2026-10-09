@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.3.25 - 2026-10-09
+
+### Added
+
+- **AI Generate Piping Structure** (`irrigation/engineering/piping.py`): one-click hierarchical network generator with full hydraulic design. Main Pipe runs from the declared water source (well/basin) to every sector centroid (minimum-spanning-tree layout), Zone Pipes run from the nearest Main Pipe tap to every zone centroid, and each tree row is served either directly by a driptube from the nearest Main/Zone Pipe tap (`direct`) or through a Lateral Pipe into a driptube (`lateral`). Generates and persists:
+  - Main / Zone / Lateral pipes and driptubes with PVC diameter auto-sizing (flow-based `recommended_diameter_mm`, configurable max velocity per pipe type and diameter floors),
+  - master valve at the source, sector valves and zone valves at their pipe junction nodes,
+  - reductions at every diameter-change point, an air-release valve at the highest elevation point when the terrain range ≥ 3 m (elevation mode), and check valves plus a stub branch for each secondary water source,
+  - coverage report (rows / trees / zones served), total demand vs source capacity, min emitter pressure, max velocity, and per-type length and diameter schedules.
+- Pressure design loop: after flows are computed from zone/tree demand, emitter pressures are traced from the source head and the worst-loss edge on any failing path is upsized; a bilingual warning reports how many emitter points remain below the required pressure (booster pump required) and how much the demand exceeds source capacity.
+- `POST /<project_id>/piping/generate` route (optionally `replace` = wipe previous AI/structural network, `use_elevation` = include terrain head). Generation report is stored in the `piping_reports` collection and shown as KPI cards on the Main Pipe and Zone Pipe pages.
+- Main Pipe and Zone Pipe pages redesigned to the Geometry section layout: bilingual page header, KPI report card, add/draw/validate toolbars, element table (diameter, flow, velocity, length), map, and the AI generate modal.
+
+### Changed
+
+- Tap splitting in the network builder now keeps the original far endpoint (the right half no longer collapses into a self-loop), and split fragments are merged back into a single element per original pipe at write time, so counts reflect real pipes (e.g. 8 main + 16 zone) instead of every tap fragment.
+- Validation reads stored `flow_lps` for generated pipes in hydraulic and elevation-head checks; laterals (row-attached sub pipes) may connect to a Zone Pipe instead of only the Main Pipe.
+- Piping workflow labels now read Main Pipe (MP) / Zone Pipe (ZP); `reduction` is a first-class element type in the API color map, estimation item types, map rendering and the network table.
+- `reduction` point color `#198754` added to the API and map legend; estimation labels for sub pipes renamed to "Zone / Lateral Pipe".
+- `projected_shape`/`transform_coords` build the UTM transformer once per geometry and the UTM CRS is cached (`@lru_cache`), dramatically speeding up validation and map geometry calls on large networks.
+- Connectivity validation uses an STRtree spatial index over projected Main Pipes instead of quadratic point-to-line distances.
+
+### Fixed
+
+- Reducing flanges counted incorrectly (a `dict(edge)` copy after endpoint mutation produced self-loop edges that disconnected the rest of the network). Verified via AST check, template rendering, test-client route smoke tests, and an end-to-end generation + full validation run on a real project (454 rows / 10,312 trees).
+
 ## 0.3.24 - 2026-10-08
 
 ### Added

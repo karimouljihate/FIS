@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Tuple, Union
 
 import math
+from functools import lru_cache
 import pyproj
 from shapely.geometry import shape, Point, mapping
 from shapely.ops import transform as shapely_transform
@@ -10,6 +11,7 @@ wgs84 = pyproj.CRS("EPSG:4326")
 EARTH_RADIUS_METERS = 6371000.0
 
 
+@lru_cache(maxsize=128)
 def get_utm_crs(lon: float, lat: float) -> pyproj.CRS:
     """
     Return the appropriate UTM CRS for the given longitude/latitude.
@@ -35,7 +37,8 @@ def get_utm_crs(lon: float, lat: float) -> pyproj.CRS:
 
 
 def transform_coords(
-    coords: Union[List[Any], Tuple[Any, ...]]
+    coords: Union[List[Any], Tuple[Any, ...]],
+    transformer: pyproj.Transformer = None,
 ) -> Union[List[Any], Tuple[float, float], None]:
     """
     Recursively transform GeoJSON-style coordinates from WGS84 (lon/lat)
@@ -45,6 +48,10 @@ def transform_coords(
       - [lon, lat]                 -> (x, y)
       - [[lon, lat], ...]          -> [(x, y), ...]
       - Nested lists (MultiPolygon, etc.)
+
+    The transformer is built once (either passed in or derived from the
+    first coordinate) and reused for every point in the geometry to avoid
+    expensive per-point CRS/transformer construction.
 
     Returns None for invalid/non-list elements instead of raising.
     """
@@ -59,18 +66,36 @@ def transform_coords(
     ):
         lon, lat = coords[0], coords[1]
         try:
-            utm = get_utm_crs(lon, lat)
-            transformer = pyproj.Transformer.from_crs(wgs84, utm, always_xy=True)
+            if transformer is None:
+                utm = get_utm_crs(lon, lat)
+                transformer = pyproj.Transformer.from_crs(
+                    wgs84, utm, always_xy=True
+                )
             x, y = transformer.transform(lon, lat)
             return (x, y)
         except Exception:
             # If projection fails for a single point, skip it
             return None
 
+    if transformer is None:
+        # Derive the UTM zone from the first coordinate leaf in the structure.
+        first = coords
+        while isinstance(first, (list, tuple)):
+            if first and isinstance(first[0], (int, float)):
+                break
+            if not first or not isinstance(first[0], (list, tuple)):
+                break
+            first = first[0]
+        if first and isinstance(first[0], (int, float)):
+            utm = get_utm_crs(float(first[0]), float(first[1]))
+            transformer = pyproj.Transformer.from_crs(
+                wgs84, utm, always_xy=True
+            )
+
     # Recursive case: list of coordinates
     result: List[Any] = []
     for c in coords:
-        projected = transform_coords(c)
+        projected = transform_coords(c, transformer)
         if projected is not None:
             result.append(projected)
 

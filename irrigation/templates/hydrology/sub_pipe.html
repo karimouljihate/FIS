@@ -1,61 +1,72 @@
 {% extends "base.html" %}
-{% block title %}Sub Pipe / الأنبوب الفرعي{% endblock %}
+{% block title %}Zone Pipe (ZP) / أنابيب المناطق{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-droplet"></i> Sub Pipe / الأنبوب الفرعي</h2>
-    <a href="{{ url_for('project.detail', project_id=project.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back / رجوع
-    </a>
+<div class="wf-page-header mb-3">
+    <h2 class="wf-title-en">Zone Pipe (ZP)</h2>
+    <i class="bi bi-droplet wf-icon" aria-hidden="true"></i>
+    <h2 class="wf-title-ar" lang="ar">أنابيب المناطق</h2>
 </div>
 
 <div class="mb-3">
     <span class="badge bg-primary"><i class="bi bi-folder"></i> {{ project.name }}</span>
+    {% if project.water_source and project.water_source.coordinates %}
+    <span class="badge bg-info"><i class="bi bi-water"></i> Water Source: [{{ project.water_source.coordinates[1] }}, {{ project.water_source.coordinates[0] }}]</span>
+    {% endif %}
 </div>
 
 <div class="alert alert-info">
     <i class="bi bi-info-circle"></i>
-    Sub pipes connect from the main pipe and cover all zones.
+    Zone Pipes (ZP) branch from the Main Pipe and serve every zone. Laterals / drip lines then serve all tree rows.
     <br>
-    الأنابيب الفرعية متصلة من الأنبوب الرئيسي وتغطي جميع المناطق.
+    أنابيب المناطق (ZP) تتفرع من الأنبوب الرئيسي وتغذي جميع المناطق، ثم تتصل خطوط التنقيط بجميع صفوف الأشجار.
 </div>
 
-<!-- Add Sub Pipe -->
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-success text-white">
-        <h5 class="mb-0"><i class="bi bi-plus-circle"></i> Add Sub Pipe / إضافة أنبوب فرعي</h5>
+<!-- Toolbar -->
+<div class="d-flex gap-2 mb-3 flex-wrap">
+    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addZonePipeModal">
+        <i class="bi bi-plus-circle"></i> Add Zone Pipe / إضافة أنبوب منطقة
+    </button>
+    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#aiPipingModal">
+        <i class="bi bi-robot"></i> Generate Piping Structure / إنشاء هيكل الأنابيب
+    </button>
+    <form method="POST" action="{{ url_for('hydrology.sub_pipe_validate', project_id=project.id) }}">
+        <button type="submit" class="btn btn-primary">
+            <i class="bi bi-check-circle"></i> Validate & Continue / التحقق والمتابعة
+        </button>
+    </form>
+</div>
+
+{% if piping_report %}
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-clipboard-data"></i> AI Piping Report / تقرير هيكل الأنابيب</h6>
     </div>
     <div class="card-body">
-        <form method="POST" action="{{ url_for('hydrology.sub_pipe_add', project_id=project.id) }}">
-            <div class="row align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label">Zone / المنطقة</label>
-                    <select name="zone_id" class="form-select" required>
-                        {% for z in zones %}
-                        <option value="{{ z.id }}">{{ z.name_en }} ({{ z.name_ar }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Diameter (mm) / القطر</label>
-                    <input type="number" name="diameter" class="form-control" value="63" min="20">
-                </div>
-                <div class="col-md-4">
-                    <label class="form-label">Pipe Path (JSON) / مسار الأنبوب</label>
-                    <input type="text" name="coordinates" id="subPipeCoords" class="form-control"
-                           placeholder='[[lng,lat],...]' required>
-                </div>
-                <div class="col-md-2">
-                    <button type="submit" class="btn btn-success w-100">
-                        <i class="bi bi-check"></i> Add / إضافة
-                    </button>
-                </div>
-            </div>
-        </form>
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            <span class="badge bg-danger">MP: {{ piping_report.counts.get('main_pipe', 0) }}</span>
+            <span class="badge bg-warning text-dark">ZP: {{ piping_report.counts.get('zone_pipe', 0) }}</span>
+            <span class="badge bg-success">Drip: {{ piping_report.counts.get('dripline', 0) }}</span>
+            <span class="badge bg-info">Zones served: {{ piping_report.coverage.get('zones_served', 0) }}/{{ piping_report.coverage.get('zones_total', 0) }}</span>
+            <span class="badge bg-secondary">Rows served: {{ piping_report.coverage.get('rows_served', 0) }}/{{ piping_report.coverage.get('rows_total', 0) }}</span>
+        </div>
+        <div class="small text-muted">
+            Zone pipe length: {{ piping_report.lengths_m.get('sub_pipe', 0) }} m
+            | Max velocity: {{ piping_report.pressure.get('max_velocity_mps', 0) }} m/s
+            | Diameter schedule (ZP): {{ piping_report.diameter_schedules.get('sub_pipe', []) | join(', ') }} mm
+        </div>
+        {% if piping_report.warnings %}
+        <div class="alert alert-warning mt-2 mb-0 py-2 small">
+            <ul class="mb-0 ps-3">
+                {% for w in piping_report.warnings %}<li>{{ w }}</li>{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
     </div>
 </div>
+{% endif %}
 
-<!-- Sub Pipes Table -->
+<!-- Zone Pipes Table -->
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
@@ -66,9 +77,11 @@
                         <th>Name (EN)</th>
                         <th>Name (AR)</th>
                         <th>Zone / المنطقة</th>
-                        <th>Diameter (mm)</th>
+                        <th>Ø mm</th>
+                        <th>Flow (L/s)</th>
+                        <th>Velocity (m/s)</th>
+                        <th>Length (m)</th>
                         <th>Validated</th>
-                        <th class="text-center">Info</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -77,8 +90,11 @@
                         <td>{{ p.id }}</td>
                         <td>{{ p.name_en }}</td>
                         <td class="ar-text">{{ p.name_ar }}</td>
-                        <td>{{ p.properties.zone_id or '-' }}</td>
-                        <td>{{ p.properties.diameter }} mm</td>
+                        <td>{{ p.properties.get('zone_id') or '—' }}</td>
+                        <td>{{ p.properties.get('diameter', '—') }}</td>
+                        <td>{{ p.properties.get('flow_lps', '—') }}</td>
+                        <td>{{ p.properties.get('velocity_mps', '—') }}</td>
+                        <td>{{ p.properties.get('length_m', '—') }}</td>
                         <td>
                             {% if p.validated %}
                             <span class="badge bg-success"><i class="bi bi-check"></i></span>
@@ -86,12 +102,9 @@
                             <span class="badge bg-warning"><i class="bi bi-clock"></i></span>
                             {% endif %}
                         </td>
-                        <td class="text-center">
-                            <span class="badge bg-secondary">{{ p.geometry.coordinates | length }} pts</span>
-                        </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="7" class="text-center text-muted py-3">No sub pipes yet / لا توجد أنابيب فرعية</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-3">No zone pipes yet / لا توجد أنابيب مناطق</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -99,19 +112,10 @@
     </div>
 </div>
 
-<!-- Validate -->
-<div class="mt-3">
-    <form method="POST" action="{{ url_for('hydrology.sub_pipe_validate', project_id=project.id) }}">
-        <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-circle"></i> Validate & Continue / التحقق والمتابعة
-        </button>
-    </form>
-</div>
-
 <!-- Map -->
-<div class="card shadow-sm mt-4">
+<div class="card shadow-sm mt-4 geometry-map-card">
     <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-map"></i> Map - Draw Sub Pipe / الخريطة</h5>
+        <h5 class="mb-0"><i class="bi bi-map"></i> Map - Zone Pipe / الخريطة - أنابيب المناطق</h5>
     </div>
     <div class="card-body">
         <div class="mb-2">
@@ -123,6 +127,104 @@
             </button>
         </div>
         <div id="map"></div>
+    </div>
+</div>
+
+<!-- Add Zone Pipe Modal -->
+<div class="modal fade" id="addZonePipeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('hydrology.sub_pipe_add', project_id=project.id) }}">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Add Zone Pipe / إضافة أنبوب منطقة</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Zone / المنطقة</label>
+                        <select name="zone_id" class="form-select" required>
+                            {% for z in zones %}
+                            <option value="{{ z.id }}">{{ z.name_en }} ({{ z.name_ar }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Diameter (mm) / القطر</label>
+                        <input type="number" name="diameter" class="form-control" value="63" min="20">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Pipe Path (JSON) / مسار الأنبوب</label>
+                        <input type="text" name="coordinates" id="subPipeCoords" class="form-control"
+                               placeholder='[[lng,lat],...]' required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check"></i> Add / إضافة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- AI Generate Piping Modal -->
+<div class="modal fade" id="aiPipingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('hydrology.piping_generate', project_id=project.id) }}"
+                  data-confirm="AI will build the full piping structure (MP → ZP → drip lines). Continue? / سيبني الذكاء الاصطناعي هيكل الأنابيب كاملاً. متابعة؟">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-robot"></i> AI Generate Piping Structure / إنشاء هيكل الأنابيب بالذكاء الاصطناعي</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 small mb-3">
+                        The generator builds the Main Pipe from the water source serving all sectors, Zone Pipes to every zone,
+                        then laterals / direct driplines to every tree row. It auto-sizes PVC diameters, optimises pipe length,
+                        and checks flow and pressure using source elevation and gravity.
+                        <br>
+                        ينشئ النظام الأنبوب الرئيسي من المصدر لكل القطاعات، وأنابيب المناطق لكل منطقة، ثم خطوط التنقيط لكل صف أشجار،
+                        مع تحديد الأقطار وتحسين الأطوال وحساب التدفق والضغط حسب الارتفاع والجاذبية.
+                    </div>
+                    <h6 class="text-primary"><i class="bi bi-sliders"></i> Options / الخيارات</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Connection to trees / الاتصال بالأشجار</label>
+                            <select name="mode" class="form-select">
+                                <option value="direct">Direct dripline / خط تنقيط مباشر</option>
+                                <option value="lateral">Lateral + dripline / أنبوب فرعي + تنقيط</option>
+                            </select>
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Source pressure (bar)</label>
+                            <input type="number" step="0.1" min="0" name="source_pressure_bar" class="form-control"
+                                   placeholder="Default">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label">Source flow (L/min)</label>
+                            <input type="number" step="1" min="0" name="source_flow_lpm" class="form-control"
+                                   placeholder="Default">
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" name="use_elevation" value="1" id="useElevationPipingZ" checked>
+                        <label class="form-check-label" for="useElevationPipingZ">
+                            Use terrain elevation &amp; gravity / استخدام الارتفاع والجاذبية
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" name="replace" value="1" id="replacePipingZ" checked>
+                        <label class="form-check-label" for="replacePipingZ">
+                            Replace existing generated network / استبدال الشبكة المولّدة الحالية
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-robot"></i> Generate / إنشاء</button>
+                </div>
+            </form>
+        </div>
     </div>
 </div>
 
@@ -138,6 +240,10 @@ document.addEventListener('DOMContentLoaded', function() {
 function startDrawLine() {
     initDrawTools('polyline', function(coords, coordsStr) {
         document.getElementById('subPipeCoords').value = coordsStr;
+        const modalEl = document.getElementById('addZonePipeModal');
+        if (modalEl && window.bootstrap) {
+            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+        }
     });
 }
 </script>

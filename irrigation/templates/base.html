@@ -134,10 +134,10 @@
                 ('geometry.zones_view', url_for('geometry.zones_view', project_id=workflow_project_id), 'Zones / المناطق', 'bi-grid')
             ] %}
         {% elif workflow_endpoint in ['hydrology.main_pipe', 'hydrology.sub_pipe'] %}
-            {% set workflow_subnav = [
-                ('hydrology.main_pipe', url_for('hydrology.main_pipe', project_id=workflow_project_id), 'Main Pipe / الأنبوب الرئيسي', 'bi-water'),
-                ('hydrology.sub_pipe', url_for('hydrology.sub_pipe', project_id=workflow_project_id), 'Sub Pipe / الأنبوب الفرعي', 'bi-droplet')
-            ] %}
+    {% set workflow_subnav = [
+        ('hydrology.main_pipe', url_for('hydrology.main_pipe', project_id=workflow_project_id), 'Main Pipe (MP) / الأنبوب الرئيسي', 'bi-water'),
+        ('hydrology.sub_pipe', url_for('hydrology.sub_pipe', project_id=workflow_project_id), 'Zone Pipe (ZP) / أنابيب المناطق', 'bi-droplet')
+    ] %}
         {% elif workflow_endpoint in ['trees.rows_view', 'trees.trees_view'] %}
             {% set workflow_subnav = [
                 ('trees.rows_view', url_for('trees.rows_view', project_id=workflow_project_id), 'Rows / الصفوف', 'bi-list-ol'),
