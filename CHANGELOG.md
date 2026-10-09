@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.31 - 2026-10-09
+
+### Added
+
+- **Rows page (`trees.rows_view`)**: the Tree Rows page is revamped into the dedicated Rows workflow tab (its sub-tab bar with Trees is now centred like Geometry/Hydrology 1). The Add Tree Row card / Back button were removed and the page title is now just "Rows / الصفوف".
+- **Generate Rows modal**: a **Generate** circular button in the table header opens a modal form asking for the **distance between rows (m)** plus an *Replace existing rows* toggle. It traces parallel rows inside every zone along the zone's dominant axis at the given spacing (`trees.rows_generate`).
+- **Rows table action row**: a first header row with icon-only circular buttons for Edit, Rename, Remove, Generate and Validate, mirroring the Sectors/Zones pattern (selection-aware enable/disable).
+- **Row selection & Actions column**: a new checkbox column (with select-all) selects rows; a new centred **Actions** column provides per-row Edit, Rename and Remove buttons via modal forms.
+- **New row routes**: `trees.rows_edit` (edit names, spacing, orientation), `trees.rows_rename`, `trees.rows_remove` (multi-delete via `row_ids`) and `trees.rows_generate` (auto row tracing, replaces existing rows when requested).
+
+### Changed
+
+- **Rows page**: the Zone, Spacing (m), Orientation, Validated and Actions columns are now centred.
+- **Rows page**: row names are resolved to their zone names (EN + AR) instead of the raw zone id.
+
 ## 0.3.30 - 2026-10-09
 
 ### Changed
