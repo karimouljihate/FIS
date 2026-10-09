@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.30 - 2026-10-09
+
+### Changed
+
+- **Sectors / Zones / Main Pipe / Zone Pipe pages**: removed the above-table toolbar buttons; all actions are now driven exclusively by the icon-only circular buttons in the table header action rows. The Zones header row gained Rename and Edit buttons (moving the batch Rename/Edit into the table), and the Sectors/Zones Remove buttons are now wrapped in their removal forms.
+
 ## 0.3.29 - 2026-10-09
 
 ### Added

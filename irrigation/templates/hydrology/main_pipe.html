@@ -22,29 +22,6 @@
     الأنبوب الرئيسي (MP) يمتد من مصدر المياه (الحوض / البئر) ويغذي جميع القطاعات بأكبر قطر PVC.
 </div>
 
-<!-- Toolbar -->
-<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
-    <button type="button" class="btn btn-success" id="addPipeBtn" data-bs-toggle="modal" data-bs-target="#addMainPipeModal">
-        <i class="bi bi-plus-circle"></i> Add Main Pipe / إضافة أنبوب رئيسي
-    </button>
-    <button type="button" class="btn btn-info" id="renamePipeBtn" onclick="pipeEditorRenameSelected()" disabled>
-        <i class="bi bi-input-cursor-text"></i> Rename / إعادة تسمية
-    </button>
-    <button type="button" class="btn btn-danger" id="removePipeBtn" onclick="pipeEditorRemoveSelected()" disabled>
-        <i class="bi bi-trash"></i> Remove / إزالة
-    </button>
-    <div class="ms-auto d-flex gap-2 flex-wrap">
-        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#aiPipingModal">
-            <i class="bi bi-robot"></i> Generate Piping Structure / إنشاء هيكل الأنابيب
-        </button>
-        <form method="POST" action="{{ url_for('hydrology.main_pipe_validate', project_id=project.id) }}" class="d-inline">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle"></i> Validate & Continue / التحقق والمتابعة
-            </button>
-        </form>
-    </div>
-</div>
-
 {% if piping_report %}
 <div class="card shadow-sm mb-3">
     <div class="card-header bg-light">
@@ -265,9 +242,9 @@ document.addEventListener('DOMContentLoaded', function() {
         addModalId: 'addMainPipeModal',
         traceButtons: false,
         selectors: {
-            add: '#addPipeBtn, #pipeHeaderAdd',
-            rename: '#renamePipeBtn, #pipeHeaderRename',
-            remove: '#removePipeBtn, #pipeHeaderRemove',
+            add: '#pipeHeaderAdd',
+            rename: '#pipeHeaderRename',
+            remove: '#pipeHeaderRemove',
             edit: '#pipeHeaderEdit'
         },
         urls: {

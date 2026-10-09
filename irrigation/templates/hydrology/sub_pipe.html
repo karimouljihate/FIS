@@ -22,21 +22,6 @@
     أنابيب المناطق (ZP) تتفرع من الأنبوب الرئيسي وتغذي جميع المناطق، ثم تتصل خطوط التنقيط بجميع صفوف الأشجار.
 </div>
 
-<!-- Toolbar -->
-<div class="d-flex gap-2 mb-3 flex-wrap">
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addZonePipeModal">
-        <i class="bi bi-plus-circle"></i> Add Zone Pipe / إضافة أنبوب منطقة
-    </button>
-    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#aiPipingModal">
-        <i class="bi bi-robot"></i> Generate Piping Structure / إنشاء هيكل الأنابيب
-    </button>
-    <form method="POST" action="{{ url_for('hydrology.sub_pipe_validate', project_id=project.id) }}">
-        <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-circle"></i> Validate & Continue / التحقق والمتابعة
-        </button>
-    </form>
-</div>
-
 {% if piping_report %}
 <div class="card shadow-sm mb-3">
     <div class="card-header bg-light">

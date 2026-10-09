@@ -12,39 +12,6 @@
     <span class="badge bg-primary"><i class="bi bi-folder"></i> {{ project.name }}</span>
 </div>
 
-<!-- Action buttons -->
-<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
-    <button class="btn btn-success" id="zoneAddBtn" data-bs-toggle="modal" data-bs-target="#addZoneModal">
-        <i class="bi bi-plus-circle"></i> Add Zone / إضافة منطقة
-    </button>
-    <button class="btn btn-info" id="zoneRenameBtn" type="button" onclick="zoneRenameSelected()" disabled>
-        <i class="bi bi-input-cursor-text"></i> Rename / إعادة تسمية
-    </button>
-    <button class="btn btn-primary" id="zoneEditBtn" type="button" onclick="zoneEditSelected()" disabled>
-        <i class="bi bi-pencil"></i> Edit / تعديل
-    </button>
-    <form method="POST" action="{{ url_for('geometry.zone_remove', project_id=project.id) }}" id="removeZonesForm" class="d-inline">
-        <button type="button" class="btn btn-danger" id="zoneRemoveBtn" onclick="zoneRemoveSelected()" disabled>
-            <i class="bi bi-trash"></i> Remove / إزالة
-        </button>
-    </form>
-    {% if zones|length >= 2 %}
-    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mergeZoneModal">
-        <i class="bi bi-union"></i> Merge Selected / دمج المحدد
-    </button>
-    {% endif %}
-    <div class="ms-auto d-flex gap-2 flex-wrap">
-        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#aiGenerateZoneModal">
-            <i class="bi bi-robot"></i> AI Generate Zones / إنشاء المناطق بالذكاء الاصطناعي
-        </button>
-        <form method="POST" action="{{ url_for('geometry.zone_validate', project_id=project.id) }}" class="d-inline">
-            <button type="submit" class="btn btn-primary">
-                <i class="bi bi-check-circle"></i> Validate All / التحقق من الكل
-            </button>
-        </form>
-    </div>
-</div>
-
 <!-- Zones Table -->
 <div class="card shadow-sm">
     <div class="card-body p-0">
@@ -53,14 +20,25 @@
                 <thead>
                     <tr class="table-light">
                         <th colspan="8" class="text-center">
-                            <button class="btn btn-circle btn-success" data-bs-toggle="modal"
+                            <button class="btn btn-circle btn-success" id="zoneAddBtn" data-bs-toggle="modal"
                                     data-bs-target="#addZoneModal" title="Add / إضافة">
                                 <i class="bi bi-plus-circle"></i>
                             </button>
-                            <button class="btn btn-circle btn-outline-danger" type="button"
-                                    onclick="zoneRemoveSelected()" title="Remove / إزالة">
-                                <i class="bi bi-trash"></i>
+                            <button class="btn btn-circle btn-info" id="zoneRenameBtn" type="button"
+                                    onclick="zoneRenameSelected()" title="Rename / إعادة تسمية">
+                                <i class="bi bi-input-cursor-text"></i>
                             </button>
+                            <button class="btn btn-circle btn-outline-primary" id="zoneEditBtn" type="button"
+                                    onclick="zoneEditSelected()" title="Edit / تعديل">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <form method="POST" id="removeZonesForm"
+                                      action="{{ url_for('geometry.zone_remove', project_id=project.id) }}" class="d-inline">
+                                <button class="btn btn-circle btn-outline-danger" id="zoneRemoveBtn" type="button"
+                                        onclick="zoneRemoveSelected()" title="Remove / إزالة">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
                             {% if zones|length >= 1 %}
                             <button class="btn btn-circle btn-outline-warning" type="button"
                                     onclick="openSplitZoneSelected()" title="Split / تقسيم">

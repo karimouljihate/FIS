@@ -14,42 +14,6 @@
     <span class="badge bg-info">Status: {{ project.status }}</span>
 </div>
 
-<!-- Add Sector Button -->
-<div class="d-flex gap-2 mb-3 flex-wrap">
-    <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addSectorModal">
-        <i class="bi bi-plus-circle"></i> Add Sector / إضافة قطاع
-    </button>
-    <form id="removeSectorsForm" method="POST"
-          action="{{ url_for('geometry.sector_remove', project_id=project.id) }}"
-          class="d-inline"
-          data-confirm="Remove the selected sectors and their zones? This cannot be undone. / إزالة القطاعات المحددة ومناطقها؟ لا يمكن التراجع.">
-        <button type="button" class="btn btn-outline-danger" onclick="removeSelectedSectors()">
-            <i class="bi bi-trash"></i> Remove Sector / إزالة قطاع
-        </button>
-    </form>
-    {% if sectors|length >= 1 %}
-    <button class="btn btn-outline-warning" type="button" onclick="openSplitSelected()">
-        <i class="bi bi-scissors"></i> Split Selected / تقسيم المحدد
-    </button>
-    {% endif %}
-    {% if sectors|length >= 2 %}
-    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#mergeModal">
-        <i class="bi bi-union"></i> Merge Selected / دمج المحدد
-    </button>
-    <button class="btn btn-outline-primary" data-bs-toggle="modal" data-bs-target="#swapModal">
-        <i class="bi bi-arrow-left-right"></i> Swap / تبديل
-    </button>
-    {% endif %}
-    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#aiGenerateModal">
-        <i class="bi bi-robot"></i> AI Generate / إنشاء بالذكاء الاصطناعي
-    </button>
-    <form method="POST" action="{{ url_for('geometry.sector_validate', project_id=project.id) }}" class="d-inline">
-        <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-circle"></i> Validate All / التحقق من الكل
-        </button>
-    </form>
-</div>
-
 <!-- Sectors Table -->
 <div class="card shadow-sm">
     <div class="card-body p-0">
@@ -62,10 +26,13 @@
                                     data-bs-target="#addSectorModal" title="Add / إضافة">
                                 <i class="bi bi-plus-circle"></i>
                             </button>
-                            <button class="btn btn-circle btn-outline-danger" type="button"
-                                    onclick="removeSelectedSectors()" title="Remove / إزالة">
-                                <i class="bi bi-trash"></i>
-                            </button>
+                            <form method="POST" id="removeSectorsForm"
+                                      action="{{ url_for('geometry.sector_remove', project_id=project.id) }}" class="d-inline">
+                                <button class="btn btn-circle btn-outline-danger" type="button"
+                                        onclick="removeSelectedSectors()" title="Remove / إزالة">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
                             {% if sectors|length >= 1 %}
                             <button class="btn btn-circle btn-outline-warning" type="button"
                                     onclick="openSplitSelected()" title="Split / تقسيم">
