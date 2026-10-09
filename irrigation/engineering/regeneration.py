@@ -567,7 +567,7 @@ def regenerate_sectors(project_id, n_sectors=None, config=None):
     return sectors
 
 
-def regenerate_zones(project_id, sector_id=None, zones_per_sector=None):
+def regenerate_zones(project_id, sector_id=None, zones_per_sector=None, use_elevation=True):
     """AI regeneration: optimally divide sectors into zones.
 
     Uses the same optimization approach but applied within each sector's polygon.
@@ -591,7 +591,7 @@ def regenerate_zones(project_id, sector_id=None, zones_per_sector=None):
     # Fetch or build elevation model (cached)
     elevation_model = None
     water_source_elevation = None
-    if project:
+    if project and use_elevation:
         try:
             elevation_model = get_or_build_elevation_model(project_id, project)
             if elevation_model:

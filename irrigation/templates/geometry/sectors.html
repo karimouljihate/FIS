@@ -98,8 +98,8 @@
                         <th>ID</th>
                         <th>Name (EN) / الاسم (EN)</th>
                         <th>Name (AR) / الاسم (AR)</th>
-                        <th>Validated / تم التحقق</th>
-                        <th class="text-end">Area (m²) / المساحة</th>
+                        <th class="text-center">Validated / تم التحقق</th>
+                        <th class="text-center">Area (m²) / المساحة</th>
                         <th class="text-center">Actions / إجراءات</th>
                     </tr>
                 </thead>
@@ -110,14 +110,14 @@
                         <td>{{ s.id }}</td>
                         <td>{{ s.name_en }}</td>
                         <td class="ar-text">{{ s.name_ar }}</td>
-                        <td>
+                        <td class="text-center">
                             {% if s.validated %}
                             <span class="badge bg-success"><i class="bi bi-check"></i></span>
                             {% else %}
                             <span class="badge bg-warning"><i class="bi bi-clock"></i></span>
                             {% endif %}
                         </td>
-                        <td class="text-end">{{ '{:,.0f}'.format(s.area_m2 or 0) }}</td>
+                        <td class="text-center">{{ '{:,.0f}'.format(s.area_m2 or 0) }}</td>
                         <td class="text-center">
                             <button class="btn btn-circle btn-primary" data-bs-toggle="modal"
                                     data-bs-target="#editModal{{ s.id }}" title="Edit / تعديل">

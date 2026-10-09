@@ -424,7 +424,9 @@ def zones_view(project_id):
                 'zone': None
             })
 
-    return render_template('geometry/zones.html', project=project, sectors=sectors, zones=zones, table_data=table_data)
+    default_zones_per_sector = (project.get('spec') or {}).get('config', {}).get('zones_per_sector', 2)
+
+    return render_template('geometry/zones.html', project=project, sectors=sectors, zones=zones, table_data=table_data, default_zones_per_sector=default_zones_per_sector)
 
 
 @geometry_bp.route('/<int:project_id>/zones/add', methods=['POST'])
@@ -517,6 +519,37 @@ def zone_rename(project_id, zone_id):
     if update:
         mongo.db.zones.update_one({'id': zone_id, 'project_id': project_id}, {'$set': update})
         flash('Zone renamed / تمت إعادة تسمية المنطقة', 'success')
+    return redirect(url_for('geometry.zones_view', project_id=project_id))
+
+
+@geometry_bp.route('/<int:project_id>/zones/remove', methods=['POST'])
+@login_required
+def zone_remove(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    try:
+        zone_ids = [int(v) for v in request.form.getlist('zone_ids')]
+    except ValueError:
+        zone_ids = []
+    if not zone_ids:
+        flash('Select at least one zone to remove / اختر منطقة واحدة على الأقل للإزالة', 'warning')
+        return redirect(url_for('geometry.zones_view', project_id=project_id))
+
+    zones = list(mongo.db.zones.find(
+        {'id': {'$in': zone_ids}, 'project_id': project_id}, {'id': 1}))
+    if not zones:
+        flash('No matching zones found / لم يتم العثور على مناطق مطابقة', 'warning')
+        return redirect(url_for('geometry.zones_view', project_id=project_id))
+
+    ids = [z['id'] for z in zones]
+    mongo.db.tree_rows.delete_many({'project_id': project_id, 'zone_id': {'$in': ids}})
+    mongo.db.trees.delete_many({'project_id': project_id, 'zone_id': {'$in': ids}})
+    mongo.db.network_elements.delete_many({'project_id': project_id, 'zone_id': {'$in': ids}})
+
+    removed = mongo.db.zones.delete_many({'id': {'$in': ids}, 'project_id': project_id}).deleted_count
+    flash(f'Removed {removed} zone(s) / تمت إزالة {removed} منطقة', 'success')
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 
 
@@ -649,8 +682,14 @@ def zone_ai_regenerate(project_id):
     if not project:
         return redirect(url_for('project.index'))
 
+    zones_per_sector = request.form.get('zones_per_sector', type=int)
+    if not zones_per_sector or zones_per_sector < 1:
+        zones_per_sector = 2
+    zones_per_sector = min(zones_per_sector, 8)
+    use_elevation = request.form.get('use_elevation') == '1'
+
     mongo.db.zones.delete_many({'project_id': project_id})
-    zones = regenerate_zones(project_id)
+    zones = regenerate_zones(project_id, zones_per_sector=zones_per_sector, use_elevation=use_elevation)
     flash(f'AI generated {len(zones)} zones / الذكاء الاصطناعي أنشأ {len(zones)} مناطق', 'success')
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 

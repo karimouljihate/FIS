@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.3.28 - 2026-10-09
+
+### Added
+
+- **Zones page toolbar**: Add / Rename / Edit / Remove buttons with selection-aware enable/disable (0 selected disables Rename, Edit and Remove; 1 selected disables Add; 2+ selected disables Add, Edit and Rename). AI Generate and Validate are pinned to the right side and stay enabled.
+- **Zones table action row**: a first header row with icon-only circular buttons for Add, Remove, Split, Merge, Swap, AI Generate and Validate, plus new Split Selected and Swap modals wired to `zone_split_selected` / `zone_swap`.
+- **AI Generate Zones modal**: opens a modal form with configurable Zones per Sector (1–8, default from project spec) and a Use elevation data toggle; `regenerate_zones` now accepts `use_elevation`.
+- **Zone removal route** `POST /<project_id>/zones/remove` (`geometry.zone_remove`): deletes the selected zones together with their tree rows, trees and network elements, mirroring `sector_remove`.
+
+### Changed
+
+- **Sectors / Zones tables**: the Validated and Area (m²) columns are now centred (headers and data cells).
+
 ## 0.3.27 - 2026-10-09
 
 ### Added
