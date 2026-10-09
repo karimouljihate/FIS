@@ -22,10 +22,11 @@ The generator:
 Public entry point: :func:`generate_piping_structure`.
 """
 import math
+import heapq
 from datetime import datetime
 from collections import defaultdict
 
-from shapely.geometry import shape, Point, LineString
+from shapely.geometry import shape, Point, LineString, Polygon
 import pyproj
 
 from irrigation.extensions import mongo
@@ -49,6 +50,11 @@ STRUCTURAL_TYPES = [
     'main_pipe', 'sub_pipe', 'dripline',
     'master_valve', 'sector_valve', 'zone_valve', 'reduction',
 ]
+
+# Minimum floor diameters (mm) by pipe level. The main pipe must always be
+# the largest pipe in the network (Rule 5).
+MAIN_MIN_DIAMETER_MM = 63
+SUB_MIN_DIAMETER_MM = 40
 
 _TYPE_EN = {
     'main_pipe': 'Main Pipe',
@@ -423,38 +429,13 @@ def generate_piping_structure(project_id, project=None, options=None):
     if not source_flow_lpm:
         source_flow_lpm = primary.get('flow_lpm') or config['source_flow_lpm']
 
-    # -- main pipe: MST over source + sector centroids --------------------
-    sector_nodes = []
-    for s in sectors:
-        try:
-            c = shape(s['polygon']).centroid
-        except Exception:
-            continue
-        x, y = proj(c.x, c.y)
-        nid = net.add_node(x, y, 'sector', sector_id=s['id'])
-        sector_nodes.append((s, nid))
-
-    mst_pairs = _minimum_spanning_tree(
-        [(source_id, net.nodes[source_id]['x'], net.nodes[source_id]['y'])] +
-        [(nid, net.nodes[nid]['x'], net.nodes[nid]['y']) for _, nid in sector_nodes])
-    for a, b in mst_pairs:
-        net.add_edge(a, b, 'mp', 'main_pipe',
-                     config['main_max_velocity_mps'], 63)
-
-    # -- zone pipes: nearest tap on the MP network ------------------------
-    zone_nodes = {}
-    for z in zones:
-        try:
-            c = shape(z['polygon']).centroid
-        except Exception:
-            continue
-        x, y = proj(c.x, c.y)
-        tap_id = net.tap(x, y, kinds=('mp',))
-        znid = net.add_node(x, y, 'zone', sector_id=z.get('sector_id'), zone_id=z['id'])
-        net.add_edge(tap_id, znid, 'zp', 'sub_pipe',
-                     config['sub_max_velocity_mps'], 40,
-                     zone_id=z['id'], sector_id=z.get('sector_id'))
-        zone_nodes[z['id']] = znid
+    # -- main pipe + zone pipes: routed along sector boundaries -----------
+    # Rules: main pipe comes from the source (2), runs only on sector
+    # boundaries and serves only sectors (1,3), hugs the highest ground and
+    # drops branch pipes to low sectors (4).
+    sector_nodes, zone_nodes = _build_boundary_network(
+        net, source_id, sectors, zones, proj, elevation_lookup,
+        elevation_range, config, opts)
 
     # -- demand -----------------------------------------------------------
     q_tree_lps = config['emitter_flow_lph'] * config['emitters_per_tree'] / 3600.0
@@ -494,16 +475,19 @@ def generate_piping_structure(project_id, project=None, options=None):
         net.nodes[znid]['demand_lps'] = demand
 
     # -- row connections (driplines / laterals) ---------------------------
+    # Rows are served from the zone (sub) pipes; the main pipe only serves
+    # sectors (Rule 3). Fall back to the main pipe only if no zone pipes exist.
+    row_tap_kinds = ('zp',) if any(e['kind'] == 'zp' for e in net.edges) else ('mp', 'zp')
     for r, row_demand, tc, emit, utm, wgs in row_data:
-        tap_id = net.tap(utm[0][0], utm[0][1], kinds=('mp', 'zp'))
+        tap_id = net.tap(utm[0][0], utm[0][1], kinds=row_tap_kinds)
         if opts['mode'] == 'lateral':
             mid_id = net.add_node(utm[0][0], utm[0][1], 'rowend')
             lat = {
                 'a': tap_id, 'b': mid_id, 'kind': 'lat', 'type': 'sub_pipe',
                 'coords': [net._pt(tap_id), utm[0]], 'zone_id': None,
                 'row_id': r['id'], 'sector_id': None,
-                'flow_lps': row_demand, 'diameter': 40,
-                'vmax': config['sub_max_velocity_mps'], 'floor_d': 40,
+                'flow_lps': row_demand, 'diameter': SUB_MIN_DIAMETER_MM,
+                'vmax': config['sub_max_velocity_mps'], 'floor_d': SUB_MIN_DIAMETER_MM,
                 'distributed': False, 'emitter_count': 0,
                 'length_m': _dist(net._pt(tap_id), utm[0]),
             }
@@ -551,6 +535,7 @@ def generate_piping_structure(project_id, project=None, options=None):
     net.compute_graph_flows(source_id)
 
     net.size_edges()
+    _enforce_diameter_hierarchy(net)
 
     source_head = head_m_from_pressure_bar(source_pressure) + z_src
     min_p = config['min_emitter_pressure_bar']
@@ -568,6 +553,8 @@ def generate_piping_structure(project_id, project=None, options=None):
                 net.bump_path(_graph_path_edges(parent_edge, tap) + path)
         if not any_fail:
             break
+
+    _enforce_diameter_hierarchy(net)
 
     H, parent_edge, order, row_states = net.pressures(source_id, source_head)
 
@@ -695,6 +682,350 @@ def generate_piping_structure(project_id, project=None, options=None):
 # helpers
 # --------------------------------------------------------------------------
 
+class _BoundaryGraph:
+    """Planar graph of sector boundary vertices (UTM meters).
+
+    Vertices within ``snap`` metres are merged so that edges shared by
+    adjacent sectors become one connected graph.
+    """
+
+    def __init__(self, snap=0.5):
+        self.snap = snap
+        self.nodes = []                     # [x, y, z]
+        self.edges = []                     # (i, j, length)
+        self.adj = defaultdict(list)        # i -> [(j, edge_index)]
+        self._key = {}
+
+    def node_id(self, x, y, z):
+        key = (int(round(x / self.snap)), int(round(y / self.snap)))
+        idx = self._key.get(key)
+        if idx is None:
+            idx = len(self.nodes)
+            self.nodes.append([float(x), float(y), float(z)])
+            self._key[key] = idx
+        return idx
+
+    def pos(self, idx):
+        return tuple(self.nodes[idx])
+
+    def add_edge(self, i, j):
+        if i == j:
+            return
+        length = math.hypot(self.nodes[j][0] - self.nodes[i][0],
+                            self.nodes[j][1] - self.nodes[i][1])
+        ei = len(self.edges)
+        self.edges.append((i, j, length))
+        self.adj[i].append((j, ei))
+        self.adj[j].append((i, ei))
+
+
+def _dijkstra(graph, src, cost):
+    dist = {src: 0.0}
+    prev = {}
+    pq = [(0.0, src)]
+    while pq:
+        d, u = heapq.heappop(pq)
+        if d > dist.get(u, float('inf')) + 1e-12:
+            continue
+        for v, ei in graph.adj[u]:
+            nd = d + cost(graph.edges[ei], u, v)
+            if nd < dist.get(v, float('inf')) - 1e-12:
+                dist[v] = nd
+                prev[v] = (u, ei)
+                heapq.heappush(pq, (nd, v))
+    return dist, prev
+
+
+def _steiner_tree_edges(graph, terminals, cost):
+    """Distance-network Steiner heuristic: returns the set of edge indices
+    connecting all terminals along the boundary graph."""
+    terminals = list(dict.fromkeys(terminals))
+    if len(terminals) <= 1:
+        return set()
+
+    dists = {}
+    prevs = {}
+    for t in terminals:
+        dists[t], prevs[t] = _dijkstra(graph, t, cost)
+
+    in_tree = {terminals[0]}
+    pending = set(terminals[1:])
+    tree_edges = set()
+    while pending:
+        best = None
+        for v in pending:
+            for u in in_tree:
+                d = dists[u].get(v)
+                if d is not None and (best is None or d < best[0]):
+                    best = (d, u, v)
+        if best is None:
+            break
+        _, u, v = best
+        cur = v
+        while cur != u:
+            step = prevs[u].get(cur)
+            if step is None:
+                break
+            pnode, ei = step
+            tree_edges.add(ei)
+            cur = pnode
+        in_tree.add(v)
+        pending.discard(v)
+    return tree_edges
+
+
+def _join_components(graph):
+    """Connect disconnected boundary components with straight spans so the
+    main pipe can form a single network even when sectors do not touch."""
+    if not graph.nodes:
+        return
+    parent = list(range(len(graph.nodes)))
+
+    def find(a):
+        while parent[a] != a:
+            parent[a] = parent[parent[a]]
+            a = parent[a]
+        return a
+
+    for i, j, _ in graph.edges:
+        ra, rb = find(i), find(j)
+        if ra != rb:
+            parent[rb] = ra
+
+    comps = defaultdict(list)
+    for i in range(len(graph.nodes)):
+        comps[find(i)].append(i)
+
+    while len(comps) > 1:
+        roots = list(comps)
+        best = None
+        for ai in range(len(roots)):
+            for bi in range(ai + 1, len(roots)):
+                for i in comps[roots[ai]]:
+                    ix, iy = graph.nodes[i][0], graph.nodes[i][1]
+                    for j in comps[roots[bi]]:
+                        d = math.hypot(graph.nodes[j][0] - ix,
+                                       graph.nodes[j][1] - iy)
+                        if best is None or d < best[0]:
+                            best = (d, roots[ai], roots[bi], i, j)
+        if best is None:
+            break
+        _, ra, rb, i, j = best
+        graph.add_edge(i, j)
+        comps[ra].extend(comps[rb])
+        del comps[rb]
+
+
+def _route_inside(poly, start, end):
+    """Return polyline coordinates from ``start`` to ``end`` kept inside
+    ``poly`` (clips a straight line to the polygon)."""
+    start = tuple(start)
+    end = tuple(end)
+    try:
+        clipped = LineString([start, end]).intersection(poly)
+    except Exception:
+        return [start, end]
+
+    if clipped.is_empty:
+        return [start, end]
+    if clipped.geom_type == 'LineString':
+        segs = [clipped]
+    elif clipped.geom_type in ('MultiLineString', 'GeometryCollection'):
+        segs = [gg for gg in clipped.geoms if gg.geom_type == 'LineString']
+    else:
+        segs = []
+    if not segs:
+        return [start, end]
+
+    best = min(segs, key=lambda sg: sg.distance(Point(end)))
+    coords = [tuple(c) for c in best.coords]
+    if _dist(coords[0], start) > _dist(coords[-1], start):
+        coords = coords[::-1]
+    if _dist(coords[0], start) > 1e-6:
+        coords = [start] + coords
+    if _dist(coords[-1], end) > 1e-6:
+        coords = coords + [end]
+    return coords
+
+
+def _enforce_diameter_hierarchy(net):
+    """Rule 5: the main pipe must have the highest diameter in the network."""
+    all_edges = list(net.edges) + [x for chain in net.attachments for x in chain]
+    sub_max = max((e['diameter'] for e in all_edges
+                   if e['kind'] in ('zp', 'lat', 'drip')), default=0)
+    if sub_max <= 0:
+        return
+    higher = [d for d in net.standards if d > sub_max]
+    target = higher[0] if higher else max(net.standards)
+    for e in net.edges:
+        if e['kind'] == 'mp' and e['diameter'] < target:
+            e['diameter'] = max(e['diameter'], target)
+
+
+def _build_boundary_network(net, source_id, sectors, zones, proj,
+                            elevation_lookup, elevation_range, config, opts):
+    """Build the main pipe along sector boundaries and connect zones.
+
+    Implements the piping rules:
+      1. pipes follow sector boundaries only,
+      2. the main pipe starts at the water source,
+      3. it serves sectors only (zone pipes branch at sector entries),
+      4. it stays on the highest ground; low sectors are fed by a branch
+         zone pipe dropped from the high main pipe.
+    Returns ``(sector_nodes, zone_nodes)`` for valve placement.
+    """
+    def elev(x, y):
+        if elevation_lookup is None:
+            return 0.0
+        try:
+            return float(elevation_lookup(Point(x, y)) or 0.0)
+        except Exception:
+            return 0.0
+
+    # --- boundary graph of all sector edges ---
+    graph = _BoundaryGraph()
+    sector_data = {}
+    for s in sectors:
+        geom = s.get('polygon') or {}
+        coords = geom.get('coordinates') or []
+        if geom.get('type') != 'Polygon' or not coords:
+            continue
+        ring = coords[0]
+        if len(ring) < 4:
+            continue
+        utm = [(float(x), float(y)) for x, y in (proj(c[0], c[1]) for c in ring)]
+        if _dist(utm[0], utm[-1]) < 1e-9:
+            utm = utm[:-1]
+        if len(utm) < 3:
+            continue
+
+        ring_ids = [graph.node_id(x, y, elev(x, y)) for x, y in utm]
+        cand = list(ring_ids)
+        n = len(ring_ids)
+        for k in range(n):
+            a = ring_ids[k]
+            b = ring_ids[(k + 1) % n]
+            ax, ay = graph.nodes[a][0], graph.nodes[a][1]
+            bx, by = graph.nodes[b][0], graph.nodes[b][1]
+            mx, my = (ax + bx) / 2.0, (ay + by) / 2.0
+            m = graph.node_id(mx, my, elev(mx, my))
+            graph.add_edge(a, m)
+            graph.add_edge(m, b)
+            cand.append(m)
+
+        entry = max(cand, key=lambda idx: graph.nodes[idx][2])
+        try:
+            poly = Polygon(utm)
+            if not poly.is_valid:
+                poly = poly.buffer(0)
+        except Exception:
+            poly = None
+        sector_data[s['id']] = {
+            'poly': poly,
+            'entry': entry,
+            'entry_xy': (graph.nodes[entry][0], graph.nodes[entry][1]),
+        }
+
+    if not sector_data:
+        return [], {}
+
+    _join_components(graph)
+
+    # --- elevation-weighted cost: prefer high ground (Rule 4) ---
+    zs = [n[2] for n in graph.nodes]
+    zmax = max(zs) if zs else 0.0
+    zmin = min(zs) if zs else 0.0
+    zrange = max(elevation_range or 0.0, zmax - zmin, 1.0)
+    elev_weight = float(opts.get('main_spine_elev_weight', 2.0))
+
+    def cost(edge, u, v):
+        i, j, length = edge
+        z = (graph.nodes[i][2] + graph.nodes[j][2]) / 2.0
+        penalty = max(0.0, zmax - z) / zrange
+        return length * (1.0 + elev_weight * penalty)
+
+    # --- choose which sectors the main pipe actually serves (Rule 4) ---
+    entry_elev = {sid: graph.nodes[d['entry']][2]
+                  for sid, d in sector_data.items()}
+    max_entry = max(entry_elev.values())
+    drop_tol = opts.get('main_spine_tolerance_m')
+    if drop_tol is None:
+        drop_tol = max(1.0, (elevation_range or 0.0) * 0.2)
+    main_sids = [sid for sid, e in entry_elev.items() if e >= max_entry - drop_tol]
+    main_set = set(main_sids)
+
+    # --- connect the source to the nearest boundary node (Rule 2) ---
+    sx = net.nodes[source_id]['x']
+    sy = net.nodes[source_id]['y']
+    src_idx = min(range(len(graph.nodes)),
+                  key=lambda i: math.hypot(graph.nodes[i][0] - sx,
+                                           graph.nodes[i][1] - sy))
+    terminals = [src_idx] + [sector_data[sid]['entry'] for sid in main_sids]
+
+    tree_edge_ids = _steiner_tree_edges(graph, terminals, cost)
+
+    g2net = {}
+
+    def net_of(idx):
+        if idx not in g2net:
+            x, y, z = graph.nodes[idx]
+            g2net[idx] = net.add_node(x, y, 'bnd', z=z)
+        return g2net[idx]
+
+    for ei in tree_edge_ids:
+        i, j, _ = graph.edges[ei]
+        net.add_edge(net_of(i), net_of(j), 'mp', 'main_pipe',
+                     config['main_max_velocity_mps'], MAIN_MIN_DIAMETER_MM)
+
+    net.add_edge(source_id, net_of(src_idx), 'mp', 'main_pipe',
+                 config['main_max_velocity_mps'], MAIN_MIN_DIAMETER_MM)
+
+    # --- sector entries: MP directly (high) or branch pipe (low) ---
+    sector_nodes = []
+    entries_net = {}
+    for s in sectors:
+        d = sector_data.get(s['id'])
+        if not d:
+            continue
+        sid = s['id']
+        if sid in main_set:
+            entry_net = net_of(d['entry'])
+        else:
+            x, y = d['entry_xy']
+            tap = net.tap(x, y, kinds=('mp',))
+            entry_net = net.add_node(x, y, 'sector', sector_id=sid)
+            net.add_edge(tap, entry_net, 'zp', 'sub_pipe',
+                         config['sub_max_velocity_mps'], SUB_MIN_DIAMETER_MM,
+                         sector_id=sid)
+        entries_net[sid] = entry_net
+        sector_nodes.append((s, entry_net))
+
+    # --- zone pipes inside each sector, branching from the entry ---
+    zone_nodes = {}
+    for z in zones:
+        sid = z.get('sector_id')
+        d = sector_data.get(sid)
+        entry_net = entries_net.get(sid)
+        if d is None or entry_net is None or not z.get('polygon'):
+            continue
+        try:
+            c = shape(z['polygon']).centroid
+            cx, cy = proj(c.x, c.y)
+        except Exception:
+            continue
+        znid = net.add_node(cx, cy, 'zone', sector_id=sid, zone_id=z['id'])
+        if d['poly'] is not None:
+            coords = _route_inside(d['poly'], net._pt(entry_net), (cx, cy))
+        else:
+            coords = [net._pt(entry_net), (cx, cy)]
+        net.add_edge(entry_net, znid, 'zp', 'sub_pipe',
+                     config['sub_max_velocity_mps'], SUB_MIN_DIAMETER_MM,
+                     coords=coords, zone_id=z['id'], sector_id=sid)
+        zone_nodes[z['id']] = znid
+
+    return sector_nodes, zone_nodes
+
+
 def _resolve_sources(project):
     """Return (primary, secondary) water-source dicts with coordinates."""
     spec = project.get('spec') or {}
@@ -759,28 +1090,6 @@ def _build_elevation_lookup(project_id, project, use_elevation, proj):
         return get_elevation_at_point(model, point)
 
     return lookup, elev_range, None
-
-
-def _minimum_spanning_tree(points):
-    """Prim's MST. ``points`` is a list of (id, x, y). Returns edge pairs."""
-    if len(points) <= 1:
-        return []
-    in_tree = {points[0][0]}
-    remaining = list(points[1:])
-    edges = []
-    while remaining:
-        best = None
-        for pid, px, py in remaining:
-            for tid in in_tree:
-                t = next(p for p in points if p[0] == tid)
-                d = math.hypot(px - t[1], py - t[2])
-                if best is None or d < best[0]:
-                    best = (d, tid, pid)
-        _, tid, pid = best
-        edges.append((tid, pid))
-        in_tree.add(pid)
-        remaining = [p for p in remaining if p[0] != pid]
-    return edges
 
 
 def _nearest_node(net, x, y, kinds=('source', 'sector', 'zone', 'tap')):

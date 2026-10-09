@@ -3,9 +3,22 @@ from flask_login import login_required, current_user
 from irrigation.extensions import mongo
 from irrigation.models import get_next_id, serialize_doc
 from irrigation.engineering.regeneration import regenerate_sectors, regenerate_zones
+from irrigation.engineering.projection import projected_shape
+from shapely.geometry import shape
 import json
 
 geometry_bp = Blueprint('geometry', __name__)
+
+
+def _polygon_area_m2(polygon):
+    """Area of a GeoJSON polygon in square meters (0 if unavailable)."""
+    if not polygon:
+        return 0.0
+    try:
+        centroid = shape(polygon).centroid
+        return round(projected_shape(polygon, centroid.x, centroid.y).area, 2)
+    except Exception:
+        return 0.0
 
 
 def get_project_or_redirect(project_id):
@@ -29,6 +42,7 @@ def sectors_view(project_id):
     sectors = list(mongo.db.sectors.find({'project_id': project_id}).sort('id', 1))
     for s in sectors:
         s['_id'] = str(s['_id'])
+        s['area_m2'] = s.get('area_m2') or _polygon_area_m2(s.get('polygon'))
 
     return render_template('geometry/sectors.html', project=project, sectors=sectors)
 
@@ -392,6 +406,7 @@ def zones_view(project_id):
     zones = list(mongo.db.zones.find({'project_id': project_id}).sort('id', 1))
     for s in sectors + zones:
         s['_id'] = str(s['_id'])
+        s['area_m2'] = s.get('area_m2') or _polygon_area_m2(s.get('polygon'))
 
     # Build a table-friendly structure
     table_data = []

@@ -281,7 +281,8 @@ function initMap(elementId, geojsonUrl, options = {}) {
                     }
 
                     layer.on('click', function(event) {
-                        if (!mapSelectionMode || mapRulerActive) return;
+                        const alwaysToggle = !!(options.selectable && options.selectable.toggleOnClick);
+                        if ((!mapSelectionMode && !alwaysToggle) || mapRulerActive) return;
                         if (event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
                         if (checkbox) {
                             checkbox.checked = !checkbox.checked;

@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.3.26 - 2026-10-09
+
+### Added
+
+- **Hydrology-1 map editor** (Main Pipe / Zone Pipe pages): in-map Leaflet controls (Add, Edit/Change, Rename, Remove, plus Trace Main/Zone Pipe on the Zone Pipe page) wired to the shared editor modals (`hydrology/_pipe_editor_modals.html`) and `static/js/pipe_editor.js` that keep the two pages consistent.
+- Tables on both Hydrology-1 pages now start with a select-all checkbox column (live-synced with map selection) and end with an Actions column (per-row Rename and Remove buttons). Row checkboxes carry `data-coords` / `data-diameter` / `data-name-*` so Edit and Rename prefill without extra requests.
+- Generic pipe routes `POST /<project_id>/pipe/<pipe_type>/rename|edit|remove` (`hydrology.pipe_rename` / `pipe_update` / `pipe_remove`) for both `main_pipe` and `sub_pipe`; `pipe_update` re-derives length from the new coordinates.
+
+### Changed
+
+- Main Pipe / Zone Pipe workflow tabs are now centred like the Geometry tabs (`project-workflow-subnav-centered`).
+- `main_pipe` view now also passes `zones` so the shared editor can add Zone Pipes from the Main Pipe page.
+- **Main Pipe page toolbars**: Rename and Remove buttons added next to Add (selection-aware: 0 selected disables both, 1 selected enables both and disables Add, 2+ selected enables only Remove); Generate and Validate are pinned to the right end and stay enabled. The in-map control on the Main Pipe page is reduced to Add / Edit / Rename / Remove (Trace MP / Trace ZP removed via the `traceButtons: false` option); the same pipe editor applies the selection enable/disable rules to its map buttons.
+- **Table ↔ map are now linked both ways** on the Main Pipe and Zone Pipe pages: pipes are selected/deselected directly by clicking them on the map (`selectable.toggleOnClick`, no Select-mode cursor required) while any table checkbox change still highlights/clears the matching map layer. Removing selected pipes (toolbar, row action, or map trash) is now an AJAX delete (`X-Requested-With: XMLHttpRequest` → JSON response): the table rows, the checkboxes, the select-all state and the map layers are updated in place, so removals are reflected into the map immediately.
+- Replaced the global loading spinner (`img/loading.gif`) with a modern minimalist royal-blue circular loader with a transparent background, sized to the light overlay styling in `base.html`.
+- **Create Project page**: removed the two-column layout; the Instructions card now sits full-width above the Create New Project form card.
+- **Geometry tables**: Sectors and Zones now include an Area (m²) column, computed from each polygon via a projected UTM area when not already stored.
+- **Piping generator rules**: the Main Pipe and Zone Pipe networks are routed along sector boundary edges using a boundary-graph Steiner heuristic with elevation-weighted cost and automatic reconnection of disjoint components (Rules 3 & 4); diameter floors are applied per pipe level and Rule 5 is enforced so the Main Pipe always carries the largest diameter in the network.
+
 ## 0.3.25 - 2026-10-09
 
 ### Added
@@ -15,6 +34,7 @@
 
 ### Changed
 
+- **Piping rules** (`irrigation/engineering/piping.py`): the Main Pipe is now routed along shared sector-boundary edges (a Steiner tree over the boundary graph, so no pipe leaves the sector polygons) instead of straight centroid-to-centroid lines. The main pipe starts at the water source, serves sectors only (zone pipes branch at a single sector entry point), is biased toward the highest ground via an elevation-weighted cost, and does not descend into low sectors: a sector whose entry is below the highest entry by a tolerance (`main_spine_tolerance_m`, default ~20% of the elevation range) is fed by a branch Zone Pipe dropped from the high main line. The main pipe always keeps the largest diameter (enforced after sizing and after the pressure loop).
 - Tap splitting in the network builder now keeps the original far endpoint (the right half no longer collapses into a self-loop), and split fragments are merged back into a single element per original pipe at write time, so counts reflect real pipes (e.g. 8 main + 16 zone) instead of every tap fragment.
 - Validation reads stored `flow_lps` for generated pipes in hydraulic and elevation-head checks; laterals (row-attached sub pipes) may connect to a Zone Pipe instead of only the Main Pipe.
 - Piping workflow labels now read Main Pipe (MP) / Zone Pipe (ZP); `reduction` is a first-class element type in the API color map, estimation item types, map rendering and the network table.

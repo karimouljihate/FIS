@@ -151,7 +151,7 @@
             ] %}
         {% endif %}
         {% if workflow_subnav %}
-    <nav class="project-workflow-subnav{% if workflow_endpoint in ['geometry.sectors_view', 'geometry.zones_view'] %} project-workflow-subnav-geometry{% endif %}" aria-label="Project section">
+    <nav class="project-workflow-subnav{% if workflow_endpoint in ['geometry.sectors_view', 'geometry.zones_view', 'hydrology.main_pipe', 'hydrology.sub_pipe'] %} project-workflow-subnav-centered{% endif %}" aria-label="Project section">
         <div class="container">
             <ul class="nav nav-pills">
                 {% for sub_endpoint, sub_url, sub_label, sub_icon in workflow_subnav %}

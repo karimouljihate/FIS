@@ -48,6 +48,7 @@
                         <th>Zone Name (EN) / اسم المنطقة</th>
                         <th>Zone Name (AR) / اسم المنطقة</th>
                         <th>Validated / تم التحقق</th>
+                        <th class="text-end">Area (m²) / المساحة</th>
                         <th class="text-center">Actions / إجراءات</th>
                     </tr>
                 </thead>
@@ -67,6 +68,7 @@
                             <span class="badge bg-warning"><i class="bi bi-clock"></i></span>
                             {% endif %}
                         </td>
+                        <td class="text-end">{{ '{:,.0f}'.format(item.zone.area_m2 or 0) }}</td>
                         <td class="text-center">
                             <button class="btn btn-circle btn-primary" data-bs-toggle="modal"
                                     data-bs-target="#editZoneModal{{ item.zone.id }}" title="Edit / تعديل">
@@ -176,6 +178,7 @@
                         <td>-</td>
                         <td>{{ item.sector.name_en }} ({{ item.sector.name_ar }})</td>
                         <td colspan="3" class="text-muted text-center">No zones / لا توجد مناطق</td>
+                        <td></td>
                         <td></td>
                     </tr>
                     {% endif %}

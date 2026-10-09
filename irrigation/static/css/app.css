@@ -600,7 +600,7 @@ textarea {
     padding: 0.25rem 0;
 }
 
-.project-workflow-subnav-geometry .nav {
+.project-workflow-subnav-centered .nav {
     justify-content: center;
 }
 
@@ -744,6 +744,11 @@ textarea {
 .geometry-map-select-button.active {
     background: var(--bs-primary);
     color: #fff;
+}
+
+.geometry-map-select-button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
 }
 
 .geometry-map-select-mode .leaflet-interactive {

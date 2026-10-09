@@ -23,18 +23,26 @@
 </div>
 
 <!-- Toolbar -->
-<div class="d-flex gap-2 mb-3 flex-wrap">
-    <button type="button" class="btn btn-success" data-bs-toggle="modal" data-bs-target="#addMainPipeModal">
+<div class="d-flex gap-2 mb-3 flex-wrap align-items-center">
+    <button type="button" class="btn btn-success" id="addPipeBtn" data-bs-toggle="modal" data-bs-target="#addMainPipeModal">
         <i class="bi bi-plus-circle"></i> Add Main Pipe / إضافة أنبوب رئيسي
     </button>
-    <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#aiPipingModal">
-        <i class="bi bi-robot"></i> Generate Piping Structure / إنشاء هيكل الأنابيب
+    <button type="button" class="btn btn-info" id="renamePipeBtn" onclick="pipeEditorRenameSelected()" disabled>
+        <i class="bi bi-input-cursor-text"></i> Rename / إعادة تسمية
     </button>
-    <form method="POST" action="{{ url_for('hydrology.main_pipe_validate', project_id=project.id) }}">
-        <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-circle"></i> Validate & Continue / التحقق والمتابعة
+    <button type="button" class="btn btn-danger" id="removePipeBtn" onclick="pipeEditorRemoveSelected()" disabled>
+        <i class="bi bi-trash"></i> Remove / إزالة
+    </button>
+    <div class="ms-auto d-flex gap-2 flex-wrap">
+        <button type="button" class="btn btn-warning" data-bs-toggle="modal" data-bs-target="#aiPipingModal">
+            <i class="bi bi-robot"></i> Generate Piping Structure / إنشاء هيكل الأنابيب
         </button>
-    </form>
+        <form method="POST" action="{{ url_for('hydrology.main_pipe_validate', project_id=project.id) }}" class="d-inline">
+            <button type="submit" class="btn btn-primary">
+                <i class="bi bi-check-circle"></i> Validate & Continue / التحقق والمتابعة
+            </button>
+        </form>
+    </div>
 </div>
 
 {% if piping_report %}
@@ -76,9 +84,10 @@
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" id="pipeTable">
                 <thead>
                     <tr>
+                        <th width="40"><input type="checkbox" id="selectAllPipes" onclick="toggleAllPipes(this)"></th>
                         <th>ID</th>
                         <th>Name (EN)</th>
                         <th>Name (AR)</th>
@@ -87,11 +96,19 @@
                         <th>Velocity (m/s)</th>
                         <th>Length (m)</th>
                         <th>Validated</th>
+                        <th class="text-center">Actions / إجراءات</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in main_pipes %}
                     <tr>
+                        <td>
+                            <input type="checkbox" class="pipe-checkbox" value="{{ p.id }}"
+                                   data-name-en="{{ p.name_en }}"
+                                   data-name-ar="{{ p.name_ar }}"
+                                   data-diameter="{{ p.properties.get('diameter', '') }}"
+                                   data-coords="{{ p.geometry.coordinates | tojson }}">
+                        </td>
                         <td>{{ p.id }}</td>
                         <td>{{ p.name_en }}</td>
                         <td class="ar-text">{{ p.name_ar }}</td>
@@ -106,9 +123,17 @@
                             <span class="badge bg-warning"><i class="bi bi-clock"></i></span>
                             {% endif %}
                         </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-circle btn-info" onclick="openPipeRename({{ p.id }})" title="Rename / إعادة تسمية">
+                                <i class="bi bi-input-cursor-text"></i>
+                            </button>
+                            <button type="button" class="btn btn-circle btn-danger" onclick="removePipeById({{ p.id }})" title="Remove / إزالة">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="8" class="text-center text-muted py-3">No main pipes yet / لا توجد أنابيب رئيسية بعد</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-3">No main pipes yet / لا توجد أنابيب رئيسية بعد</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -122,50 +147,12 @@
         <h5 class="mb-0"><i class="bi bi-map"></i> Map - Main Pipe / الخريطة - الأنبوب الرئيسي</h5>
     </div>
     <div class="card-body">
-        <div class="mb-2">
-            <button class="btn btn-outline-primary btn-sm" onclick="startDrawLine()">
-                <i class="bi bi-pencil-square"></i> Draw Line / رسم خط
-            </button>
-            <button class="btn btn-outline-danger btn-sm" onclick="clearDrawn()">
-                <i class="bi bi-eraser"></i> Clear / مسح
-            </button>
-        </div>
         <div id="map"></div>
     </div>
 </div>
 
-<!-- Add Main Pipe Modal -->
-<div class="modal fade" id="addMainPipeModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="POST" action="{{ url_for('hydrology.main_pipe_add', project_id=project.id) }}">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Add Main Pipe / إضافة أنبوب رئيسي</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Diameter (mm) / القطر (مم)</label>
-                        <input type="number" name="diameter" class="form-control" value="110" min="32">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Pipe Path Coordinates (JSON) / مسار الأنبوب</label>
-                        <input type="text" name="coordinates" id="pipeCoords" class="form-control"
-                               placeholder='[[lng,lat],[lng,lat],...]' required>
-                    </div>
-                    <div class="text-muted small">
-                        Use the map "Draw Line" button to fill the coordinates automatically.
-                        / استخدم زر "رسم خط" على الخريطة لتعبئة الإحداثيات تلقائياً.
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-check"></i> Add / إضافة</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<!-- Add / Edit / Rename / Remove pipe modals -->
+{% include "hydrology/_pipe_editor_modals.html" %}
 
 <!-- AI Generate Piping Modal -->
 <div class="modal fade" id="aiPipingModal" tabindex="-1">
@@ -231,20 +218,42 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/pipe_editor.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
-    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
-});
+    initMap('map', geojsonUrl, {
+        center: [34.0, -6.0],
+        zoom: 14,
+        selectable: { type: 'main_pipe', checkboxSelector: '.pipe-checkbox', toggleOnClick: true }
+    });
 
-function startDrawLine() {
-    initDrawTools('polyline', function(coords, coordsStr) {
-        document.getElementById('pipeCoords').value = coordsStr;
-        const modalEl = document.getElementById('addMainPipeModal');
-        if (modalEl && window.bootstrap) {
-            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    initPipeEditor({
+        type: 'main_pipe',
+        checkboxSelector: '.pipe-checkbox',
+        item: { en: 'main pipe', ar: 'أنبوب رئيسي' },
+        emptyLabel: 'No main pipes yet / لا توجد أنابيب رئيسية بعد',
+        addModalId: 'addMainPipeModal',
+        traceButtons: false,
+        selectors: {
+            add: '#addPipeBtn',
+            rename: '#renamePipeBtn',
+            remove: '#removePipeBtn'
+        },
+        urls: {
+            update: '{{ url_for("hydrology.pipe_update", project_id=project.id, pipe_type="main_pipe") }}',
+            rename: '{{ url_for("hydrology.pipe_rename", project_id=project.id, pipe_type="main_pipe") }}',
+            remove: '{{ url_for("hydrology.pipe_remove", project_id=project.id, pipe_type="main_pipe") }}'
         }
     });
+});
+
+// Backwards-compatible helper used by the AI/other templates if referenced.
+function startDrawLine() {
+    const modalEl = document.getElementById('addMainPipeModal');
+    if (modalEl && window.bootstrap) {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
 }
 </script>
 {% endblock %}

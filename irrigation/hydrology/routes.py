@@ -47,6 +47,10 @@ def main_pipe(project_id):
     for s in sectors:
         s['_id'] = str(s['_id'])
 
+    zones = list(mongo.db.zones.find({'project_id': project_id}))
+    for z in zones:
+        z['_id'] = str(z['_id'])
+
     main_pipes = list(mongo.db.network_elements.find({'project_id': project_id, 'type': 'main_pipe'}))
     for p in main_pipes:
         p['_id'] = str(p['_id'])
@@ -55,7 +59,7 @@ def main_pipe(project_id):
 
     piping_report = mongo.db.piping_reports.find_one({'project_id': project_id})
 
-    return render_template('hydrology/main_pipe.html', project=project, sectors=sectors, main_pipes=main_pipes, water_source=water_source, piping_report=piping_report)
+    return render_template('hydrology/main_pipe.html', project=project, sectors=sectors, zones=zones, main_pipes=main_pipes, water_source=water_source, piping_report=piping_report)
 
 
 @hydrology_bp.route('/<int:project_id>/main_pipe/add', methods=['POST'])
@@ -215,6 +219,113 @@ def sub_pipe_validate(project_id):
     )
     flash('Zone pipes validated / تم التحقق من أنابيب المناطق', 'success')
     return redirect(url_for('trees.rows_view', project_id=project_id))
+
+
+# === SHARED PIPE ACTIONS (MAIN PIPE & ZONE PIPE) ===
+
+PIPE_TYPES = ('main_pipe', 'sub_pipe')
+
+
+def _pipe_page_endpoint(pipe_type):
+    return 'hydrology.main_pipe' if pipe_type == 'main_pipe' else 'hydrology.sub_pipe'
+
+
+@hydrology_bp.route('/<int:project_id>/pipe/<pipe_type>/rename', methods=['POST'])
+@login_required
+def pipe_rename(project_id, pipe_type):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+    if pipe_type not in PIPE_TYPES:
+        flash('Invalid pipe type / نوع أنبوب غير صالح', 'danger')
+        return redirect(url_for('hydrology.main_pipe', project_id=project_id))
+
+    pipe_id = request.form.get('pipe_id', type=int)
+    name_en = request.form.get('name_en', '').strip()
+    name_ar = request.form.get('name_ar', '').strip()
+
+    updates = {}
+    if name_en:
+        updates['name_en'] = name_en
+    if name_ar:
+        updates['name_ar'] = name_ar
+
+    if pipe_id and updates:
+        result = mongo.db.network_elements.update_one(
+            {'id': pipe_id, 'project_id': project_id, 'type': pipe_type},
+            {'$set': updates})
+        if result.matched_count:
+            flash('Pipe renamed / تمت إعادة تسمية الأنبوب', 'success')
+        else:
+            flash('Pipe not found / الأنبوب غير موجود', 'warning')
+
+    return redirect(url_for(_pipe_page_endpoint(pipe_type), project_id=project_id))
+
+
+@hydrology_bp.route('/<int:project_id>/pipe/<pipe_type>/edit', methods=['POST'])
+@login_required
+def pipe_update(project_id, pipe_type):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+    if pipe_type not in PIPE_TYPES:
+        flash('Invalid pipe type / نوع أنبوب غير صالح', 'danger')
+        return redirect(url_for('hydrology.main_pipe', project_id=project_id))
+
+    pipe_id = request.form.get('pipe_id', type=int)
+    diameter = request.form.get('diameter', type=int)
+    coords = request.form.get('coordinates', '').strip()
+
+    updates = {}
+    if diameter:
+        updates['properties.diameter'] = diameter
+    if coords:
+        try:
+            coords_list = json.loads(coords)
+        except Exception:
+            flash('Invalid coordinates / إحداثيات غير صالحة', 'danger')
+            return redirect(url_for(_pipe_page_endpoint(pipe_type), project_id=project_id))
+        geometry = {'type': 'LineString', 'coordinates': coords_list}
+        updates['geometry'] = geometry
+        length_props = _pipe_length_props(geometry, project)
+        if 'length_m' in length_props:
+            updates['properties.length_m'] = length_props['length_m']
+
+    if pipe_id and updates:
+        result = mongo.db.network_elements.update_one(
+            {'id': pipe_id, 'project_id': project_id, 'type': pipe_type},
+            {'$set': updates})
+        if result.matched_count:
+            flash('Pipe updated / تم تحديث الأنبوب', 'success')
+        else:
+            flash('Pipe not found / الأنبوب غير موجود', 'warning')
+    else:
+        flash('Nothing to update / لا يوجد شيء للتحديث', 'warning')
+
+    return redirect(url_for(_pipe_page_endpoint(pipe_type), project_id=project_id))
+
+
+@hydrology_bp.route('/<int:project_id>/pipe/<pipe_type>/remove', methods=['POST'])
+@login_required
+def pipe_remove(project_id, pipe_type):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+    if pipe_type not in PIPE_TYPES:
+        flash('Invalid pipe type / نوع أنبوب غير صالح', 'danger')
+        return redirect(url_for('hydrology.main_pipe', project_id=project_id))
+
+    pipe_ids = [int(v) for v in request.form.getlist('pipe_ids') if str(v).strip().isdigit()]
+    if not pipe_ids:
+        flash('Select at least one pipe first / اختر أنبوبا واحدا على الأقل أولا', 'warning')
+        return redirect(url_for(_pipe_page_endpoint(pipe_type), project_id=project_id))
+
+    result = mongo.db.network_elements.delete_many(
+        {'project_id': project_id, 'type': pipe_type, 'id': {'$in': pipe_ids}})
+    flash('Removed %d pipe(s) / تمت إزالة %d أنبوب' % (result.deleted_count, result.deleted_count), 'success')
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+        return jsonify({'ok': True, 'removed': result.deleted_count, 'ids': pipe_ids})
+    return redirect(url_for(_pipe_page_endpoint(pipe_type), project_id=project_id))
 
 
 # === VALVES ===

@@ -70,9 +70,10 @@
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" id="pipeTable">
                 <thead>
                     <tr>
+                        <th width="40"><input type="checkbox" id="selectAllPipes" onclick="toggleAllPipes(this)"></th>
                         <th>ID</th>
                         <th>Name (EN)</th>
                         <th>Name (AR)</th>
@@ -82,11 +83,19 @@
                         <th>Velocity (m/s)</th>
                         <th>Length (m)</th>
                         <th>Validated</th>
+                        <th class="text-center">Actions / إجراءات</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for p in sub_pipes %}
                     <tr>
+                        <td>
+                            <input type="checkbox" class="pipe-checkbox" value="{{ p.id }}"
+                                   data-name-en="{{ p.name_en }}"
+                                   data-name-ar="{{ p.name_ar }}"
+                                   data-diameter="{{ p.properties.get('diameter', '') }}"
+                                   data-coords="{{ p.geometry.coordinates | tojson }}">
+                        </td>
                         <td>{{ p.id }}</td>
                         <td>{{ p.name_en }}</td>
                         <td class="ar-text">{{ p.name_ar }}</td>
@@ -102,9 +111,17 @@
                             <span class="badge bg-warning"><i class="bi bi-clock"></i></span>
                             {% endif %}
                         </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-circle btn-info" onclick="openPipeRename({{ p.id }})" title="Rename / إعادة تسمية">
+                                <i class="bi bi-input-cursor-text"></i>
+                            </button>
+                            <button type="button" class="btn btn-circle btn-danger" onclick="removePipeById({{ p.id }})" title="Remove / إزالة">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="9" class="text-center text-muted py-3">No zone pipes yet / لا توجد أنابيب مناطق</td></tr>
+                    <tr><td colspan="11" class="text-center text-muted py-3">No zone pipes yet / لا توجد أنابيب مناطق</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -118,54 +135,12 @@
         <h5 class="mb-0"><i class="bi bi-map"></i> Map - Zone Pipe / الخريطة - أنابيب المناطق</h5>
     </div>
     <div class="card-body">
-        <div class="mb-2">
-            <button class="btn btn-outline-primary btn-sm" onclick="startDrawLine()">
-                <i class="bi bi-pencil-square"></i> Draw Line / رسم خط
-            </button>
-            <button class="btn btn-outline-danger btn-sm" onclick="clearDrawn()">
-                <i class="bi bi-eraser"></i> Clear / مسح
-            </button>
-        </div>
         <div id="map"></div>
     </div>
 </div>
 
-<!-- Add Zone Pipe Modal -->
-<div class="modal fade" id="addZonePipeModal" tabindex="-1">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="POST" action="{{ url_for('hydrology.sub_pipe_add', project_id=project.id) }}">
-                <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-plus-circle"></i> Add Zone Pipe / إضافة أنبوب منطقة</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-                </div>
-                <div class="modal-body">
-                    <div class="mb-3">
-                        <label class="form-label">Zone / المنطقة</label>
-                        <select name="zone_id" class="form-select" required>
-                            {% for z in zones %}
-                            <option value="{{ z.id }}">{{ z.name_en }} ({{ z.name_ar }})</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Diameter (mm) / القطر</label>
-                        <input type="number" name="diameter" class="form-control" value="63" min="20">
-                    </div>
-                    <div class="mb-3">
-                        <label class="form-label">Pipe Path (JSON) / مسار الأنبوب</label>
-                        <input type="text" name="coordinates" id="subPipeCoords" class="form-control"
-                               placeholder='[[lng,lat],...]' required>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-check"></i> Add / إضافة</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
+<!-- Add / Edit / Rename / Remove pipe modals -->
+{% include "hydrology/_pipe_editor_modals.html" %}
 
 <!-- AI Generate Piping Modal -->
 <div class="modal fade" id="aiPipingModal" tabindex="-1">
@@ -231,20 +206,40 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="{{ url_for('static', filename='js/pipe_editor.js') }}"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
-    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
-});
+    initMap('map', geojsonUrl, {
+        center: [34.0, -6.0],
+        zoom: 14,
+        selectable: { type: 'sub_pipe', checkboxSelector: '.pipe-checkbox', toggleOnClick: true }
+    });
 
-function startDrawLine() {
-    initDrawTools('polyline', function(coords, coordsStr) {
-        document.getElementById('subPipeCoords').value = coordsStr;
-        const modalEl = document.getElementById('addZonePipeModal');
-        if (modalEl && window.bootstrap) {
-            bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    initPipeEditor({
+        type: 'sub_pipe',
+        checkboxSelector: '.pipe-checkbox',
+        item: { en: 'zone pipe', ar: 'أنبوب منطقة' },
+        emptyLabel: 'No zone pipes yet / لا توجد أنابيب مناطق بعد',
+        addModalId: 'addZonePipeModal',
+        trace: {
+            main: { modalId: 'addMainPipeModal', fieldId: 'mpCoords' },
+            zone: { modalId: 'addZonePipeModal', fieldId: 'subPipeCoords' }
+        },
+        urls: {
+            update: '{{ url_for("hydrology.pipe_update", project_id=project.id, pipe_type="sub_pipe") }}',
+            rename: '{{ url_for("hydrology.pipe_rename", project_id=project.id, pipe_type="sub_pipe") }}',
+            remove: '{{ url_for("hydrology.pipe_remove", project_id=project.id, pipe_type="sub_pipe") }}'
         }
     });
+});
+
+// Backwards-compatible helper used by the AI/other templates if referenced.
+function startDrawLine() {
+    const modalEl = document.getElementById('addZonePipeModal');
+    if (modalEl && window.bootstrap) {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
 }
 </script>
 {% endblock %}

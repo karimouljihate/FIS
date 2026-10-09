@@ -2,10 +2,23 @@
 {% block title %}Create Project / إنشاء مشروع{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8">
-        <div class="card shadow-sm">
-            <div class="card-header bg-primary text-white">
+<!-- Instructions card first, then Create New Project -->
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-info text-white">
+        <h5 class="mb-0"><i class="bi bi-info-circle"></i> Instructions / تعليمات</h5>
+    </div>
+    <div class="card-body">
+        <ol class="small">
+            <li>Create a project with a name / أنشئ مشروعاً باسم</li>
+            <li>Add water source location / أضف موقع مصدر المياه</li>
+            <li>Enter land boundary manually OR upload KML/KMZ later / أدخل حدود الأرض يدوياً أو ارفع ملف KML لاحقاً</li>
+            <li>Proceed to Geometry tab to draw sectors / انتقل إلى تبويب الهندسة لرسم القطاعات</li>
+        </ol>
+    </div>
+</div>
+
+<div class="card shadow-sm">
+    <div class="card-header bg-primary text-white">
                 <h4 class="mb-0"><i class="bi bi-plus-circle"></i> Create New Project / إنشاء مشروع جديد</h4>
             </div>
             <div class="card-body">
@@ -83,22 +96,5 @@
                 </form>
             </div>
         </div>
-    </div>
-
-    <div class="col-md-4">
-        <div class="card shadow-sm">
-            <div class="card-header bg-info text-white">
-                <h5 class="mb-0"><i class="bi bi-info-circle"></i> Instructions / تعليمات</h5>
-            </div>
-            <div class="card-body">
-                <ol class="small">
-                    <li>Create a project with a name / أنشئ مشروعاً باسم</li>
-                    <li>Add water source location / أضف موقع مصدر المياه</li>
-                    <li>Enter land boundary manually OR upload KML/KMZ later / أدخل حدود الأرض يدوياً أو ارفع ملف KML لاحقاً</li>
-                    <li>Proceed to Geometry tab to draw sectors / انتقل إلى تبويب الهندسة لرسم القطاعات</li>
-                </ol>
-            </div>
-        </div>
-    </div>
 </div>
 {% endblock %}
