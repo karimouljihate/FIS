@@ -247,3 +247,13 @@ def clear_elevation(project_id):
     delete_elevation_model(project_id)
     flash('Elevation data cleared / تم مسح بيانات الارتفاع', 'info')
     return redirect(url_for('engineering.validation_view', project_id=project_id))
+
+@engineering_bp.route('/<int:project_id>/technical-report')
+@login_required
+def technical_report_view(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+    last_validation = get_last_validation(project_id)
+    regen_report = get_regeneration_report(project_id)
+    return render_template('engineering/technical_report.html', project=project, validation=last_validation, regen_report=regen_report, defaults=ENGINEERING_DEFAULTS)
