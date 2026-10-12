@@ -238,6 +238,32 @@
         </div>
     </div>
 
+    <!-- Delete confirmation modal (styled) -->
+    <div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-labelledby="confirmDeleteTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header confirm-delete-header">
+                    <div class="row w-100 m-0 g-0 align-items-center">
+                        <div class="col-6 confirm-delete-icon-col">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                        </div>
+                        <div class="col-6 confirm-delete-title-ar">
+                            <h5 class="modal-title" id="confirmDeleteTitle">تأكيد الحذف</h5>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-body confirm-delete-body">
+                    <p class="mb-2 confirm-delete-en" id="confirmDeleteMessageEn"></p>
+                    <p class="mb-0 confirm-delete-ar" id="confirmDeleteMessageAr"></p>
+                </div>
+                <div class="modal-footer confirm-delete-footer">
+                    <button type="button" class="btn confirm-delete-btn" id="confirmDeleteAccept">Confirm / تأكيد</button>
+                    <button type="button" class="btn confirm-delete-btn" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
     <script>
@@ -284,6 +310,7 @@
                 const form = event.target;
                 if (!(form instanceof HTMLFormElement)) return;
                 if (form.dataset.confirm && form.dataset.confirmed !== 'true') return;
+                if (form.dataset.confirmDelete && form.dataset.confirmed !== 'true') return;
                 if (form.dataset.noLoader !== undefined) return;
                 showLoader();
             }, true);
@@ -348,6 +375,72 @@
                     document.body.append(form);
                     form.requestSubmit();
                 });
+            }, true);
+
+            acceptButton.addEventListener('click', () => {
+                const action = pendingAction;
+                pendingAction = null;
+                modal.hide();
+                if (action) action();
+            });
+
+            modalElement.addEventListener('hidden.bs.modal', () => {
+                pendingAction = null;
+            });
+        })();
+    </script>
+    <script>
+        (() => {
+            const modalElement = document.getElementById('confirmDeleteModal');
+            if (!modalElement) return;
+            const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+            const messageEn = document.getElementById('confirmDeleteMessageEn');
+            const messageAr = document.getElementById('confirmDeleteMessageAr');
+            const acceptButton = document.getElementById('confirmDeleteAccept');
+            let pendingAction = null;
+
+            function setMessage(element, prefix, name, suffix) {
+                element.textContent = '';
+                element.append(document.createTextNode(prefix));
+                const strong = document.createElement('strong');
+                strong.textContent = name;
+                element.append(strong, document.createTextNode(suffix));
+            }
+
+            function askForDelete(nameEn, nameAr, action) {
+                const en = (nameEn == null ? '' : String(nameEn)).trim() || 'this element';
+                const ar = (nameAr == null ? '' : String(nameAr)).trim() || en;
+                setMessage(messageEn, 'Are you sure, you want to Delete ', en, ' ?');
+                setMessage(messageAr, 'هل أنت متأكد أنك تريد حذف ', ar, ' ؟');
+                pendingAction = action;
+                modal.show();
+            }
+
+            // Public API: confirmDelete(nameEn, nameAr, onConfirm)
+            window.confirmDelete = askForDelete;
+
+            document.addEventListener('submit', (event) => {
+                const form = event.target;
+                if (!(form instanceof HTMLFormElement) || !form.dataset.confirmDelete) return;
+                if (form.dataset.confirmed === 'true') {
+                    delete form.dataset.confirmed;
+                    return;
+                }
+                event.preventDefault();
+                askForDelete(form.dataset.confirmDelete, form.dataset.confirmDeleteAr, () => {
+                    form.dataset.confirmed = 'true';
+                    form.requestSubmit();
+                });
+            }, true);
+
+            document.addEventListener('click', (event) => {
+                const trigger = event.target.closest('[data-confirm-delete]');
+                if (!trigger || trigger instanceof HTMLFormElement) return;
+                if (trigger.matches('button[type="submit"], input[type="submit"]') && trigger.form) {
+                    event.preventDefault();
+                    askForDelete(trigger.dataset.confirmDelete, trigger.dataset.confirmDeleteAr,
+                                 () => trigger.form.requestSubmit(trigger));
+                }
             }, true);
 
             acceptButton.addEventListener('click', () => {

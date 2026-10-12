@@ -25,7 +25,7 @@ from irrigation.engineering.projection import (
 )
 from irrigation.engineering.elevation import (
     get_or_build_elevation_model, elevation_metrics_for_polygon,
-    get_elevation_at_point
+    get_elevation_at_point, aspect_for_polygon
 )
 
 
@@ -678,13 +678,22 @@ def regenerate_sectors(project_id, n_sectors=None, config=None):
     return sectors
 
 
-def regenerate_zones(project_id, sector_id=None, zones_per_sector=None, use_elevation=True):
+def regenerate_zones(project_id, sector_id=None, zones_per_sector=None, use_elevation=True, orientation=None):
     """AI regeneration: optimally divide sectors into zones.
 
     Uses the same optimization approach but applied within each sector's polygon.
     Incorporates terrain elevation data for contour-aware zone partitioning.
     If trees exist, zones are sized proportionally to tree count (hydraulic demand).
+
+    ``orientation`` may be one of ``'N'``/``'E'``/``'S'``/``'W'`` (or ``'auto'``/
+    ``None``). When a compass point is given, every generated zone is assigned
+    that orientation; when ``'auto'`` the orientation of each zone is derived
+    from the terrain aspect (downhill direction) of its polygon.
     """
+    target_orientation = orientation.upper() if isinstance(orientation, str) else None
+    if target_orientation not in ('N', 'E', 'S', 'W'):
+        target_orientation = None
+
     query = {'project_id': project_id}
     if sector_id:
         query['id'] = sector_id
@@ -745,6 +754,18 @@ def regenerate_zones(project_id, sector_id=None, zones_per_sector=None, use_elev
                 best_score = result['score']
                 best_result = result
 
+        # Terrain contour bands (respects the slope / fall line) when
+        # elevation data is available, so zone orientation follows the
+        # terrain instead of an arbitrary split angle.
+        if elevation_model:
+            elev_result = _try_elevation_partition(
+                sector_shapely, zones_per_sector, elevation_model,
+                None, water_source_elevation
+            )
+            if elev_result and elev_result['score'] > best_score:
+                best_score = elev_result['score']
+                best_result = elev_result
+
         if not best_result:
             best_result = _fallback_grid(sector_shapely, zones_per_sector, None,
                                           elevation_model, water_source_elevation)
@@ -761,8 +782,19 @@ def regenerate_zones(project_id, sector_id=None, zones_per_sector=None, use_elev
 
             # Get elevation metrics for this zone
             elev_metrics = None
+            aspect = None
             if elevation_model:
                 elev_metrics = elevation_metrics_for_polygon(elevation_model, part)
+                aspect = aspect_for_polygon(elevation_model, part)
+
+            # Orientation: user-chosen compass point, otherwise derived from
+            # the terrain aspect (downhill direction) of the zone polygon.
+            if target_orientation:
+                zone_orientation = target_orientation
+            elif aspect:
+                zone_orientation = aspect['compass']
+            else:
+                zone_orientation = None
 
             zone = {
                 'id': get_next_id('zones'),
@@ -775,6 +807,9 @@ def regenerate_zones(project_id, sector_id=None, zones_per_sector=None, use_elev
                 'ai_generated': True,
                 'ai_score': round(best_result['score'], 4),
                 'area_m2': round(part.area, 2),
+                'orientation': zone_orientation,
+                'orientation_deg': round(aspect['bearing_deg'], 1) if aspect else None,
+                'slope_percent': round(aspect['slope_percent'], 2) if aspect else None,
                 'elevation_aware': elevation_model is not None,
                 'elevation_metrics': elev_metrics
             }

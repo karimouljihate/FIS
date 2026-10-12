@@ -474,6 +474,100 @@ def elevation_metrics_for_polygon(model, polygon_projected):
     }
 
 
+# Compass points used for zone/sector orientation (clockwise from North).
+COMPASS_POINTS = ['N', 'E', 'S', 'W']
+
+
+def compass_from_bearing(bearing_deg):
+    """Map a bearing (0-360, clockwise from North) to the nearest compass point."""
+    if bearing_deg is None:
+        return None
+    index = int(round((bearing_deg % 360.0) / 90.0)) % 4
+    return COMPASS_POINTS[index]
+
+
+def aspect_for_polygon(model, polygon_projected):
+    """Compute the terrain aspect (downhill direction) of a projected polygon.
+
+    Fits a plane (z = a*x + b*y + c) to the elevation samples inside the
+    polygon, then derives the downhill bearing and slope.
+
+    Returns a dict:
+        {
+            'bearing_deg': float,   # downhill direction, clockwise from North
+            'compass': 'N'|'E'|'S'|'W',
+            'slope_percent': float, # gradient magnitude * 100
+            'slope_deg': float,
+            'sample_count': int,
+        }
+    or ``None`` when there is not enough data (or terrain is flat).
+    """
+    if not model or not model.get('samples'):
+        return None
+
+    poly = polygon_projected
+    if isinstance(poly, MultiPolygon):
+        poly = max(poly.geoms, key=lambda g: g.area)
+
+    samples = [s for s in model['samples'] if s.get('elevation_m') is not None]
+    if len(samples) < 3:
+        return None
+
+    inside = [
+        s for s in samples
+        if poly.contains(Point(s['x'], s['y'])) or poly.touches(Point(s['x'], s['y']))
+    ]
+    if len(inside) < 3:
+        # Fall back to the nearest samples to the polygon centroid.
+        centroid = poly.centroid
+        inside = sorted(
+            samples,
+            key=lambda s: (s['x'] - centroid.x) ** 2 + (s['y'] - centroid.y) ** 2
+        )[:12]
+    if len(inside) < 3:
+        return None
+
+    n = float(len(inside))
+    xm = sum(s['x'] for s in inside) / n
+    ym = sum(s['y'] for s in inside) / n
+
+    sxx = sxy = syy = sxz = syz = 0.0
+    for s in inside:
+        x = s['x'] - xm
+        y = s['y'] - ym
+        z = s['elevation_m']
+        sxx += x * x
+        sxy += x * y
+        syy += y * y
+        sxz += x * z
+        syz += y * z
+
+    det = sxx * syy - sxy * sxy
+    if abs(det) < 1e-9:
+        return None  # degenerate / collinear samples
+
+    # Gradient of the fitted plane: steepest ascent = (a, b).
+    a = (sxz * syy - syz * sxy) / det
+    b = (syz * sxx - sxz * sxy) / det
+
+    # Downhill direction points opposite the gradient (east = -a, north = -b).
+    east, north = -a, -b
+    magnitude = math.hypot(a, b)
+    if magnitude < 1e-9:
+        return None  # flat terrain — no meaningful orientation
+
+    bearing = math.degrees(math.atan2(east, north)) % 360.0
+    slope_deg = math.degrees(math.atan(magnitude))
+
+    return {
+        'bearing_deg': bearing,
+        'compass': compass_from_bearing(bearing),
+        'slope_percent': magnitude * 100.0,
+        'slope_deg': slope_deg,
+        'sample_count': len(inside),
+    }
+
+
 def build_elevation_heatmap_geojson(model):
     """Generate GeoJSON of elevation sample points for map display.
 

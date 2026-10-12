@@ -36,6 +36,26 @@ from irrigation.engineering.hydraulics import (
 )
 
 
+def _line_end_coords(geom):
+    """Return the first and last coordinates of a line-like geometry.
+
+    Handles both ``LineString`` and the ``MultiLineString`` used for the
+    merged AI main pipe (returns the outermost coordinates).
+    """
+    if geom is None or geom.is_empty:
+        return None, None
+    if geom.geom_type == 'LineString':
+        coords = list(geom.coords)
+        return (coords[0], coords[-1]) if coords else (None, None)
+    if geom.geom_type == 'MultiLineString':
+        parts = [list(g.coords) for g in geom.geoms if not g.is_empty]
+        parts = [c for c in parts if c]
+        if not parts:
+            return None, None
+        return parts[0][0], parts[-1][-1]
+    return None, None
+
+
 def run_full_validation(project_id, config=None):
     """Run comprehensive engineering validation for a project.
 
@@ -292,13 +312,14 @@ def _validate_network_connectivity(checks, project_id, project, lng, lat):
 
         connected = False
         for _, pipe_geom in main_geoms:
-            # Check if water source is within 10m of pipe start or end
-            if pipe_geom.coords:
-                start = Point(pipe_geom.coords[0])
-                end = Point(pipe_geom.coords[-1])
-                if ws_point.distance(start) < 10 or ws_point.distance(end) < 10:
+            # Water source must lie on / very near the main pipe network
+            # (works for both LineString and merged MultiLineString).
+            try:
+                if pipe_geom is not None and ws_point.distance(pipe_geom) < 10:
                     connected = True
                     break
+            except Exception:
+                continue
 
         if not connected:
             checks.append(HydraulicCheck(
@@ -668,11 +689,14 @@ def _validate_elevation_head(checks, pipe, pipe_type, elevation_model, source_el
         return
 
     pipe_geom = projected_shape(pipe['geometry'], lng, lat)
-    if not pipe_geom or not pipe_geom.coords:
+    if pipe_geom is None or pipe_geom.is_empty:
         return
 
-    # Get elevation at pipe endpoint
-    endpoint = Point(pipe_geom.coords[-1])
+    # Get elevation at pipe endpoint (farthest point along the run).
+    _, last = _line_end_coords(pipe_geom)
+    if last is None:
+        return
+    endpoint = Point(last)
     endpoint_elev = get_elevation_at_point(elevation_model, endpoint)
 
     if endpoint_elev is None:

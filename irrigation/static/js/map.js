@@ -8,6 +8,14 @@ let drawnItems = null;
 let mapSelectionMode = false;
 let mapRulerActive = false;
 
+// Registry of Leaflet map instances keyed by their container element id.
+const mapRegistry = {};
+function registerMap(elementId, instance) {
+    if (elementId && instance) {
+        mapRegistry[elementId] = instance;
+    }
+}
+
 // ---------- Geodesic helpers ----------
 function ringAreaM2(ring) {
     // ring: [[lng, lat], ...] ; spherical excess approximation (same method as Leaflet.draw)
@@ -115,6 +123,7 @@ function initMap(elementId, geojsonUrl, options = {}) {
     mapElement.style.height = mapHeight;
 
     map = L.map(elementId).setView(options.center || [34.0, -6.0], options.zoom || 13);
+    registerMap(elementId, map);
 
     addBaseLayers(map, options);
 
@@ -161,6 +170,9 @@ function initMap(elementId, geojsonUrl, options = {}) {
     });
 
     mapSelectionMode = false;
+    const selectableTypes = options.selectable
+        ? (Array.isArray(options.selectable.type) ? options.selectable.type : [options.selectable.type])
+        : [];
     if (options.selectable) {
         const selectionControl = L.control({ position: 'topright' });
         selectionControl.onAdd = function() {
@@ -196,8 +208,14 @@ function initMap(elementId, geojsonUrl, options = {}) {
                     actionButton.title = action.title;
                     actionButton.setAttribute('aria-label', action.title);
                     actionButton.innerHTML = '<i class="bi ' + action.icon + '"></i>';
+                    if (action.role === 'delete') {
+                        actionButton.classList.add('geometry-map-delete-button');
+                        actionButton.disabled = true;
+                        wireMapDeleteGating(actionButton, options.selectable && options.selectable.checkboxSelector);
+                    }
                     L.DomEvent.on(actionButton, 'click', function(event) {
                         L.DomEvent.stop(event);
+                        if (actionButton.disabled) return;
                         action.onClick();
                     });
                 });
@@ -261,7 +279,7 @@ function initMap(elementId, geojsonUrl, options = {}) {
                 }
                 layer.bindPopup(popupContent);
 
-                if (options.selectable && type === options.selectable.type && properties.id !== undefined) {
+                if (options.selectable && selectableTypes.indexOf(type) !== -1 && properties.id !== undefined) {
                     const checkbox = Array.from(document.querySelectorAll(options.selectable.checkboxSelector))
                         .find((input) => input.value === String(properties.id));
                     const setSelectedStyle = (selected) => {
@@ -333,17 +351,41 @@ let mapActionMode = null;
 let mapActionConfig = null;
 
 function buildMapActionButtons(options) {
+    const buttons = [];
     const config = options.mapActions;
-    if (!config || !config.urls) return [];
-    return ['split', 'merge', 'swap']
-        .filter(function(mode) { return config.urls[mode]; })
-        .map(function(mode) {
-            const def = MAP_ACTION_DEFS[mode];
-            return { icon: def.icon, title: def.title, onClick: function() { toggleMapActionPanel(mode); } };
+    if (config && config.urls) {
+        ['split', 'merge', 'swap']
+            .filter(function(mode) { return config.urls[mode]; })
+            .forEach(function(mode) {
+                const def = MAP_ACTION_DEFS[mode];
+                buttons.push({ icon: def.icon, title: def.title, onClick: function() { toggleMapActionPanel(mode); } });
+            });
+    }
+    if (options.mapDelete && typeof options.mapDelete.onClick === 'function') {
+        buttons.push({
+            icon: 'bi-trash',
+            title: options.mapDelete.title || 'Remove / إزالة',
+            role: 'delete',
+            onClick: options.mapDelete.onClick
         });
+    }
+    return buttons;
+}
+
+// Keeps an in-map delete button disabled until at least one item is selected.
+function wireMapDeleteGating(button, selector) {
+    if (!selector) { button.disabled = false; return; }
+    const update = function() {
+        button.disabled = document.querySelectorAll(selector + ':checked').length < 1;
+    };
+    document.addEventListener('change', function(event) {
+        if (event.target && event.target.matches && event.target.matches(selector)) update();
+    });
+    update();
 }
 
 function createMapActionPanel(options) {
+    if (!options.mapActions || !options.mapActions.urls) return;
     mapActionConfig = options.mapActions;
     mapActionConfig.checkboxSelector = options.selectable.checkboxSelector;
     const splitOptions = mapActionConfig.splitOptions || [2, 3, 4];
@@ -619,3 +661,36 @@ function addLegend(legendItems) {
     };
     legend.addTo(map);
 }
+
+// ---------- Fullscreen map ----------
+function toggleMapFullscreen(mapId) {
+    const id = mapId || 'map';
+    const container = document.getElementById(id);
+    if (!container) return;
+
+    const isFull = container.classList.toggle('map-fullscreen-active');
+    document.body.classList.toggle('map-fullscreen-lock', isFull);
+
+    document.querySelectorAll('.map-fullscreen-btn').forEach(function (btn) {
+        if (btn.getAttribute('data-map-target') !== id) return;
+        btn.classList.toggle('active', isFull);
+        const icon = btn.querySelector('i');
+        if (icon) {
+            icon.classList.toggle('bi-arrows-fullscreen', !isFull);
+            icon.classList.toggle('bi-fullscreen-exit', isFull);
+        }
+        btn.setAttribute('title', isFull ? 'Exit Full Page / خروج من ملء الشاشة' : 'Full Page / ملء الشاشة');
+    });
+
+    const instance = mapRegistry[id];
+    if (instance) {
+        setTimeout(function () { instance.invalidateSize(); }, 200);
+    }
+}
+window.toggleMapFullscreen = toggleMapFullscreen;
+
+document.addEventListener('keydown', function (event) {
+    if (event.key !== 'Escape') return;
+    const fullscreenMap = document.querySelector('.map-fullscreen-active');
+    if (fullscreenMap) toggleMapFullscreen(fullscreenMap.id);
+});

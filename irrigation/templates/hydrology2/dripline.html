@@ -57,12 +57,21 @@
 </div>
 
 <!-- Drip Lines Table -->
+<div class="mb-3">
+    <button class="btn btn-circle btn-outline-danger" id="dripRemoveBtn" type="button"
+            onclick="driplinesRemoveSelected()" title="Remove / إزالة">
+        <i class="bi bi-trash"></i>
+    </button>
+    <form method="POST" id="removeDripsForm"
+          action="{{ url_for('hydrology.dripline_remove', project_id=project.id) }}" class="d-none"></form>
+</div>
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
+                        <th width="40"><input type="checkbox" id="selectAllDrips" onclick="toggleAllDrips(this)"></th>
                         <th>ID</th>
                         <th>Name (EN)</th>
                         <th>Name (AR)</th>
@@ -74,6 +83,7 @@
                 <tbody>
                     {% for d in driplines %}
                     <tr>
+                        <td><input type="checkbox" class="drip-checkbox" value="{{ d.id }}" data-name-en="{{ d.name_en }}" data-name-ar="{{ d.name_ar }}"></td>
                         <td>{{ d.id }}</td>
                         <td>{{ d.name_en }}</td>
                         <td class="ar-text">{{ d.name_ar }}</td>
@@ -85,7 +95,7 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="6" class="text-center text-muted py-3">No drip lines yet / لا توجد خطوط تنقيط</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-3">No drip lines yet / لا توجد خطوط تنقيط</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -104,9 +114,8 @@
 
 <!-- Map -->
 <div class="card shadow-sm mt-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-map"></i> Map - Draw Drip Line / الخريطة - رسم خط التنقيط</h5>
-    </div>
+    {% set map_title_en = "Map - Draw Drip Line" %}{% set map_title_ar = "الخريطة - رسم خط التنقيط" %}
+    {% include "_map_header.html" %}
     <div class="card-body">
         <div class="mb-2">
             <button class="btn btn-outline-primary btn-sm" onclick="startDrawLine()">
@@ -126,8 +135,61 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
-    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
+    initMap('map', geojsonUrl, {
+        center: [34.0, -6.0], zoom: 14,
+        selectable: { type: 'dripline', checkboxSelector: '.drip-checkbox', toggleOnClick: true },
+        mapDelete: { onClick: driplinesRemoveSelected }
+    });
+
+    document.addEventListener('change', function(event) {
+        if (event.target && event.target.matches && event.target.matches('.drip-checkbox')) {
+            updateDripsToolbar();
+        }
+    });
+    updateDripsToolbar();
 });
+
+function updateDripsToolbar() {
+    const count = document.querySelectorAll('.drip-checkbox:checked').length;
+    const removeBtn = document.getElementById('dripRemoveBtn');
+    if (removeBtn) removeBtn.disabled = count === 0;
+}
+
+function toggleAllDrips(source) {
+    document.querySelectorAll('.drip-checkbox').forEach(cb => {
+        cb.checked = source.checked;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+}
+
+function driplinesRemoveSelected() {
+    const selected = document.querySelectorAll('.drip-checkbox:checked');
+    if (!selected.length) {
+        alert('Select at least one drip line first / اختر خط تنقيط واحداً على الأقل أولا');
+        return;
+    }
+    const namesEn = Array.from(selected).map(cb => cb.dataset.nameEn).filter(Boolean);
+    const namesAr = Array.from(selected).map(cb => cb.dataset.nameAr).filter(Boolean);
+    const nameEn = namesEn.join(', ') || 'drip line(s)';
+    const nameAr = namesAr.join('، ') || 'خط تنقيط';
+    const doSubmit = function () {
+        const form = document.getElementById('removeDripsForm');
+        form.querySelectorAll('input[name="element_ids"]').forEach(el => el.remove());
+        selected.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'element_ids';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+        form.requestSubmit();
+    };
+    if (window.confirmDelete) {
+        window.confirmDelete(nameEn, nameAr, doSubmit);
+    } else if (window.confirm('Delete ' + nameEn + ' ?')) {
+        doSubmit();
+    }
+}
 
 function startDrawLine() {
     initDrawTools('polyline', function(coords, coordsStr) {

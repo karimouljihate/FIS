@@ -58,7 +58,63 @@
 
     function openAdd() {
         if (!cfg) return;
+        if (cfg.traceAdd) {
+            // In-map "+": ask for the diameter (and zone), then start tracing.
+            const title = el('pipeTraceAddTitle');
+            if (title && cfg.traceAdd.title) title.innerHTML = cfg.traceAdd.title;
+            const zoneWrap = el('pipeTraceZoneWrap');
+            if (zoneWrap) zoneWrap.hidden = !cfg.traceAdd.zone;
+            const diameter = el('pipeTraceDiameter');
+            if (diameter && cfg.traceAdd.diameter != null) diameter.value = cfg.traceAdd.diameter;
+            showModal('pipeTraceAddModal');
+            return;
+        }
         showModal(cfg.addModalId);
+    }
+
+    function submitTracedAdd(coordsStr, diameter, zone) {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = cfg.urls.add;
+        const addField = function (name, value) {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = name;
+            input.value = value;
+            form.appendChild(input);
+        };
+        addField('coordinates', coordsStr);
+        if (diameter) addField('diameter', diameter);
+        if (zone) addField('zone_id', zone);
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function startTraceAdd() {
+        if (!cfg || !cfg.traceAdd) return;
+        const diameter = el('pipeTraceDiameter') ? el('pipeTraceDiameter').value : '';
+        const zone = (cfg.traceAdd.zone && el('pipeTraceZone')) ? el('pipeTraceZone').value : '';
+        tracePolyline(function (coords, coordsStr) {
+            submitTracedAdd(coordsStr, diameter, zone);
+        });
+    }
+
+    function wireTraceAdd() {
+        if (!cfg || !cfg.traceAdd) return;
+        const startButton = el('pipeTraceStart');
+        if (startButton && !startButton.dataset.wired) {
+            startButton.dataset.wired = 'true';
+            startButton.addEventListener('click', function () {
+                const modalElement = el('pipeTraceAddModal');
+                if (modalElement && window.bootstrap) {
+                    const instance = bootstrap.Modal.getOrCreateInstance(modalElement);
+                    modalElement.addEventListener('hidden.bs.modal', startTraceAdd, { once: true });
+                    instance.hide();
+                } else {
+                    startTraceAdd();
+                }
+            });
+        }
     }
 
     function traceMain() {
@@ -115,54 +171,42 @@
         openRenameById(selected[0].value);
     }
 
-    function removeByIds(ids) {
-        if (!cfg || !ids.length) return;
-        if (cfg.removeAjax === false) {
-            const form = el('pipeRemoveForm');
-            form.action = cfg.urls.remove;
-            form.querySelectorAll('input[name="pipe_ids"]').forEach(function (input) { input.remove(); });
-            ids.forEach(function (id) {
-                const input = document.createElement('input');
-                input.type = 'hidden';
-                input.name = 'pipe_ids';
-                input.value = id;
-                form.appendChild(input);
-            });
-            form.requestSubmit();
-            return;
-        }
-        askConfirm(
-            'Remove the selected pipe(s)? This cannot be undone. / إزالة الأنبوب (الأنابيب) المحددة؟ لا يمكن التراجع.',
-            function () { ajaxRemove(ids); }
-        );
+    function nameForId(id) {
+        const cb = allCheckboxes().find(function (input) { return input.value === String(id); });
+        return cb ? { en: cb.dataset.nameEn || '', ar: cb.dataset.nameAr || '' } : { en: '', ar: '' };
     }
 
-    // Reuse the global confirmation modal from base.html.
-    function askConfirm(message, onConfirm) {
-        const modalEl = el('confirmActionModal');
-        const messageEl = el('confirmActionMessage');
-        const acceptEl = el('confirmActionAccept');
-        if (!modalEl || !messageEl || !acceptEl || !window.bootstrap) {
-            if (window.confirm(message)) onConfirm();
-            return;
-        }
-        messageEl.textContent = message;
-        let handled = false;
-        const handleAccept = function () {
-            if (handled) return;
-            handled = true;
-            acceptEl.removeEventListener('click', handleAccept);
-            onConfirm();
-        };
-        acceptEl.addEventListener('click', handleAccept);
-        modalEl.addEventListener('hidden.bs.modal', function onHidden() {
-            modalEl.removeEventListener('hidden.bs.modal', onHidden);
-            if (!handled) {
-                handled = true;
-                acceptEl.removeEventListener('click', handleAccept);
+    function removeByIds(ids) {
+        if (!cfg || !ids.length) return;
+
+        const names = ids.map(nameForId);
+        const label = itemLabel();
+        const nameEn = names.map(function (n) { return n.en; }).filter(Boolean).join(', ') || label.en;
+        const nameAr = names.map(function (n) { return n.ar; }).filter(Boolean).join('، ') || label.ar;
+
+        const proceed = function () {
+            if (cfg.removeAjax === false) {
+                const form = el('pipeRemoveForm');
+                form.action = cfg.urls.remove;
+                form.querySelectorAll('input[name="pipe_ids"]').forEach(function (input) { input.remove(); });
+                ids.forEach(function (id) {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'pipe_ids';
+                    input.value = id;
+                    form.appendChild(input);
+                });
+                form.requestSubmit();
+                return;
             }
-        });
-        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+            ajaxRemove(ids);
+        };
+
+        if (window.confirmDelete) {
+            window.confirmDelete(nameEn, nameAr, proceed);
+        } else if (window.confirm('Delete ' + nameEn + ' ?')) {
+            proceed();
+        }
     }
 
     function ajaxRemove(ids) {
@@ -306,6 +350,7 @@
     window.initPipeEditor = function (config) {
         cfg = config || {};
         buildControl();
+        wireTraceAdd();
 
         document.addEventListener('change', function (event) {
             if (event.target && event.target.matches && event.target.matches(checkboxSelector())) {

@@ -268,6 +268,23 @@ def trees_view(project_id):
     return render_template('trees/trees.html', project=project, rows=rows, trees=trees)
 
 
+@trees_bp.route('/<int:project_id>/trees/remove', methods=['POST'])
+@login_required
+def trees_remove(project_id):
+    ids = []
+    for raw in request.form.getlist('tree_ids'):
+        try:
+            ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    removed = 0
+    if ids:
+        removed = mongo.db.trees.delete_many(
+            {'id': {'$in': ids}, 'project_id': project_id}).deleted_count
+    flash(f'Removed {removed} tree(s) / تمت إزالة {removed} شجرة', 'success')
+    return redirect(url_for('trees.trees_view', project_id=project_id))
+
+
 @trees_bp.route('/<int:project_id>/trees/generate', methods=['POST'])
 @login_required
 def trees_generate(project_id):

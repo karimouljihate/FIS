@@ -50,7 +50,7 @@
                             </button>
                             {% endif %}
                             <button class="btn btn-circle btn-warning" data-bs-toggle="modal"
-                                    data-bs-target="#aiGenerateModal" title="AI Generate / إنشاء بالذكاء الاصطناعي">
+                                    data-bs-target="#aiGenerateModal" title="Auto Generate / إنشاء بالذكاء الاصطناعي">
                                 <i class="bi bi-robot"></i>
                             </button>
                             <form method="POST" action="{{ url_for('geometry.sector_validate', project_id=project.id) }}" class="d-inline">
@@ -63,20 +63,23 @@
                     <tr>
                         <th width="40"><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
                         <th>ID</th>
-                        <th>Name (EN) / الاسم (EN)</th>
-                        <th>Name (AR) / الاسم (AR)</th>
-                        <th class="text-center">Validated / تم التحقق</th>
+                        <th>Name / الاسم</th>
+                        <th class="text-center">Valid / التحقق</th>
                         <th class="text-center">Area (m²) / المساحة</th>
+                        <th class="text-center">Percentage (%)</th>
                         <th class="text-center">Actions / إجراءات</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for s in sectors %}
                     <tr>
-                        <td><input type="checkbox" class="sector-checkbox" value="{{ s.id }}"></td>
+                        <td><input type="checkbox" class="sector-checkbox" value="{{ s.id }}"
+                                   data-name-en="{{ s.name_en }}" data-name-ar="{{ s.name_ar }}"></td>
                         <td>{{ s.id }}</td>
-                        <td>{{ s.name_en }}</td>
-                        <td class="ar-text">{{ s.name_ar }}</td>
+                        <td>
+                            {{ s.name_en }}
+                            {% if s.name_ar %}<span class="ar-text text-muted"> / {{ s.name_ar }}</span>{% endif %}
+                        </td>
                         <td class="text-center">
                             {% if s.validated %}
                             <span class="badge bg-success"><i class="bi bi-check"></i></span>
@@ -85,6 +88,9 @@
                             {% endif %}
                         </td>
                         <td class="text-center">{{ '{:,.0f}'.format(s.area_m2 or 0) }}</td>
+                        <td class="text-center">
+                            {% if global_area_m2 %}{{ '{:.1f}'.format((s.area_m2 or 0) / global_area_m2 * 100) }}%{% else %}&mdash;{% endif %}
+                        </td>
                         <td class="text-center">
                             <button class="btn btn-circle btn-primary" data-bs-toggle="modal"
                                     data-bs-target="#editModal{{ s.id }}" title="Edit / تعديل">
@@ -198,9 +204,8 @@
 
 <!-- Map -->
 <div class="card shadow-sm mt-4 geometry-map-card">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-map"></i> Map Editor - Sectors / محرر الخريطة - القطاعات</h5>
-    </div>
+    {% set map_title_en = "Map Editor - Sectors" %}{% set map_title_ar = "محرر الخريطة - القطاعات" %}
+    {% include "_map_header.html" %}
     <div class="card-body">
         <div id="map"></div>
     </div>
@@ -334,14 +339,14 @@
     </div>
 </div>
 
-<!-- AI Generate Sectors Modal -->
+<!-- Auto Generate Sectors Modal -->
 <div class="modal fade" id="aiGenerateModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" action="{{ url_for('geometry.sector_ai_regenerate', project_id=project.id) }}"
                 data-confirm="AI will rebuild all sectors, zones, network and trees using these parameters. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات والمناطق والشبكة والأشجار بناءً على هذه المعايير. متابعة؟">
                 <div class="modal-header bg-warning">
-                    <h5 class="modal-title"><i class="bi bi-robot"></i> AI Generate Sectors / إنشاء القطاعات بالذكاء الاصطناعي</h5>
+                    <h5 class="modal-title"><i class="bi bi-robot"></i> Auto Generate Sectors / إنشاء القطاعات بالذكاء الاصطناعي</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
@@ -476,6 +481,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 swap: '{{ url_for("geometry.sector_swap", project_id=project.id) }}'
             }
         },
+        mapDelete: { onClick: removeSelectedSectors },
         onDrawCreated: function(layer, layerType) {
             if (layerType !== 'polygon') return;
             const coords = layer.toGeoJSON().geometry.coordinates[0];
@@ -499,7 +505,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // AI Generate modal: toggle custom water point inputs
+    // Auto Generate modal: toggle custom water point inputs
     const waterMode = document.getElementById('aiWaterMode');
     function toggleCustomWater() {
         const custom = waterMode.value === 'custom';
@@ -532,7 +538,10 @@ function openSplitSelected() {
 }
 
 function toggleAll(source) {
-    document.querySelectorAll('.sector-checkbox').forEach(cb => cb.checked = source.checked);
+    document.querySelectorAll('.sector-checkbox').forEach(cb => {
+        cb.checked = source.checked;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+    });
 }
 
 function removeSelectedSectors() {
@@ -541,16 +550,27 @@ function removeSelectedSectors() {
         alert('Select at least one sector first / اختر قطاعا واحدا على الأقل أولا');
         return;
     }
-    const form = document.getElementById('removeSectorsForm');
-    form.querySelectorAll('input[name="sector_ids"]').forEach(el => el.remove());
-    selected.forEach(cb => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'sector_ids';
-        input.value = cb.value;
-        form.appendChild(input);
-    });
-    form.requestSubmit();
+    const namesEn = Array.from(selected).map(cb => cb.dataset.nameEn).filter(Boolean);
+    const namesAr = Array.from(selected).map(cb => cb.dataset.nameAr).filter(Boolean);
+    const nameEn = namesEn.join(', ') || 'sector(s)';
+    const nameAr = namesAr.join('، ') || 'قطاع';
+    const doSubmit = function () {
+        const form = document.getElementById('removeSectorsForm');
+        form.querySelectorAll('input[name="sector_ids"]').forEach(el => el.remove());
+        selected.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'sector_ids';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+        form.requestSubmit();
+    };
+    if (window.confirmDelete) {
+        window.confirmDelete(nameEn, nameAr, doSubmit);
+    } else if (window.confirm('Delete ' + nameEn + ' ?')) {
+        doSubmit();
+    }
 }
 </script>
 {% endblock %}

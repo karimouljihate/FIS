@@ -76,7 +76,7 @@
                                 <i class="bi bi-trash"></i>
                             </button>
                             <button class="btn btn-circle btn-warning" type="button" data-bs-toggle="modal"
-                                    data-bs-target="#aiPipingModal" title="AI Generate / إنشاء بالذكاء الاصطناعي">
+                                    data-bs-target="#aiPipingModal" title="Auto Generate / إنشاء بالذكاء الاصطناعي">
                                 <i class="bi bi-robot"></i>
                             </button>
                             <form method="POST" action="{{ url_for('hydrology.sub_pipe_validate', project_id=project.id) }}" class="d-inline">
@@ -145,9 +145,8 @@
 
 <!-- Map -->
 <div class="card shadow-sm mt-4 geometry-map-card">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-map"></i> Map - Zone Pipe / الخريطة - أنابيب المناطق</h5>
-    </div>
+    {% set map_title_en = "Map - Zone Pipe" %}{% set map_title_ar = "الخريطة - أنابيب المناطق" %}
+    {% include "_map_header.html" %}
     <div class="card-body">
         <div id="map"></div>
     </div>
@@ -156,24 +155,25 @@
 <!-- Add / Edit / Rename / Remove pipe modals -->
 {% include "hydrology/_pipe_editor_modals.html" %}
 
-<!-- AI Generate Piping Modal -->
+<!-- Auto Generate Piping Modal -->
 <div class="modal fade" id="aiPipingModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" action="{{ url_for('hydrology.piping_generate', project_id=project.id) }}"
-                  data-confirm="AI will build the full piping structure (MP → ZP → drip lines). Continue? / سيبني الذكاء الاصطناعي هيكل الأنابيب كاملاً. متابعة؟">
+                  data-confirm="AI will build the Zone Pipes and drip lines (using the existing Main Pipe). Continue? / سيبني الذكاء الاصطناعي أنابيب المناطق وخطوط التنقيط (بالاعتماد على الأنبوب الرئيسي). متابعة؟">
+                <input type="hidden" name="scope" value="zone">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-robot"></i> AI Generate Piping Structure / إنشاء هيكل الأنابيب بالذكاء الاصطناعي</h5>
+                    <h5 class="modal-title"><i class="bi bi-robot"></i> Auto Generate Zone Pipes / إنشاء أنابيب المناطق بالذكاء الاصطناعي</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info py-2 small mb-3">
-                        The generator builds the Main Pipe from the water source serving all sectors, Zone Pipes to every zone,
+                        The generator builds the Zone Pipes to every zone from the existing Main Pipe,
                         then laterals / direct driplines to every tree row. It auto-sizes PVC diameters, optimises pipe length,
-                        and checks flow and pressure using source elevation and gravity.
+                        and checks flow and pressure using source elevation and gravity. The Main Pipe is left untouched.
                         <br>
-                        ينشئ النظام الأنبوب الرئيسي من المصدر لكل القطاعات، وأنابيب المناطق لكل منطقة، ثم خطوط التنقيط لكل صف أشجار،
-                        مع تحديد الأقطار وتحسين الأطوال وحساب التدفق والضغط حسب الارتفاع والجاذبية.
+                        ينشئ النظام أنابيب المناطق لكل منطقة انطلاقاً من الأنبوب الرئيسي الحالي، ثم خطوط التنقيط لكل صف أشجار،
+                        مع تحديد الأقطار وتحسين الأطوال وحساب التدفق والضغط. لا يُعدَّل الأنبوب الرئيسي.
                     </div>
                     <h6 class="text-primary"><i class="bi bi-sliders"></i> Options / الخيارات</h6>
                     <div class="row g-2 mb-3">
@@ -236,6 +236,11 @@ document.addEventListener('DOMContentLoaded', function() {
         item: { en: 'zone pipe', ar: 'أنبوب منطقة' },
         emptyLabel: 'No zone pipes yet / لا توجد أنابيب مناطق بعد',
         addModalId: 'addZonePipeModal',
+        traceAdd: {
+            title: '<i class="bi bi-droplet"></i> Add Zone Pipe (ZP) / إضافة أنبوب منطقة',
+            diameter: 63,
+            zone: true
+        },
         trace: {
             main: { modalId: 'addMainPipeModal', fieldId: 'mpCoords' },
             zone: { modalId: 'addZonePipeModal', fieldId: 'subPipeCoords' }
@@ -247,6 +252,7 @@ document.addEventListener('DOMContentLoaded', function() {
             remove: '#pipeHeaderRemove'
         },
         urls: {
+            add: '{{ url_for("hydrology.sub_pipe_add", project_id=project.id) }}',
             update: '{{ url_for("hydrology.pipe_update", project_id=project.id, pipe_type="sub_pipe") }}',
             rename: '{{ url_for("hydrology.pipe_rename", project_id=project.id, pipe_type="sub_pipe") }}',
             remove: '{{ url_for("hydrology.pipe_remove", project_id=project.id, pipe_type="sub_pipe") }}'

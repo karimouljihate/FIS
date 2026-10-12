@@ -360,6 +360,9 @@ def generate_piping_structure(project_id, project=None, options=None):
         'use_elevation': options.get('use_elevation', True),
         'replace': options.get('replace', True),
         'mode': options.get('mode', 'direct'),  # direct | lateral
+        # scope: 'full' = whole network, 'main' = main pipe only,
+        # 'zone' = zone pipes only (built on top of the main pipe).
+        'scope': options.get('scope', 'full'),
         'source_pressure_bar': options.get('source_pressure_bar'),
         'source_flow_lpm': options.get('source_flow_lpm'),
     }
@@ -377,6 +380,11 @@ def generate_piping_structure(project_id, project=None, options=None):
         if val:
             config[key] = float(val)
     config['standard_diameters_mm'] = list(ENGINEERING_DEFAULTS['standard_diameters_mm'])
+
+    scope = opts['scope']
+    main_only = scope == 'main'
+    build_rows = scope in ('full', 'zone')
+    build_points = scope == 'full'
 
     # -- water sources ----------------------------------------------------
     primary, secondary = _resolve_sources(project)
@@ -432,10 +440,11 @@ def generate_piping_structure(project_id, project=None, options=None):
     # -- main pipe + zone pipes: routed along sector boundaries -----------
     # Rules: main pipe comes from the source (2), runs only on sector
     # boundaries and serves only sectors (1,3), hugs the highest ground and
-    # drops branch pipes to low sectors (4).
+    # drops branch pipes to low sectors (4). In ``main`` scope only the main
+    # spine over the highest sectors is built (no zone pipes / driplines).
     sector_nodes, zone_nodes = _build_boundary_network(
         net, source_id, sectors, zones, proj, elevation_lookup,
-        elevation_range, config, opts)
+        elevation_range, config, opts, main_only=main_only)
 
     # -- demand -----------------------------------------------------------
     q_tree_lps = config['emitter_flow_lph'] * config['emitters_per_tree'] / 3600.0
@@ -463,22 +472,34 @@ def generate_piping_structure(project_id, project=None, options=None):
         emit = max(2, tc * int(config['emitters_per_tree']))
         row_data.append((r, tc * q_tree_lps, tc, emit, utm, coords))
 
-    # zone centroid demand feeds the MP / ZP flows
-    for z in zones:
-        znid = zone_nodes.get(z['id'])
-        if znid is None:
-            continue
-        if total_trees > 0:
-            demand = trees_by_zone.get(z['id'], 0) * q_tree_lps
-        else:
-            demand = sum(rd[1] for rd in row_data if rd[0].get('zone_id') == z['id'])
-        net.nodes[znid]['demand_lps'] = demand
+    # Demand feeds the MP / ZP flows. In ``main`` scope there are no zone
+    # nodes, so the demand is aggregated per (highest) sector instead.
+    if main_only:
+        sector_demand = defaultdict(float)
+        for z in zones:
+            if total_trees > 0:
+                d = trees_by_zone.get(z['id'], 0) * q_tree_lps
+            else:
+                d = sum(rd[1] for rd in row_data if rd[0].get('zone_id') == z['id'])
+            sector_demand[z.get('sector_id')] += d
+        for s, nid in sector_nodes:
+            net.nodes[nid]['demand_lps'] = sector_demand.get(s['id'], 0.0)
+    else:
+        for z in zones:
+            znid = zone_nodes.get(z['id'])
+            if znid is None:
+                continue
+            if total_trees > 0:
+                demand = trees_by_zone.get(z['id'], 0) * q_tree_lps
+            else:
+                demand = sum(rd[1] for rd in row_data if rd[0].get('zone_id') == z['id'])
+            net.nodes[znid]['demand_lps'] = demand
 
     # -- row connections (driplines / laterals) ---------------------------
     # Rows are served from the zone (sub) pipes; the main pipe only serves
     # sectors (Rule 3). Fall back to the main pipe only if no zone pipes exist.
     row_tap_kinds = ('zp',) if any(e['kind'] == 'zp' for e in net.edges) else ('mp', 'zp')
-    for r, row_demand, tc, emit, utm, wgs in row_data:
+    for r, row_demand, tc, emit, utm, wgs in (row_data if build_rows else []):
         tap_id = net.tap(utm[0][0], utm[0][1], kinds=row_tap_kinds)
         if opts['mode'] == 'lateral':
             mid_id = net.add_node(utm[0][0], utm[0][1], 'rowend')
@@ -521,7 +542,7 @@ def generate_piping_structure(project_id, project=None, options=None):
 
     # -- secondary sources (stub + check valve) ---------------------------
     extra_elements = []  # (type, node_id / coords, properties)
-    for s in secondary:
+    for s in (secondary if build_points else []):
         x, y = proj(s['lng'], s['lat'])
         nearest = _nearest_node(net, x, y)
         sid = net.add_node(x, y, 'src2')
@@ -540,86 +561,108 @@ def generate_piping_structure(project_id, project=None, options=None):
     source_head = head_m_from_pressure_bar(source_pressure) + z_src
     min_p = config['min_emitter_pressure_bar']
 
-    for _ in range(15):
+    min_pressure_seen = None
+    points_below_min = 0
+    parent_edge = {}
+    if build_points:
+        for _ in range(15):
+            H, parent_edge, order, row_states = net.pressures(source_id, source_head)
+            any_fail = False
+            for chain, tap, H_end, path in row_states:
+                if H_end is None:
+                    continue
+                end_node = chain[-1]['b']
+                p_end = (H_end - net.nodes[end_node]['z']) / 10.197
+                if p_end < min_p:
+                    any_fail = True
+                    net.bump_path(_graph_path_edges(parent_edge, tap) + path)
+            if not any_fail:
+                break
+
+        _enforce_diameter_hierarchy(net)
+
         H, parent_edge, order, row_states = net.pressures(source_id, source_head)
-        any_fail = False
+
         for chain, tap, H_end, path in row_states:
             if H_end is None:
                 continue
             end_node = chain[-1]['b']
             p_end = (H_end - net.nodes[end_node]['z']) / 10.197
             if p_end < min_p:
-                any_fail = True
-                net.bump_path(_graph_path_edges(parent_edge, tap) + path)
-        if not any_fail:
-            break
+                points_below_min += 1
+            if min_pressure_seen is None or p_end < min_pressure_seen:
+                min_pressure_seen = p_end
 
-    _enforce_diameter_hierarchy(net)
-
-    H, parent_edge, order, row_states = net.pressures(source_id, source_head)
-
-    min_pressure_seen = None
-    points_below_min = 0
-    for chain, tap, H_end, path in row_states:
-        if H_end is None:
-            continue
-        end_node = chain[-1]['b']
-        p_end = (H_end - net.nodes[end_node]['z']) / 10.197
-        if p_end < min_p:
-            points_below_min += 1
-        if min_pressure_seen is None or p_end < min_pressure_seen:
-            min_pressure_seen = p_end
-
-    if points_below_min:
-        warnings.append(
-            '%d emitter point(s) below the required pressure (%.1f bar) even after '
-            'upsizing pipes — a booster pump is required / '
-            '%d نقطة تنقيط أقل من الضغط المطلوب (%.1f بار) حتى بعد تكبير الأقطار — يلزم مضخة تعزيز'
-            % (points_below_min, min_p, points_below_min, min_p))
+        if points_below_min:
+            warnings.append(
+                '%d emitter point(s) below the required pressure (%.1f bar) even after '
+                'upsizing pipes — a booster pump is required / '
+                '%d نقطة تنقيط أقل من الضغط المطلوب (%.1f بار) حتى بعد تكبير الأقطار — يلزم مضخة تعزيز'
+                % (points_below_min, min_p, points_below_min, min_p))
 
     max_velocity = max(
         [pipe_velocity_mps(e['flow_lps'] / 1000.0, e['diameter'])
          for e in net.edges + [x for c in net.attachments for x in c]] or [0.0])
 
-    # -- valves -----------------------------------------------------------
-    master_valve = ('master_valve', source_id, {'generated': 'ai',
-                                                'node': 'source'})
-    valve_elements = [master_valve]
-    for s, nid in sector_nodes:
-        valve_elements.append(('sector_valve', nid, {'generated': 'ai',
-                                                     'sector_id': s['id']}))
-    for z in zones:
-        znid = zone_nodes.get(z['id'])
-        if znid is not None:
-            valve_elements.append(('zone_valve', znid, {'generated': 'ai',
-                                                        'zone_id': z['id']}))
-
-    # -- reductions at diameter changes -----------------------------------
-    reduction_specs = _collect_reductions(net, source_id, parent_edge)
-
-    # -- air release at highest point -------------------------------------
+    # -- valves / reductions / air release (full network scope only) -------
+    valve_elements = []
+    reduction_specs = []
     air_element = None
-    if opts['use_elevation'] and net.elevation_range >= 3.0 and net.nodes:
-        hi = max((n for n in net.nodes.values() if n['kind'] != 'src2'),
-                 key=lambda n: n['z'], default=None)
-        if hi is not None:
-            air_element = (hi['x'], hi['y'])
+    if build_points:
+        master_valve = ('master_valve', source_id, {'generated': 'ai',
+                                                    'node': 'source'})
+        valve_elements = [master_valve]
+        for s, nid in sector_nodes:
+            valve_elements.append(('sector_valve', nid, {'generated': 'ai',
+                                                         'sector_id': s['id']}))
+        for z in zones:
+            znid = zone_nodes.get(z['id'])
+            if znid is not None:
+                valve_elements.append(('zone_valve', znid, {'generated': 'ai',
+                                                            'zone_id': z['id']}))
+
+        # reductions at diameter changes
+        reduction_specs = _collect_reductions(net, source_id, parent_edge)
+
+        # air release at highest point
+        if opts['use_elevation'] and net.elevation_range >= 3.0 and net.nodes:
+            hi = max((n for n in net.nodes.values() if n['kind'] != 'src2'),
+                     key=lambda n: n['z'], default=None)
+            if hi is not None:
+                air_element = (hi['x'], hi['y'])
 
     # -- persist ----------------------------------------------------------
     if opts['replace']:
-        mongo.db.network_elements.delete_many({
-            'project_id': project_id,
-            '$or': [
-                {'properties.generated': 'ai'},
-                {'type': {'$in': STRUCTURAL_TYPES}},
-            ],
-        })
+        if scope == 'full':
+            mongo.db.network_elements.delete_many({
+                'project_id': project_id,
+                '$or': [
+                    {'properties.generated': 'ai'},
+                    {'type': {'$in': STRUCTURAL_TYPES}},
+                ],
+            })
+        elif scope == 'main':
+            # Rebuilding the main pipe resets the generated network: drop the
+            # downstream AI elements (zone pipes / driplines / reductions /
+            # valves) so only the main pipe remains.
+            mongo.db.network_elements.delete_many({
+                'project_id': project_id,
+                'properties.generated': 'ai',
+                'type': {'$in': STRUCTURAL_TYPES},
+            })
+        elif scope == 'zone':
+            mongo.db.network_elements.delete_many({
+                'project_id': project_id,
+                'properties.generated': 'ai',
+                'type': {'$in': ['sub_pipe', 'dripline']},
+            })
 
     report = _insert_elements(
         project_id, net, unproj, valve_elements, reduction_specs,
-        air_element, extra_elements)
+        air_element, extra_elements, scope=scope)
 
-    coverage = _coverage(rows, row_data, zones, trees, total_trees)
+    coverage = _coverage(rows, row_data if build_rows else [],
+                         zones, trees, total_trees)
     demand_lps = sum(n.get('demand_lps', 0.0) for n in net.nodes.values())
     util = (demand_lps / (source_flow_lpm / 60.0) * 100.0) if source_flow_lpm else 0.0
     if demand_lps > source_flow_lpm / 60.0:
@@ -633,7 +676,7 @@ def generate_piping_structure(project_id, project=None, options=None):
             'all trees / %d منطقة بلا صفوف أشجار — ارسم الصفوف وأعد الإنشاء'
             % (len(coverage['zones_without_rows']),
                len(coverage['zones_without_rows'])))
-    if total_trees == 0:
+    if total_trees == 0 and build_rows:
         warnings.append(
             'No trees generated yet — demand is estimated from row spacing / '
             'لم تُنشأ أشجار بعد — قُدّر الطلب من تباعد الصفوف')
@@ -641,6 +684,7 @@ def generate_piping_structure(project_id, project=None, options=None):
     report.update({
         'project_id': project_id,
         'generated_at': datetime.utcnow(),
+        'scope': scope,
         'options': opts,
         'source': {
             'name': primary.get('name') or 'Water Source',
@@ -863,7 +907,8 @@ def _enforce_diameter_hierarchy(net):
 
 
 def _build_boundary_network(net, source_id, sectors, zones, proj,
-                            elevation_lookup, elevation_range, config, opts):
+                            elevation_lookup, elevation_range, config, opts,
+                            main_only=False):
     """Build the main pipe along sector boundaries and connect zones.
 
     Implements the piping rules:
@@ -872,6 +917,10 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
       3. it serves sectors only (zone pipes branch at sector entries),
       4. it stays on the highest ground; low sectors are fed by a branch
          zone pipe dropped from the high main pipe.
+
+    When ``main_only`` is set, only the main spine over the highest sectors
+    is built: no branch pipes to lower sectors and no zone pipes inside the
+    sectors (those belong to the zone-pipe step).
     Returns ``(sector_nodes, zone_nodes)`` for valve placement.
     """
     def elev(x, y):
@@ -990,6 +1039,9 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
         sid = s['id']
         if sid in main_set:
             entry_net = net_of(d['entry'])
+        elif main_only:
+            # main-pipe-only scope drops nothing to the low sectors
+            continue
         else:
             x, y = d['entry_xy']
             tap = net.tap(x, y, kinds=('mp',))
@@ -1002,26 +1054,27 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
 
     # --- zone pipes inside each sector, branching from the entry ---
     zone_nodes = {}
-    for z in zones:
-        sid = z.get('sector_id')
-        d = sector_data.get(sid)
-        entry_net = entries_net.get(sid)
-        if d is None or entry_net is None or not z.get('polygon'):
-            continue
-        try:
-            c = shape(z['polygon']).centroid
-            cx, cy = proj(c.x, c.y)
-        except Exception:
-            continue
-        znid = net.add_node(cx, cy, 'zone', sector_id=sid, zone_id=z['id'])
-        if d['poly'] is not None:
-            coords = _route_inside(d['poly'], net._pt(entry_net), (cx, cy))
-        else:
-            coords = [net._pt(entry_net), (cx, cy)]
-        net.add_edge(entry_net, znid, 'zp', 'sub_pipe',
-                     config['sub_max_velocity_mps'], SUB_MIN_DIAMETER_MM,
-                     coords=coords, zone_id=z['id'], sector_id=sid)
-        zone_nodes[z['id']] = znid
+    if not main_only:
+        for z in zones:
+            sid = z.get('sector_id')
+            d = sector_data.get(sid)
+            entry_net = entries_net.get(sid)
+            if d is None or entry_net is None or not z.get('polygon'):
+                continue
+            try:
+                c = shape(z['polygon']).centroid
+                cx, cy = proj(c.x, c.y)
+            except Exception:
+                continue
+            znid = net.add_node(cx, cy, 'zone', sector_id=sid, zone_id=z['id'])
+            if d['poly'] is not None:
+                coords = _route_inside(d['poly'], net._pt(entry_net), (cx, cy))
+            else:
+                coords = [net._pt(entry_net), (cx, cy)]
+            net.add_edge(entry_net, znid, 'zp', 'sub_pipe',
+                         config['sub_max_velocity_mps'], SUB_MIN_DIAMETER_MM,
+                         coords=coords, zone_id=z['id'], sector_id=sid)
+            zone_nodes[z['id']] = znid
 
     return sector_nodes, zone_nodes
 
@@ -1144,7 +1197,8 @@ def _collect_reductions(net, source_id, parent_edge):
 
 
 def _insert_elements(project_id, net, unproj, valve_elements,
-                     reduction_specs, air_element, extra_elements):
+                     reduction_specs, air_element, extra_elements,
+                     scope='full'):
     counters = defaultdict(int)
     lengths = defaultdict(float)
     diameters = defaultdict(set)
@@ -1200,36 +1254,61 @@ def _insert_elements(project_id, net, unproj, valve_elements,
 
     # graph edges (mp, zp, stub): merge tap-split fragments back into the
     # original pipes so each zone/main pipe is stored as a single element.
-    merged_pipes = []
-    by_origin = defaultdict(list)
-    for e in net.edges:
-        if e['kind'] == 'stub':
-            continue
-        by_origin[(e['type'], e['origin'])].append(e)
-    for frags in by_origin.values():
-        frags.sort(key=lambda f: f['dist0'])
-        coords = [list(frags[0]['coords'][0])]
-        for f in frags:
-            for c in f['coords'][1:]:
-                coords.append(list(c))
-        rep = max(frags, key=lambda f: f['flow_lps'])
-        merged_pipes.append({
-            'type': frags[0]['type'], 'kind': frags[0]['kind'],
-            'coords': coords,
-            'length_m': _polyline_length(coords),
-            'diameter': rep['diameter'],
-            'flow_lps': rep['flow_lps'],
-            'zone_id': frags[0].get('zone_id'),
-            'row_id': frags[0].get('row_id'),
-        })
-    merged_pipes.sort(key=lambda p: p['type'])
-    for p in merged_pipes:
-        emit_pipe(p)
+    if scope == 'main':
+        # One single main pipe covering only the highest sectors: merge the
+        # whole main-pipe spine into a single element.
+        mp_edges = [e for e in net.edges if e['kind'] == 'mp']
+        if mp_edges:
+            lines = [[unproj(x, y) for x, y in e['coords']] for e in mp_edges]
+            geometry = ({'type': 'LineString', 'coordinates': lines[0]}
+                        if len(lines) == 1
+                        else {'type': 'MultiLineString', 'coordinates': lines})
+            max_d = max(e['diameter'] for e in mp_edges)
+            max_f = max(e['flow_lps'] for e in mp_edges)
+            total_len = sum(e['length_m'] for e in mp_edges)
+            counters['mp_edges'] = 1
+            emit('main_pipe', 'Main Pipe 1', 'الأنبوب الرئيسي 1', geometry, {
+                'generated': 'ai',
+                'diameter': max_d,
+                'flow_lps': round(max_f, 4),
+                'velocity_mps': round(pipe_velocity_mps(max_f / 1000.0, max_d), 3),
+                'length_m': round(total_len, 2),
+            })
+            lengths['main_pipe'] += total_len
+            diameters['main_pipe'].add(max_d)
+    else:
+        merged_pipes = []
+        by_origin = defaultdict(list)
+        for e in net.edges:
+            if e['kind'] == 'stub':
+                continue
+            if scope == 'zone' and e['kind'] != 'zp':
+                continue
+            by_origin[(e['type'], e['origin'])].append(e)
+        for frags in by_origin.values():
+            frags.sort(key=lambda f: f['dist0'])
+            coords = [list(frags[0]['coords'][0])]
+            for f in frags:
+                for c in f['coords'][1:]:
+                    coords.append(list(c))
+            rep = max(frags, key=lambda f: f['flow_lps'])
+            merged_pipes.append({
+                'type': frags[0]['type'], 'kind': frags[0]['kind'],
+                'coords': coords,
+                'length_m': _polyline_length(coords),
+                'diameter': rep['diameter'],
+                'flow_lps': rep['flow_lps'],
+                'zone_id': frags[0].get('zone_id'),
+                'row_id': frags[0].get('row_id'),
+            })
+        merged_pipes.sort(key=lambda p: p['type'])
+        for p in merged_pipes:
+            emit_pipe(p)
 
-    # row attachments (driplines + laterals)
-    for chain in net.attachments:
-        for e in chain:
-            emit_pipe(e)
+        # row attachments (driplines + laterals)
+        for chain in net.attachments:
+            for e in chain:
+                emit_pipe(e)
 
     # valves
     for elem_type, node_id, props in valve_elements:

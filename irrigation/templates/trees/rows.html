@@ -34,8 +34,7 @@
                                 <i class="bi bi-input-cursor-text"></i>
                             </button>
                             <form method="POST" id="removeRowsForm"
-                                  action="{{ url_for('trees.rows_remove', project_id=project.id) }}" class="d-inline"
-                                  data-confirm="Remove the selected row(s)? / إزالة الصف (الصفوف) المحددة؟">
+                                  action="{{ url_for('trees.rows_remove', project_id=project.id) }}" class="d-inline">
                                 <button class="btn btn-circle btn-outline-danger" id="rowRemoveBtn" type="button"
                                         onclick="rowsRemoveSelected()" title="Remove / إزالة">
                                     <i class="bi bi-trash"></i>
@@ -67,7 +66,8 @@
                 <tbody>
                     {% for r in rows %}
                     <tr>
-                        <td><input type="checkbox" class="row-checkbox" value="{{ r.id }}"></td>
+                        <td><input type="checkbox" class="row-checkbox" value="{{ r.id }}"
+                                   data-name-en="{{ r.name_en }}" data-name-ar="{{ r.name_ar }}"></td>
                         <td>{{ r.id }}</td>
                         <td>{{ r.name_en }}</td>
                         <td class="ar-text">{{ r.name_ar }}</td>
@@ -92,7 +92,7 @@
                             </button>
                             <form method="POST" action="{{ url_for('trees.rows_remove', project_id=project.id) }}"
                                   class="d-inline"
-                                  data-confirm="Remove this row? / إزالة هذا الصف؟">
+                                  data-confirm-delete="{{ r.name_en }}" data-confirm-delete-ar="{{ r.name_ar }}">
                                 <input type="hidden" name="row_ids" value="{{ r.id }}">
                                 <button type="submit" class="btn btn-circle btn-outline-danger" title="Remove / إزالة">
                                     <i class="bi bi-trash"></i>
@@ -211,9 +211,8 @@
 
 <!-- Map -->
 <div class="card shadow-sm mt-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-map"></i> Map / الخريطة</h5>
-    </div>
+    {% set map_title_en = "Map" %}{% set map_title_ar = "الخريطة" %}
+    {% include "_map_header.html" %}
     <div class="card-body">
         <div id="map"></div>
     </div>
@@ -225,7 +224,11 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
-    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
+    initMap('map', geojsonUrl, {
+        center: [34.0, -6.0], zoom: 14,
+        selectable: { type: 'tree_row', checkboxSelector: '.row-checkbox', toggleOnClick: true },
+        mapDelete: { onClick: rowsRemoveSelected }
+    });
 
     document.addEventListener('change', function(event) {
         if (event.target && event.target.matches && event.target.matches('.row-checkbox')) {
@@ -263,16 +266,27 @@ function rowsRemoveSelected() {
         alert('Select at least one row first / اختر صفاً واحداً على الأقل أولاً');
         return;
     }
-    const form = document.getElementById('removeRowsForm');
-    form.querySelectorAll('input[name="row_ids"]').forEach(el => el.remove());
-    selected.forEach(cb => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'row_ids';
-        input.value = cb.value;
-        form.appendChild(input);
-    });
-    form.requestSubmit();
+    const namesEn = Array.from(selected).map(cb => cb.dataset.nameEn).filter(Boolean);
+    const namesAr = Array.from(selected).map(cb => cb.dataset.nameAr).filter(Boolean);
+    const nameEn = namesEn.join(', ') || 'row(s)';
+    const nameAr = namesAr.join('، ') || 'صف';
+    const doSubmit = function () {
+        const form = document.getElementById('removeRowsForm');
+        form.querySelectorAll('input[name="row_ids"]').forEach(el => el.remove());
+        selected.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'row_ids';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+        form.requestSubmit();
+    };
+    if (window.confirmDelete) {
+        window.confirmDelete(nameEn, nameAr, doSubmit);
+    } else if (window.confirm('Delete ' + nameEn + ' ?')) {
+        doSubmit();
+    }
 }
 
 function toggleAllRows(source) {

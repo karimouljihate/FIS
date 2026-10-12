@@ -139,6 +139,45 @@
     </div>
 </div>
 
+<!-- In-map Add Pipe: enter diameter, then trace the path on the map -->
+<div class="modal fade" id="pipeTraceAddModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title" id="pipeTraceAddTitle">
+                    <i class="bi bi-vector-pen"></i> Add Pipe / إضافة أنبوب
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3" id="pipeTraceZoneWrap" hidden>
+                    <label class="form-label">Zone / المنطقة</label>
+                    <select id="pipeTraceZone" class="form-select">
+                        {% for z in zones %}
+                        <option value="{{ z.id }}">{{ z.name_en }} ({{ z.name_ar }})</option>
+                        {% else %}
+                        <option value="">No zones available / لا توجد مناطق</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label">Diameter (mm) / القطر (مم)</label>
+                    <input type="number" id="pipeTraceDiameter" class="form-control" value="110" min="20">
+                </div>
+                <div class="text-muted small">
+                    Enter the diameter, then draw the pipe path on the map.
+                    / أدخل القطر ثم ارسم مسار الأنبوب على الخريطة.
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                <button type="button" class="btn btn-success" id="pipeTraceStart">
+                    <i class="bi bi-pencil-square"></i> Start tracing / ابدأ الرسم
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 <!-- Hidden form used to remove one or more pipes -->
-<form method="POST" id="pipeRemoveForm" action="" class="d-none"
-      data-confirm="Remove the selected pipe(s)? This cannot be undone. / إزالة الأنبوب (الأنابيب) المحددة؟ لا يمكن التراجع."></form>
+<form method="POST" id="pipeRemoveForm" action="" class="d-none"></form>

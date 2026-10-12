@@ -1,5 +1,51 @@
 # Changelog
 
+## 0.3.38 - 2026-10-12
+
+### Added
+
+- **In-map delete on every map**: Sectors, Zones, Trees, Rows, Valves, Network and Dripline maps now show a circular trash button in the map toolbar (alongside the existing Main/Zone Pipe trash). It stays disabled until at least one item is selected — via the table checkboxes or by clicking features on the map with Select mode on — then opens the styled delete-confirmation modal.
+- **New remove endpoints**: `trees.trees_remove` (`tree_ids`) plus `hydrology.valves_remove`, `hydrology.dripline_remove` and `hydrology.network_remove` (`element_ids`) delete the selected records and flash a removal count.
+
+### Changed
+
+- Trees, Valves, Network and Dripline tables gained a selection checkbox column (plus a select-all and a Remove button) so their maps can drive the new in-map delete.
+- `initMap` now accepts a `selectable.type` array, letting a single map select several element types (all valve types, all network-element types), and a new `mapDelete` option that renders the selection-gated trash button.
+
+## 0.3.37 - 2026-10-12
+
+### Added
+
+- **Map header with full-page toggle**: every map (Project, Sectors, Zones, Trees, Rows, Main/Zone Pipe, Valves, Network, Dripline, Elevation Heatmap) now shares one header layout split into three columns — English title (20%) on the left, a circular fullscreen button in the centre, and the Arabic title (20%) on the right. The button expands the map to fill the viewport (Esc exits) and restores it afterwards.
+- **Zone orientation**: zones now carry an `orientation` compass field (N/E/S/W). It can be set manually in the Add/Edit Zone modals, and the Auto Generate Zones dialog lets you either derive it per zone from the terrain or force a direction.
+
+### Changed
+
+- **Sectors & Zones tables**: the Sectors list is now `checkbox · ID · Name/الاسم · Valid/التحقق · Area (m²)/المساحة · Percentage (%) · Actions`, and the Zones list is `checkbox · ID · Name/اسم · Valid/التحقق · Area (m²)/المساحة · Percentage (%) · Orientation · Actions`. A new **Percentage (%)** column shows each element's area as a share of the total project (land) area.
+- **Slope-aware zone generation**: Auto Generate Zones now also considers elevation contour bands (fall-line partitioning) alongside the angle-based partitions, so zone orientation follows the terrain. Each generated zone records its orientation, downhill bearing and slope percentage derived from the elevation model.
+
+## 0.3.36 - 2026-10-12
+
+### Added
+
+- **Styled delete-confirmation modal**: every delete action across the app (projects, sectors, zones, rows, main/zone pipes) now uses a dedicated confirmation modal — red header with the Arabic title "تأكيد الحذف" (two-column header, white text), a body on `#DD99BB` with the English and Arabic sentences and the object name highlighted in bold, and rounded red Confirm / Cancel buttons.
+- A reusable `window.confirmDelete(nameEn, nameAr, onConfirm)` helper plus delegated `data-confirm-delete` / `data-confirm-delete-ar` handling for forms and submit buttons.
+
+### Changed
+
+- Delete triggers were rewired to the new modal: sector/zone/row selection removals and pipe removals now pass the selected object names, the project delete form and single-row delete form use `data-confirm-delete`, and the hidden pipe-remove form no longer double-confirms. Non-delete confirmations (AI generate, rebuild, clear) keep the existing generic modal.
+
+## 0.3.35 - 2026-10-12
+
+### Changed
+
+- **Main Pipe AI generation is now scoped**: generating from the Main Pipe page builds **only the Main Pipe** — a single element (a `MultiLineString` when the spine branches) covering just the highest sectors — instead of the whole network. Zone pipes, driplines, reductions, valves and air releases are no longer created there; they are produced by the Zone Pipe step.
+- **Zone Pipe AI generation is now scoped**: generating from the Zone Pipe page builds **only the zone pipes and driplines** and leaves the existing Main Pipe untouched, so the staged workflow (Main Pipe → Zone Pipes → …) no longer overwrites earlier steps. The generator accepts a `scope` option (`full` | `main` | `zone`) and only deletes the elements relevant to that scope.
+
+### Fixed
+
+- **Connectivity / elevation validation with a merged main pipe**: the water-source connection and elevation-head checks now handle the `MultiLineString` main pipe (a line-endpoint helper is used instead of assuming a single `LineString.coords`).
+
 ## 0.3.34 - 2026-10-12
 
 ### Added
@@ -45,15 +91,15 @@
 
 - **Rows page**: the Zone, Spacing (m), Orientation, Validated and Actions columns are now centred.
 - **Rows page**: row names are resolved to their zone names (EN + AR) instead of the raw zone id.
-
+Auto Generate
 ## 0.3.30 - 2026-10-09
 
 ### Changed
 
 - **Sectors / Zones / Main Pipe / Zone Pipe pages**: removed the above-table toolbar buttons; all actions are now driven exclusively by the icon-only circular buttons in the table header action rows. The Zones header row gained Rename and Edit buttons (moving the batch Rename/Edit into the table), and the Sectors/Zones Remove buttons are now wrapped in their removal forms.
-
-## 0.3.29 - 2026-10-09
-
+Auto Generate
+## 0.3.29 - 2026-10-09Auto Generate
+Auto Generate
 ### Added
 
 - **Main Pipe and Zone Pipe tables**: a first header row with icon-only circular buttons for Add, Edit, Rename, Remove, AI Generate and Validate, mirroring the Sectors/Zones action rows. The Add/Edit/Rename/Remove buttons share the pipe editor's selection-aware enable/disable logic (`pipe_editor.js` now toggles all matching selector buttons, and exposes `openPipeEdit` for the Edit button).
@@ -64,7 +110,7 @@
 
 - **Zones page toolbar**: Add / Rename / Edit / Remove buttons with selection-aware enable/disable (0 selected disables Rename, Edit and Remove; 1 selected disables Add; 2+ selected disables Add, Edit and Rename). AI Generate and Validate are pinned to the right side and stay enabled.
 - **Zones table action row**: a first header row with icon-only circular buttons for Add, Remove, Split, Merge, Swap, AI Generate and Validate, plus new Split Selected and Swap modals wired to `zone_split_selected` / `zone_swap`.
-- **AI Generate Zones modal**: opens a modal form with configurable Zones per Sector (1–8, default from project spec) and a Use elevation data toggle; `regenerate_zones` now accepts `use_elevation`.
+- **AI Generate Zones modal**: opens a modal form with configurable Zones per Sector (1–8, default from project spec) and a Auto Generateon data toggle; `regenerate_zones` now accepts `use_elevation`.
 - **Zone removal route** `POST /<project_id>/zones/remove` (`geometry.zone_remove`): deletes the selected zones together with their tree rows, trees and network elements, mirroring `sector_remove`.
 
 ### Changed
@@ -89,14 +135,14 @@
 
 - Main Pipe / Zone Pipe workflow tabs are now centred like the Geometry tabs (`project-workflow-subnav-centered`).
 - `main_pipe` view now also passes `zones` so the shared editor can add Zone Pipes from the Main Pipe page.
-- **Main Pipe page toolbars**: Rename and Remove buttons added next to Add (selection-aware: 0 selected disables both, 1 selected enables both and disables Add, 2+ selected enables only Remove); Generate and Validate are pinned to the right end and stay enabled. The in-map control on the Main Pipe page is reduced to Add / Edit / Rename / Remove (Trace MP / Trace ZP removed via the `traceButtons: false` option); the same pipe editor applies the selection enable/disable rules to its map buttons.
+- **Auto Generateage toolbars**: Rename and Remove buttons added next to Add (selection-aware: 0 selected disables both, 1 selected enables both and disables Add, 2+ selected enables only Remove); Generate and Validate are pinned to the right end and stay enabled. The in-map control on the Main Pipe page is reduced to Add / Edit / Rename / Remove (Trace MP / Trace ZP removed via the `traceButtons: false` option); the same pipe editor applies the selection enable/disable rules to its map buttons.
 - **Table ↔ map are now linked both ways** on the Main Pipe and Zone Pipe pages: pipes are selected/deselected directly by clicking them on the map (`selectable.toggleOnClick`, no Select-mode cursor required) while any table checkbox change still highlights/clears the matching map layer. Removing selected pipes (toolbar, row action, or map trash) is now an AJAX delete (`X-Requested-With: XMLHttpRequest` → JSON response): the table rows, the checkboxes, the select-all state and the map layers are updated in place, so removals are reflected into the map immediately.
 - Replaced the global loading spinner (`img/loading.gif`) with a modern minimalist royal-blue circular loader with a transparent background, sized to the light overlay styling in `base.html`.
 - **Create Project page**: removed the two-column layout; the Instructions card now sits full-width above the Create New Project form card, with its instructions shown as side-by-side English (left) and Arabic (right) columns.
 - **Geometry tables**: Sectors and Zones now include an Area (m²) column, computed from each polygon via a projected UTM area when not already stored.
 - **Piping generator rules**: the Main Pipe and Zone Pipe networks are routed along sector boundary edges using a boundary-graph Steiner heuristic with elevation-weighted cost and automatic reconnection of disjoint components (Rules 3 & 4); diameter floors are applied per pipe level and Rule 5 is enforced so the Main Pipe always carries the largest diameter in the network.
 
-## 0.3.25 - 2026-10-09
+## 0.3.25 - 2026-10-09Auto Generate
 
 ### Added
 
@@ -128,7 +174,7 @@
 ### Added
 
 - **Water Sources card** on the project page: lists all declared water sources with a type badge (Well / Basin / Reservoir / Pump / Canal / Other, bilingual EN/AR), name, coordinates, flow rate (L/min) and notes; shows an empty-state row when none exist.
-- **Water Sources section** in the Edit Project modal: dynamic add/remove rows for multiple sources, each with type, name, lat, lng, flow (L/min) and notes. Saved into `spec.water_sources`.
+- **Auto Generatees section** in the Edit Project modal: dynamic add/remove rows for multiple sources, each with type, name, lat, lng, flow (L/min) and notes. Saved into `spec.water_sources`.
 - Legacy single `project.water_source` Point is kept in sync with the first water source that has coordinates, so regeneration, hydrology, elevation and KML export continue to work unchanged.
 
 ### Changed
@@ -209,7 +255,7 @@
 ## 0.3.15 - 2026-10-07
 
 ### Changed
-
+Auto Generate
 - Replaced the Bootswatch theme font with the app's default fonts (Comfortaa for English, VIP-Rawy for Arabic) across the whole app.
 
 ## 0.3.14 - 2026-10-07

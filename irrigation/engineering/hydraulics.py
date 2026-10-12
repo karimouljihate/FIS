@@ -15,6 +15,90 @@ from dataclasses import dataclass, field, asdict
 from typing import List, Dict, Optional
 
 
+# === MAIN PIPE RULES ===
+#
+# Declarative, bilingual description of how the Main Pipe network
+# (Hydrology -> Main Pipe) must be constructed. Kept next to the numeric
+# hydraulic defaults so the generator, validation and UI can all read one
+# source of truth.
+#
+# Node kinds referenced by the rules:
+#   'well'    -> a water source whose spec ``type`` is 'well'
+#   'basin'   -> a water source whose spec ``type`` is 'basin'
+#   'mp1'     -> the single merged Main Pipe produced with ``scope='main'``
+#   'sectors' -> the highest-elevation entry sectors MP1 serves
+#
+# Rule (c) states that Well and Basin are *alternative, equivalent* feeds into
+# MP1, so the same geometry/sizing rule applies whether the well or the basin
+# is the primary source. When both exist, rule (a) additionally adds an
+# explicit Well -> Basin link.
+
+MAIN_PIPE_RULES = {
+    'MP-1a': {
+        'id': 'MP-1a',
+        'name_en': 'Well -> Basin',
+        'name_ar': 'البئر -> الحوض',
+        'from': 'well',
+        'to': 'basin',
+        'element': 'main_pipe',
+        'condition': 'a well and a basin both exist',
+        'required': False,
+        'description_en': 'Connect the well to the basin with a main-pipe segment.',
+        'description_ar': 'ربط البئر بالحوض بقطعة من الأنبوب الرئيسي.',
+    },
+    'MP-1b': {
+        'id': 'MP-1b',
+        'name_en': 'Well -> Main Pipe (MP1)',
+        'name_ar': 'البئر -> الأنبوب الرئيسي (MP1)',
+        'from': 'well',
+        'to': 'mp1',
+        'element': 'main_pipe',
+        'condition': 'the primary water source is a well',
+        'required': False,
+        'description_en': 'Feed MP1 from the well when the well is the primary source.',
+        'description_ar': 'تغذية MP1 من البئر عندما يكون البئر هو المصدر الرئيسي.',
+    },
+    'MP-1c': {
+        'id': 'MP-1c',
+        'name_en': 'Basin -> Main Pipe (MP1) [same as Well]',
+        'name_ar': 'الحوض -> الأنبوب الرئيسي (MP1) [كما البئر]',
+        'from': 'basin',
+        'to': 'mp1',
+        'element': 'main_pipe',
+        'condition': 'the primary water source is a basin',
+        'required': False,
+        'same_as': 'MP-1b',
+        'description_en': ('Feed MP1 from the basin; identical rule to '
+                           'Well -> MP1, so the same geometry and sizing apply.'),
+        'description_ar': ('تغذية MP1 من الحوض؛ قاعدة مطابقة للبئر -> MP1، '
+                           'بنفس الشكل والقطر.'),
+    },
+    'MP-1d': {
+        'id': 'MP-1d',
+        'name_en': 'MP1 covers highest-elevation entry sectors ONLY',
+        'name_ar': 'MP1 يغطي قطاعات الدخول الأعلى ارتفاعاً فقط',
+        'from': 'source',
+        'to': 'sectors',
+        'element': 'main_pipe',
+        'condition': "piping generation scope is 'main'",
+        'required': True,
+        'description_en': ('MP1 spans only the highest-elevation entry sectors; '
+                           'all lower sectors are fed from MP1 through sub/zone '
+                           'pipes rather than MP1 itself.'),
+        'description_ar': ('يمتد MP1 على قطاعات الدخول الأعلى ارتفاعاً فقط؛ '
+                           'تغذى كل القطاعات الأدنى من MP1 عبر الأنابيب الفرعية '
+                           'وأنابيب المناطق وليس عبر MP1 نفسه.'),
+    },
+}
+
+MAIN_PIPE_RULE_ORDER = ['MP-1a', 'MP-1b', 'MP-1c', 'MP-1d']
+
+
+def main_pipe_rules():
+    """Return the main-pipe rules in declaration order (list of dicts)."""
+    return [MAIN_PIPE_RULES[k] for k in MAIN_PIPE_RULE_ORDER]
+
+
 # === ENGINEERING DEFAULTS ===
 
 ENGINEERING_DEFAULTS = {
@@ -45,6 +129,11 @@ ENGINEERING_DEFAULTS = {
 
     # Drip line
     'drip_diameter_mm': 16,
+
+    # Main pipe construction rules (Hydrology -> Main Pipe). Declarative and
+    # bilingual; read by the generator, validation and UI. See MAIN_PIPE_RULES.
+    'main_pipe_rules': MAIN_PIPE_RULES,
+    'main_pipe_rule_order': MAIN_PIPE_RULE_ORDER,
 }
 
 

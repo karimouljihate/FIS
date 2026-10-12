@@ -53,12 +53,21 @@
 </div>
 
 <!-- Trees Table -->
+<div class="mb-3">
+    <button class="btn btn-circle btn-outline-danger" id="treeRemoveBtn" type="button"
+            onclick="treesRemoveSelected()" title="Remove / إزالة">
+        <i class="bi bi-trash"></i>
+    </button>
+    <form method="POST" id="removeTreesForm"
+          action="{{ url_for('trees.trees_remove', project_id=project.id) }}" class="d-none"></form>
+</div>
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover table-sm mb-0">
                 <thead>
                     <tr>
+                        <th width="40"><input type="checkbox" id="selectAllTrees" onclick="toggleAllTrees(this)"></th>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Row</th>
@@ -72,6 +81,7 @@
                 <tbody>
                     {% for t in trees[:100] %}
                     <tr>
+                        <td><input type="checkbox" class="tree-checkbox" value="{{ t.id }}" data-name-en="{{ t.name_en }}"></td>
                         <td>{{ t.id }}</td>
                         <td>{{ t.name_en }}</td>
                         <td>{{ t.row_id }}</td>
@@ -88,7 +98,7 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="8" class="text-center text-muted py-3">No trees yet / لا توجد أشجار</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted py-3">No trees yet / لا توجد أشجار</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -111,9 +121,8 @@
 
 <!-- Map -->
 <div class="card shadow-sm mt-4">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-map"></i> Map / الخريطة</h5>
-    </div>
+    {% set map_title_en = "Map" %}{% set map_title_ar = "الخريطة" %}
+    {% include "_map_header.html" %}
     <div class="card-body">
         <div id="map"></div>
     </div>
@@ -125,7 +134,59 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
-    initMap('map', geojsonUrl, { center: [34.0, -6.0], zoom: 14 });
+    initMap('map', geojsonUrl, {
+        center: [34.0, -6.0], zoom: 14,
+        selectable: { type: 'tree', checkboxSelector: '.tree-checkbox', toggleOnClick: true },
+        mapDelete: { onClick: treesRemoveSelected }
+    });
+
+    document.addEventListener('change', function(event) {
+        if (event.target && event.target.matches && event.target.matches('.tree-checkbox')) {
+            updateTreesToolbar();
+        }
+    });
+    updateTreesToolbar();
 });
+
+function updateTreesToolbar() {
+    const count = document.querySelectorAll('.tree-checkbox:checked').length;
+    const removeBtn = document.getElementById('treeRemoveBtn');
+    if (removeBtn) removeBtn.disabled = count === 0;
+}
+
+function toggleAllTrees(source) {
+    document.querySelectorAll('.tree-checkbox').forEach(cb => {
+        cb.checked = source.checked;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+}
+
+function treesRemoveSelected() {
+    const selected = document.querySelectorAll('.tree-checkbox:checked');
+    if (!selected.length) {
+        alert('Select at least one tree first / اختر شجرة واحدة على الأقل أولا');
+        return;
+    }
+    const namesEn = Array.from(selected).map(cb => cb.dataset.nameEn).filter(Boolean);
+    const nameEn = namesEn.slice(0, 5).join(', ') + (namesEn.length > 5 ? '…' : '') || 'tree(s)';
+    const nameAr = 'شجرة';
+    const doSubmit = function () {
+        const form = document.getElementById('removeTreesForm');
+        form.querySelectorAll('input[name="tree_ids"]').forEach(el => el.remove());
+        selected.forEach(cb => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'tree_ids';
+            input.value = cb.value;
+            form.appendChild(input);
+        });
+        form.requestSubmit();
+    };
+    if (window.confirmDelete) {
+        window.confirmDelete(nameEn, nameAr, doSubmit);
+    } else if (window.confirm('Delete ' + nameEn + ' ?')) {
+        doSubmit();
+    }
+}
 </script>
 {% endblock %}

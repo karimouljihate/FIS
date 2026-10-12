@@ -25,26 +25,16 @@
 {% if piping_report %}
 <div class="card shadow-sm mb-3">
     <div class="card-header bg-light">
-        <h6 class="mb-0"><i class="bi bi-clipboard-data"></i> AI Piping Report / تقرير هيكل الأنابيب</h6>
+        <h6 class="mb-0"><i class="bi bi-clipboard-data"></i> AI Main Pipe Report / تقرير الأنبوب الرئيسي</h6>
     </div>
     <div class="card-body">
         <div class="d-flex flex-wrap gap-2 mb-2">
-            <span class="badge bg-danger">MP: {{ piping_report.counts.get('main_pipe', 0) }}</span>
-            <span class="badge bg-warning text-dark">ZP: {{ piping_report.counts.get('zone_pipe', 0) }}</span>
-            <span class="badge bg-success">Drip: {{ piping_report.counts.get('dripline', 0) }}</span>
-            <span class="badge bg-success">Reductions: {{ piping_report.counts.get('reduction', 0) }}</span>
-            <span class="badge bg-secondary">Trees served: {{ piping_report.coverage.get('trees_served', 0) }}/{{ piping_report.coverage.get('trees_total', 0) }}</span>
+            <span class="badge bg-danger">MP: {{ main_pipes | length }}</span>
         </div>
         <div class="small text-muted">
             Total length: {{ piping_report.lengths_m.get('main_pipe', 0) }} m (MP)
-            + {{ piping_report.lengths_m.get('sub_pipe', 0) }} m (ZP)
-            + {{ piping_report.lengths_m.get('dripline', 0) }} m (drip)
             | Demand {{ piping_report.demand.get('total_lpm', 0) }} L/min
             ({{ piping_report.demand.get('utilization_pct', 0) }}% of source)
-            | Min emitter pressure
-            {% if piping_report.pressure.get('min_emitter_pressure_bar') is not none %}
-            {{ piping_report.pressure.get('min_emitter_pressure_bar') }} bar
-            {% else %}—{% endif %}
         </div>
         {% if piping_report.warnings %}
         <div class="alert alert-warning mt-2 mb-0 py-2 small">
@@ -82,7 +72,7 @@
                                 <i class="bi bi-trash"></i>
                             </button>
                             <button class="btn btn-circle btn-warning" type="button" data-bs-toggle="modal"
-                                    data-bs-target="#aiPipingModal" title="AI Generate / إنشاء بالذكاء الاصطناعي">
+                                    data-bs-target="#aiPipingModal" title="Auto Generate / إنشاء بالذكاء الاصطناعي">
                                 <i class="bi bi-robot"></i>
                             </button>
                             <form method="POST" action="{{ url_for('hydrology.main_pipe_validate', project_id=project.id) }}" class="d-inline">
@@ -149,9 +139,8 @@
 
 <!-- Map -->
 <div class="card shadow-sm mt-4 geometry-map-card">
-    <div class="card-header">
-        <h5 class="mb-0"><i class="bi bi-map"></i> Map - Main Pipe / الخريطة - الأنبوب الرئيسي</h5>
-    </div>
+    {% set map_title_en = "Map - Main Pipe" %}{% set map_title_ar = "الخريطة - الأنبوب الرئيسي" %}
+    {% include "_map_header.html" %}
     <div class="card-body">
         <div id="map"></div>
     </div>
@@ -160,40 +149,34 @@
 <!-- Add / Edit / Rename / Remove pipe modals -->
 {% include "hydrology/_pipe_editor_modals.html" %}
 
-<!-- AI Generate Piping Modal -->
+<!-- Auto Generate Piping Modal -->
 <div class="modal fade" id="aiPipingModal" tabindex="-1">
     <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
         <div class="modal-content">
             <form method="POST" action="{{ url_for('hydrology.piping_generate', project_id=project.id) }}"
-                  data-confirm="AI will build the full piping structure (MP → ZP → drip lines). Continue? / سيبني الذكاء الاصطناعي هيكل الأنابيب كاملاً. متابعة؟">
+                  data-confirm="AI will build the Main Pipe only (serving the highest sectors). Continue? / سيبني الذكاء الاصطناعي الأنبوب الرئيسي فقط (للقطاعات الأعلى). متابعة؟">
+                <input type="hidden" name="scope" value="main">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-robot"></i> AI Generate Piping Structure / إنشاء هيكل الأنابيب بالذكاء الاصطناعي</h5>
+                    <h5 class="modal-title"><i class="bi bi-robot"></i> Auto Generate Main Pipe / إنشاء الأنبوب الرئيسي بالذكاء الاصطناعي</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info py-2 small mb-3">
-                        The generator builds the Main Pipe from the water source serving all sectors, Zone Pipes to every zone,
-                        then laterals / direct driplines to every tree row. It auto-sizes PVC diameters, optimises pipe length,
-                        and checks flow and pressure using source elevation and gravity.
+                        The generator builds a single Main Pipe from the water source along the sector boundaries,
+                        covering only the highest sectors. Zone Pipes and reductions are added in the next steps.
+                        It auto-sizes the PVC diameter and checks flow and pressure using source elevation and gravity.
                         <br>
-                        ينشئ النظام الأنبوب الرئيسي من المصدر لكل القطاعات، وأنابيب المناطق لكل منطقة، ثم خطوط التنقيط لكل صف أشجار،
-                        مع تحديد الأقطار وتحسين الأطوال وحساب التدفق والضغط حسب الارتفاع والجاذبية.
+                        ينشئ النظام أنبوباً رئيسياً واحداً من المصدر على حدود القطاعات، ويغطي القطاعات الأعلى فقط.
+                        تُضاف أنابيب المناطق والتقليلات في الخطوات التالية. مع تحديد القطر وحساب التدفق والضغط حسب الارتفاع والجاذبية.
                     </div>
                     <h6 class="text-primary"><i class="bi bi-sliders"></i> Options / الخيارات</h6>
                     <div class="row g-2 mb-3">
                         <div class="col-md-6">
-                            <label class="form-label">Connection to trees / الاتصال بالأشجار</label>
-                            <select name="mode" class="form-select">
-                                <option value="direct">Direct dripline / خط تنقيط مباشر</option>
-                                <option value="lateral">Lateral + dripline / أنبوب فرعي + تنقيط</option>
-                            </select>
-                        </div>
-                        <div class="col-md-3">
                             <label class="form-label">Source pressure (bar)</label>
                             <input type="number" step="0.1" min="0" name="source_pressure_bar" class="form-control"
                                    placeholder="Default">
                         </div>
-                        <div class="col-md-3">
+                        <div class="col-md-6">
                             <label class="form-label">Source flow (L/min)</label>
                             <input type="number" step="1" min="0" name="source_flow_lpm" class="form-control"
                                    placeholder="Default">
@@ -241,6 +224,11 @@ document.addEventListener('DOMContentLoaded', function() {
         emptyLabel: 'No main pipes yet / لا توجد أنابيب رئيسية بعد',
         addModalId: 'addMainPipeModal',
         traceButtons: false,
+        traceAdd: {
+            title: '<i class="bi bi-water"></i> Add Main Pipe (MP) / إضافة أنبوب رئيسي',
+            diameter: 110,
+            zone: false
+        },
         selectors: {
             add: '#pipeHeaderAdd',
             rename: '#pipeHeaderRename',
@@ -248,6 +236,7 @@ document.addEventListener('DOMContentLoaded', function() {
             edit: '#pipeHeaderEdit'
         },
         urls: {
+            add: '{{ url_for("hydrology.main_pipe_add", project_id=project.id) }}',
             update: '{{ url_for("hydrology.pipe_update", project_id=project.id, pipe_type="main_pipe") }}',
             rename: '{{ url_for("hydrology.pipe_rename", project_id=project.id, pipe_type="main_pipe") }}',
             remove: '{{ url_for("hydrology.pipe_remove", project_id=project.id, pipe_type="main_pipe") }}'

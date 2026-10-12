@@ -128,7 +128,12 @@ def piping_generate(project_id):
     if not project:
         return redirect(url_for('project.index'))
 
+    scope = request.form.get('scope', 'full')
+    if scope not in ('full', 'main', 'zone'):
+        scope = 'full'
+
     options = {
+        'scope': scope,
         'use_elevation': _truthy(request.form.get('use_elevation')),
         'replace': _truthy(request.form.get('replace')),
         'mode': request.form.get('mode', 'direct'),
@@ -136,22 +141,32 @@ def piping_generate(project_id):
         'source_flow_lpm': request.form.get('source_flow_lpm', type=float),
     }
 
+    dest = 'hydrology.sub_pipe' if scope == 'zone' else 'hydrology.main_pipe'
     try:
         report = generate_piping_structure(project_id, project, options)
     except ValueError as exc:
         flash(str(exc), 'danger')
-        return redirect(url_for('hydrology.main_pipe', project_id=project_id))
+        return redirect(url_for(dest, project_id=project_id))
     except Exception as exc:
         flash('Piping generation failed: %s / فشل إنشاء هيكل الأنابيب' % exc, 'danger')
-        return redirect(url_for('hydrology.main_pipe', project_id=project_id))
+        return redirect(url_for(dest, project_id=project_id))
 
     c = report.get('counts', {})
-    flash(
-        'Piping structure generated: %d main pipe(s), %d zone pipe(s), '
-        '%d drip line(s) / تم إنشاء هيكل الأنابيب'
-        % (c.get('main_pipe', 0), c.get('zone_pipe', 0), c.get('dripline', 0)),
-        'success')
-    return redirect(url_for('hydrology.main_pipe', project_id=project_id))
+    if scope == 'main':
+        flash('Main pipe generated: %d main pipe(s) / تم إنشاء الأنبوب الرئيسي'
+              % c.get('main_pipe', 0), 'success')
+    elif scope == 'zone':
+        flash('Zone pipes generated: %d zone pipe(s), %d drip line(s) / '
+              'تم إنشاء أنابيب المناطق' % (c.get('zone_pipe', 0),
+                                          c.get('dripline', 0)), 'success')
+    else:
+        flash(
+            'Piping structure generated: %d main pipe(s), %d zone pipe(s), '
+            '%d drip line(s) / تم إنشاء هيكل الأنابيب'
+            % (c.get('main_pipe', 0), c.get('zone_pipe', 0),
+               c.get('dripline', 0)),
+            'success')
+    return redirect(url_for(dest, project_id=project_id))
 
 
 # === SUB PIPE ===
@@ -555,3 +570,45 @@ def network_validate(project_id):
     )
     flash('Network validated / تم التحقق من الشبكة', 'success')
     return redirect(url_for('project.detail', project_id=project_id))
+
+
+def _remove_network_elements(project_id, allowed_types, redirect_endpoint):
+    _project = get_project_or_redirect(project_id)
+    if not _project:
+        return redirect(url_for('project.index'))
+
+    ids = [int(v) for v in request.form.getlist('element_ids') if str(v).strip().lstrip('-').isdigit()]
+    if not ids:
+        flash('Select at least one element first / اختر عنصرا واحدا على الأقل أولا', 'warning')
+        return redirect(url_for(redirect_endpoint, project_id=project_id))
+
+    query = {'project_id': project_id, 'id': {'$in': ids}}
+    if allowed_types:
+        query['type'] = {'$in': allowed_types}
+    result = mongo.db.network_elements.delete_many(query)
+    flash('Removed %d element(s) / تمت إزالة %d عنصر' % (result.deleted_count, result.deleted_count), 'success')
+    return redirect(url_for(redirect_endpoint, project_id=project_id))
+
+
+VALVE_TYPES = ['master_valve', 'sector_valve', 'zone_valve']
+
+
+@hydrology_bp.route('/<int:project_id>/valves/remove', methods=['POST'])
+@login_required
+def valves_remove(project_id):
+    return _remove_network_elements(project_id, VALVE_TYPES, 'hydrology.valves')
+
+
+@hydrology_bp.route('/<int:project_id>/dripline/remove', methods=['POST'])
+@login_required
+def dripline_remove(project_id):
+    return _remove_network_elements(project_id, ['dripline'], 'hydrology.dripline')
+
+
+@hydrology_bp.route('/<int:project_id>/network/remove', methods=['POST'])
+@login_required
+def network_remove(project_id):
+    return _remove_network_elements(
+        project_id,
+        ['check_valve', 'air_release', 'pressure_reducer', 'reduction', 'other'],
+        'hydrology.network_elements')
