@@ -60,11 +60,11 @@
                 <thead>
                     <tr class="table-light">
                         <th colspan="10" class="text-center">
-                            <button class="btn btn-circle btn-success" id="pipeHeaderAdd" type="button"
+                            <button class="btn btn-circle btn-sm btn-success" id="pipeHeaderAdd" type="button"
                                     data-bs-toggle="modal" data-bs-target="#addSecondPipeModal" title="Add / إضافة">
                                 <i class="bi bi-plus-circle"></i>
                             </button>
-                            <button class="btn btn-circle btn-outline-primary" id="pipeHeaderEdit" type="button"
+                            <button class="btn btn-circle btn-sm btn-outline-primary" id="pipeHeaderEdit" type="button"
                                     onclick="openPipeEdit()" title="Edit / تعديل">
                                 <i class="bi bi-pencil"></i>
                             </button>
@@ -72,11 +72,11 @@
                                     onclick="pipeEditorRenameSelected()" title="Rename / إعادة تسمية">
                                 <i class="bi bi-input-cursor-text"></i>
                             </button>
-                            <button class="btn btn-circle btn-outline-danger" id="pipeHeaderRemove" type="button"
+                            <button class="btn btn-circle btn-sm btn-outline-danger" id="pipeHeaderRemove" type="button"
                                     onclick="pipeEditorRemoveSelected()" title="Remove / إزالة">
                                 <i class="bi bi-trash"></i>
                             </button>
-                            <button class="btn btn-circle btn-warning" type="button" data-bs-toggle="modal"
+                            <button class="btn btn-circle btn-sm btn-warning" type="button" data-bs-toggle="modal"
                                     data-bs-target="#aiPipingModal" title="Auto Generate / إنشاء تلقائي">
                                 <i class="bi bi-robot"></i>
                             </button>
@@ -100,7 +100,7 @@
                         <th class="text-center">Actions / إجراءات</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="align-middle">
                     {% for p in second_pipes %}
                     <tr>
                         <td>

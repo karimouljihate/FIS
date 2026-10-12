@@ -63,7 +63,7 @@
                         <th class="text-center">Actions / إجراءات</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="align-middle">
                     {% for r in rows %}
                     <tr>
                         <td><input type="checkbox" class="row-checkbox" value="{{ r.id }}"
@@ -170,6 +170,11 @@
                     <tr><td colspan="9" class="text-center text-muted py-3">No rows yet / لا توجد صفوف</td></tr>
                     {% endfor %}
                 </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="9" class="text-center">Total Rows: {{ rows|length }} / إجمالي الصفوف: {{ rows|length }}</th>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>

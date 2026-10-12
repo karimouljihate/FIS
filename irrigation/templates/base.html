@@ -80,12 +80,30 @@
                 </li>
                 <li class="nav-item">
                     {% if workflow_project_id %}
-                    <a class="nav-link{% if workflow_endpoint in ['hydrology.main_pipe', 'hydrology.second_pipe', 'hydrology.sub_pipe'] %} active{% endif %}" href="{{ url_for('hydrology.main_pipe', project_id=workflow_project_id) }}">
+                    <a class="nav-link{% if workflow_endpoint == 'hydrology.main_pipe' %} active{% endif %}" href="{{ url_for('hydrology.main_pipe', project_id=workflow_project_id) }}">
+                        <i class="bi bi-water"></i> Main Pipe (MP) / الأنبوب الرئيسي
                     {% else %}
                     <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
+                        <i class="bi bi-water"></i> Main Pipe / الأنبوب الرئيسي
                     {% endif %}
-                        <i class="bi bi-water"></i> Hydrology 1 / الري 1
-                    {% if workflow_project_id %}</a>{% else %}</span>{% endif %}
+                </li>
+                <li class="nav-item">
+                    {% if workflow_project_id %}
+                    <a class="nav-link{% if workflow_endpoint == 'hydrology.second_pipe' %} active{% endif %}" href="{{ url_for('hydrology.second_pipe', project_id=workflow_project_id) }}">
+                        <i class="bi bi-signpost-split"></i> Second Pipe (SP) / الأنبوب الثانوي
+                    {% else %}
+                    <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
+                        <i class="bi bi-signpost-split"></i> Second Pipe / الأنبوب الثانوي
+                    {% endif %}
+                </li>
+                <li class="nav-item">
+                    {% if workflow_project_id %}
+                    <a class="nav-link{% if workflow_endpoint == 'hydrology.sub_pipe' %} active{% endif %}" href="{{ url_for('hydrology.sub_pipe', project_id=workflow_project_id) }}">
+                        <i class="bi bi-droplet"></i> Zone Pipe (ZP) / أنابيب المناطق
+                    {% else %}
+                    <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
+                        <i class="bi bi-droplet"></i> Zone Pipe / أنابيب المناطق
+                    {% endif %}
                 </li>
                 <li class="nav-item">
                     {% if workflow_project_id %}

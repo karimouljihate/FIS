@@ -4,18 +4,19 @@ from irrigation.extensions import mongo
 from irrigation.models import get_next_id, serialize_doc
 from irrigation.engineering.regeneration import regenerate_sectors, regenerate_zones
 from irrigation.engineering.projection import projected_shape, get_project_centroid
-from irrigation.engineering.elevation import get_or_build_elevation_model, aspect_for_polygon
+from irrigation.engineering.elevation import (
+    get_or_build_elevation_model, aspect_for_polygon, ORIENTATION_DEGREES)
 from shapely.geometry import shape
 import json
 
 geometry_bp = Blueprint('geometry', __name__)
 
 # Compass orientations accepted for zone.orientation.
-VALID_ORIENTATIONS = ('N', 'E', 'S', 'W')
+VALID_ORIENTATIONS = ('N', 'NE', 'E', 'ES', 'S', 'SW', 'W', 'WN')
 
 
 def normalize_orientation(value):
-    """Return a valid compass point ('N'/'E'/'S'/'W') or None."""
+    """Return a valid compass point ('N'/'NE'/'E'/'ES'/'S'/'SW'/'W'/'WN') or None."""
     if isinstance(value, str):
         upper = value.strip().upper()
         if upper in VALID_ORIENTATIONS:
@@ -23,8 +24,8 @@ def normalize_orientation(value):
     return None
 
 
-def auto_zone_orientation(project_id, project, polygon_geojson):
-    """Derive a zone's compass orientation from terrain slope (None if unavailable)."""
+def auto_polygon_orientation(project_id, project, polygon_geojson):
+    """Derive a polygon's compass orientation from terrain slope (None if unavailable)."""
     try:
         model = get_or_build_elevation_model(project_id, project)
         if not model:
@@ -78,7 +79,7 @@ def sectors_view(project_id):
     if not project:
         return redirect(url_for('project.index'))
 
-    sectors = list(mongo.db.sectors.find({'project_id': project_id}).sort('id', 1))
+    sectors = list(mongo.db.sectors.find({'project_id': project_id}).sort('name_en', 1))
     for s in sectors:
         s['_id'] = str(s['_id'])
         s['area_m2'] = s.get('area_m2') or _polygon_area_m2(s.get('polygon'))
@@ -86,7 +87,8 @@ def sectors_view(project_id):
     global_area_m2 = _global_area_m2(project, sectors)
 
     return render_template('geometry/sectors.html', project=project, sectors=sectors,
-                           global_area_m2=global_area_m2)
+                           global_area_m2=global_area_m2,
+                           orientation_degrees=ORIENTATION_DEGREES)
 
 
 @geometry_bp.route('/<int:project_id>/sectors/add', methods=['POST'])
@@ -110,15 +112,18 @@ def sector_add(project_id):
         flash('Invalid coordinates format / تنسيق الإحداثيات غير صالح', 'danger')
         return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
+    orientation = normalize_orientation(request.form.get('orientation', ''))
+    polygon_geojson = {'type': 'Polygon', 'coordinates': [coords]}
+    if not orientation:
+        orientation = auto_polygon_orientation(project_id, project, polygon_geojson)
+
     sector = {
         'id': get_next_id('sectors'),
         'project_id': project_id,
         'name_en': name_en or f"Sector {mongo.db.sectors.count_documents({'project_id': project_id}) + 1}",
         'name_ar': name_ar or f"القطاع {mongo.db.sectors.count_documents({'project_id': project_id}) + 1}",
-        'polygon': {
-            'type': 'Polygon',
-            'coordinates': [coords]
-        },
+        'polygon': polygon_geojson,
+        'orientation': orientation,
         'validated': False
     }
     mongo.db.sectors.insert_one(sector)
@@ -153,6 +158,18 @@ def sector_edit(project_id, sector_id):
             update['polygon'] = {'type': 'Polygon', 'coordinates': [coords]}
         except Exception:
             pass
+
+    orientation_raw = request.form.get('orientation')
+    if orientation_raw is not None:
+        value = orientation_raw.strip().lower()
+        if value == 'auto':
+            poly = update.get('polygon') or sector.get('polygon')
+            if poly:
+                update['orientation'] = auto_polygon_orientation(project_id, project, poly)
+        else:
+            normalized = normalize_orientation(value)
+            if normalized:
+                update['orientation'] = normalized
 
     if update:
         mongo.db.sectors.update_one({'id': sector_id, 'project_id': project_id}, {'$set': update})
@@ -194,8 +211,8 @@ def sector_swap(project_id):
         s1 = mongo.db.sectors.find_one({'id': id1, 'project_id': project_id})
         s2 = mongo.db.sectors.find_one({'id': id2, 'project_id': project_id})
         if s1 and s2:
-            mongo.db.sectors.update_one({'id': id1, 'project_id': project_id}, {'$set': {'polygon': s2['polygon'], 'name_en': s2.get('name_en'), 'name_ar': s2.get('name_ar')}})
-            mongo.db.sectors.update_one({'id': id2, 'project_id': project_id}, {'$set': {'polygon': s1['polygon'], 'name_en': s1.get('name_en'), 'name_ar': s1.get('name_ar')}})
+            mongo.db.sectors.update_one({'id': id1, 'project_id': project_id}, {'$set': {'polygon': s2['polygon'], 'name_en': s2.get('name_en'), 'name_ar': s2.get('name_ar'), 'orientation': auto_polygon_orientation(project_id, project, s2['polygon'])}})
+            mongo.db.sectors.update_one({'id': id2, 'project_id': project_id}, {'$set': {'polygon': s1['polygon'], 'name_en': s1.get('name_en'), 'name_ar': s1.get('name_ar'), 'orientation': auto_polygon_orientation(project_id, project, s1['polygon'])}})
             flash('Sectors swapped / تم تبديل القطاعات', 'success')
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
@@ -236,6 +253,7 @@ def sector_merge(project_id):
         'name_en': f"Merged Sector",
         'name_ar': f"قطاع مدمج",
         'polygon': merged_geojson,
+        'orientation': auto_polygon_orientation(project_id, project, merged_geojson),
         'validated': False
     }
     mongo.db.sectors.insert_one(new_sector)
@@ -292,6 +310,7 @@ def _split_polygon_doc(collection, counter_name, project_id, doc, parts, default
     Returns the number of new documents created; the original is removed only if something was created."""
     from shapely.geometry import shape as shp_shape, box, mapping
 
+    project = mongo.db.projects.find_one({'id': project_id})
     geom = shp_shape(doc['polygon'])
     minx, miny, maxx, maxy = geom.bounds
     split_w = (maxx - minx) / parts
@@ -302,12 +321,14 @@ def _split_polygon_doc(collection, counter_name, project_id, doc, parts, default
         clipped = geom.intersection(clip_box)
         if clipped.is_empty or clipped.geom_type not in ('Polygon', 'MultiPolygon'):
             continue
+        part_geojson = mapping(clipped)
         new_doc = {k: v for k, v in doc.items() if k not in ('_id', 'id', 'polygon', 'name_en', 'name_ar', 'validated')}
         new_doc.update({
             'id': get_next_id(counter_name),
             'name_en': f"{doc.get('name_en', default_en)} - {i+1}",
             'name_ar': f"{doc.get('name_ar', default_ar)} - {i+1}",
-            'polygon': mapping(clipped),
+            'polygon': part_geojson,
+            'orientation': auto_polygon_orientation(project_id, project, part_geojson) if project else None,
             'validated': False
         })
         created.append(new_doc)
@@ -410,7 +431,7 @@ def sector_ai_regenerate(project_id):
     n_sectors = request.form.get('n_sectors', type=int)
     sectors = regenerate_sectors(project_id, n_sectors, config=config)
     if sectors:
-        flash(f'AI generated {len(sectors)} sectors / الذكاء الاصطناعي أنشأ {len(sectors)} قطاعات', 'success')
+        flash(f'Auto Generated {len(sectors)} sectors / الذكاء الاصطناعي أنشأ {len(sectors)} قطاعات', 'success')
     else:
         flash('AI generation failed — check that the project has a valid boundary / فشل الإنشاء — تحقق من وجود حدود صالحة للمشروع', 'danger')
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
@@ -444,8 +465,8 @@ def zones_view(project_id):
     if not project:
         return redirect(url_for('project.index'))
 
-    sectors = list(mongo.db.sectors.find({'project_id': project_id}).sort('id', 1))
-    zones = list(mongo.db.zones.find({'project_id': project_id}).sort('id', 1))
+    sectors = list(mongo.db.sectors.find({'project_id': project_id}).sort('name_en', 1))
+    zones = list(mongo.db.zones.find({'project_id': project_id}).sort('name_en', 1))
     for s in sectors + zones:
         s['_id'] = str(s['_id'])
         s['area_m2'] = s.get('area_m2') or _polygon_area_m2(s.get('polygon'))
@@ -469,7 +490,7 @@ def zones_view(project_id):
     default_zones_per_sector = (project.get('spec') or {}).get('config', {}).get('zones_per_sector', 2)
     global_area_m2 = _global_area_m2(project, zones)
 
-    return render_template('geometry/zones.html', project=project, sectors=sectors, zones=zones, table_data=table_data, default_zones_per_sector=default_zones_per_sector, global_area_m2=global_area_m2)
+    return render_template('geometry/zones.html', project=project, sectors=sectors, zones=zones, table_data=table_data, default_zones_per_sector=default_zones_per_sector, global_area_m2=global_area_m2, orientation_degrees=ORIENTATION_DEGREES)
 
 
 @geometry_bp.route('/<int:project_id>/zones/add', methods=['POST'])
@@ -501,7 +522,7 @@ def zone_add(project_id):
     orientation = normalize_orientation(request.form.get('orientation', ''))
     polygon_geojson = {'type': 'Polygon', 'coordinates': [coords]}
     if not orientation:
-        orientation = auto_zone_orientation(project_id, project, polygon_geojson)
+        orientation = auto_polygon_orientation(project_id, project, polygon_geojson)
 
     zone = {
         'id': get_next_id('zones'),
@@ -551,7 +572,7 @@ def zone_edit(project_id, zone_id):
         if value == 'auto':
             poly = update.get('polygon') or zone.get('polygon')
             if poly:
-                update['orientation'] = auto_zone_orientation(project_id, project, poly)
+                update['orientation'] = auto_polygon_orientation(project_id, project, poly)
         else:
             normalized = normalize_orientation(value)
             if normalized:
@@ -682,7 +703,8 @@ def zone_swap(project_id):
                         'polygon': source['polygon'],
                         'name_en': source.get('name_en'),
                         'name_ar': source.get('name_ar'),
-                        'sector_id': source.get('sector_id')
+                        'sector_id': source.get('sector_id'),
+                        'orientation': auto_polygon_orientation(project_id, project, source['polygon'])
                     }}
                 )
             flash('Zones swapped / تم تبديل المناطق', 'success')
@@ -722,6 +744,7 @@ def zone_merge(project_id):
         'name_en': 'Merged Zone',
         'name_ar': 'منطقة مدمجة',
         'polygon': mapping(merged),
+        'orientation': auto_polygon_orientation(project_id, project, mapping(merged)),
         'validated': False
     }
     old_ids = [z['id'] for z in zones]
@@ -753,7 +776,7 @@ def zone_ai_regenerate(project_id):
     mongo.db.zones.delete_many({'project_id': project_id})
     zones = regenerate_zones(project_id, zones_per_sector=zones_per_sector,
                              use_elevation=use_elevation, orientation=orientation or None)
-    flash(f'AI generated {len(zones)} zones / الذكاء الاصطناعي أنشأ {len(zones)} مناطق', 'success')
+    flash(f'Auto Generated {len(zones)} zones / الذكاء الاصطناعي أنشأ {len(zones)} مناطق', 'success')
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 
 @geometry_bp.route('/<int:project_id>/zones/validate', methods=['POST'])
