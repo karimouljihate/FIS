@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.34 - 2026-10-12
+
+### Added
+
+- **Report tabs**: the Engineering section gains an **Engineering Validation** and a **Technical Report** sub-tab; a new route (`engineering.technical_report_view`) renders a bilingual technical report combining the last validation and regeneration report, and the base subnav is updated to link both.
+
+### Changed
+
+- Documentation sync: README version badge updated from 0.3.25 to the current release and its feature list expanded to cover the present workflow (AI generation for sectors/zones/piping, elevation-aware design, multiple water sources with KML import, Rows workflow, estimation and land documents).
+
 ## 0.3.33 - 2026-10-09
 
 ### Fixed
