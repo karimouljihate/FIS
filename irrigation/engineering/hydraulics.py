@@ -99,6 +99,175 @@ def main_pipe_rules():
     return [MAIN_PIPE_RULES[k] for k in MAIN_PIPE_RULE_ORDER]
 
 
+# === ZONE PIPE RULES ===
+#
+# Declarative, bilingual description of how the Zone Pipe network
+# (Hydrology -> Zone Pipe) must be constructed, mirroring MAIN_PIPE_RULES.
+# Kept next to the numeric hydraulic defaults so the generator, validation
+# and UI can read one source of truth.
+#
+# Node kinds referenced by the rules:
+#   'main_pipe'  -> the Main Pipe (MP1) produced with ``scope='main'``
+#   'reduction'  -> the diameter reduction placed between MP and ZP
+#   'zone_pipe'  -> a Zone Pipe (sub_pipe) running along sector boundaries
+#   'sector'     -> the sector boundary the zone pipes follow
+#   'zone'       -> a zone served by its nearest boundary entry
+#   'dripline'   -> the drip lines fed by the zone pipe
+
+ZONE_PIPE_RULES = {
+    'ZP-1': {
+        'id': 'ZP-1',
+        'name_en': 'Zone Pipe is fed by the Main Pipe (with a reduction)',
+        'name_ar': 'يُغذّى أنبوب المنطقة من الأنبوب الرئيسي (مع تقليلة قطر)',
+        'from': 'main_pipe',
+        'to': 'zone_pipe',
+        'element': 'sub_pipe',
+        'condition': 'always',
+        'required': True,
+        'description_en': ('The water source of a Zone Pipe is the Main Pipe; a '
+                           'diameter reduction is placed between MP and ZP where '
+                           'the pipe diameter steps down.'),
+        'description_ar': ('مصدر المياه لأنبوب المنطقة هو الأنبوب الرئيسي؛ تُوضع '
+                           'تقليلة قطر بين MP و ZP عند تغيّر القطر.'),
+    },
+    'ZP-2': {
+        'id': 'ZP-2',
+        'name_en': 'Zone Pipes always run along sector boundaries',
+        'name_ar': 'تمتد أنابيب المناطق دائماً على حدود القطاعات',
+        'from': 'sector',
+        'to': 'zone_pipe',
+        'element': 'sub_pipe',
+        'condition': 'always',
+        'required': True,
+        'description_en': ('Zone Pipes are routed along the sector boundary lines, '
+                           'never cutting across the interior of a sector.'),
+        'description_ar': ('تُوجّه أنابيب المناطق على خطوط حدود القطاعات ولا تقطع '
+                           'داخل القطاع أبداً.'),
+    },
+    'ZP-3': {
+        'id': 'ZP-3',
+        'name_en': 'Zone Pipes cover the nearest entry of every Zone',
+        'name_ar': 'تغطي أنابيب المناطق أقرب مدخل لكل منطقة',
+        'from': 'zone',
+        'to': 'zone_pipe',
+        'element': 'sub_pipe',
+        'condition': 'every zone has a boundary entry',
+        'required': True,
+        'description_en': ('Every Zone is served: the Zone Pipe reaches the Zone at '
+                           'the boundary point nearest to it (its entry).'),
+        'description_ar': ('تُخدم كل منطقة: يبلغ أنبوب المنطقة إلى أقرب نقطة على '
+                           'الحدود إليها (مدخلها).'),
+    },
+    'ZP-4': {
+        'id': 'ZP-4',
+        'name_en': 'Zone Pipe is the water source of the driplines',
+        'name_ar': 'أنبوب المنطقة هو مصدر المياه لخطوط التنقيط',
+        'from': 'zone_pipe',
+        'to': 'dripline',
+        'element': 'sub_pipe',
+        'condition': 'every drip line',
+        'required': True,
+        'description_en': ('Each drip line (and its laterals) is fed from the Zone '
+                           'Pipe, not directly from the Main Pipe.'),
+        'description_ar': ('يُغذّى كل خط تنقيط (وأنابيبه الفرعية) من أنبوب المنطقة '
+                           'وليس مباشرة من الأنبوب الرئيسي.'),
+    },
+    'ZP-5': {
+        'id': 'ZP-5',
+        'name_en': 'Zone Pipes cover the biggest line of the nearest Zone boundary',
+        'name_ar': 'تغطي أنابيب المناطق أطول خط على أقرب حدّ للمنطقة',
+        'from': 'sector',
+        'to': 'zone',
+        'element': 'sub_pipe',
+        'condition': 'always',
+        'required': True,
+        'description_en': ('Among the boundary lines closest to a Zone, the Zone Pipe '
+                           'follows the longest one (the biggest shared boundary line).'),
+        'description_ar': ('من بين خطوط الحدود الأقرب للمنطقة، يسير أنبوب المنطقة على '
+                           'أطولها (أكبر خط حدّ مشترك).'),
+    },
+}
+
+ZONE_PIPE_RULE_ORDER = ['ZP-1', 'ZP-2', 'ZP-3', 'ZP-4', 'ZP-5']
+
+
+def zone_pipe_rules():
+    """Return the zone-pipe rules in declaration order (list of dicts)."""
+    return [ZONE_PIPE_RULES[k] for k in ZONE_PIPE_RULE_ORDER]
+
+
+# === SECOND PIPE RULES ===
+#
+# Declarative, bilingual description of the Second Pipe (SP) - the relay pipe
+# that sits between the Main Pipe (MP) and the Zone Pipe (ZP) in Hydrology 1,
+# mirroring MAIN_PIPE_RULES / ZONE_PIPE_RULES.
+#
+# Node kinds referenced by the rules:
+#   'main_pipe'    -> the Main Pipe (MP) produced with ``scope='main'``
+#   'reduction'    -> a diameter reduction (placed on both MP->SP and SP->ZP)
+#   'second_pipe'  -> the Second Pipe (SP), the relay between MP and ZP
+#   'zone_pipe'    -> a Zone Pipe (ZP) fed by the Second Pipe
+#   'zone'         -> a zone reached at the extremity of its nearest entry
+#   'dripline'     -> the direct drip line fed by the Zone Pipe
+
+SECOND_PIPE_RULES = {
+    'SP-1': {
+        'id': 'SP-1',
+        'name_en': 'Second Pipe is the relay between the Main Pipe and the Zone Pipe',
+        'name_ar': 'الأنبوب الثاني هو الوصلة بين الأنبوب الرئيسي وأنبوب المنطقة',
+        'from': 'main_pipe',
+        'to': 'zone_pipe',
+        'element': 'second_pipe',
+        'condition': 'always',
+        'required': True,
+        'description_en': ('The Second Pipe (SP) is the intermediate relay: the '
+                           'Main Pipe feeds the SP and the SP feeds the Zone '
+                           'Pipes.'),
+        'description_ar': ('الأنبوب الثاني (SP) هو الوصلة الوسيطة: يغذّي الأنبوب '
+                           'الرئيسي الأنبوب الثاني، والأنبوب الثاني يغذّي أنابيب '
+                           'المناطق.'),
+    },
+    'SP-2': {
+        'id': 'SP-2',
+        'name_en': 'Second Pipe runs from the extremity of MP to the extremity of the nearest Zone entry',
+        'name_ar': 'يمتد الأنبوب الثاني من نهاية الأنبوب الرئيسي إلى نهاية أقرب مدخل للمنطقة',
+        'from': 'main_pipe',
+        'to': 'zone',
+        'element': 'second_pipe',
+        'condition': 'from the MP extremity to the nearest zone entry extremity',
+        'required': True,
+        'description_en': ('The Second Pipe starts at the extremity (end point) of '
+                           'the Main Pipe and covers up to the extremity of the '
+                           'nearest entry of the Zone.'),
+        'description_ar': ('يبدأ الأنبوب الثاني من نهاية (طرف) الأنبوب الرئيسي '
+                           'ويغطي حتى نهاية أقرب مدخل للمنطقة.'),
+    },
+    'SP-3': {
+        'id': 'SP-3',
+        'name_en': 'MP -> reduction -> SP -> reduction -> ZP -> direct dripline',
+        'name_ar': 'رئيسي ← تقليلة ← ثانٍ ← تقليلة ← منطقة ← خط تنقيط مباشر',
+        'from': 'main_pipe',
+        'to': 'dripline',
+        'element': 'second_pipe',
+        'condition': 'diameter hierarchy always',
+        'required': True,
+        'description_en': ('The connection chain is strictly: Main Pipe, then a '
+                           'diameter reduction, then the Second Pipe, then a '
+                           'reduction, then the Zone Pipe, then a direct drip line.'),
+        'description_ar': ('تسلسل التوصيل الصارم: الأنبوب الرئيسي، ثم تقليلة قطر، '
+                           'ثم الأنبوب الثاني، ثم تقليلة قطر، ثم أنبوب المنطقة، ثم '
+                           'خط تنقيط مباشر.'),
+    },
+}
+
+SECOND_PIPE_RULE_ORDER = ['SP-1', 'SP-2', 'SP-3']
+
+
+def second_pipe_rules():
+    """Return the second-pipe rules in declaration order (list of dicts)."""
+    return [SECOND_PIPE_RULES[k] for k in SECOND_PIPE_RULE_ORDER]
+
+
 # === ENGINEERING DEFAULTS ===
 
 ENGINEERING_DEFAULTS = {
@@ -134,6 +303,16 @@ ENGINEERING_DEFAULTS = {
     # bilingual; read by the generator, validation and UI. See MAIN_PIPE_RULES.
     'main_pipe_rules': MAIN_PIPE_RULES,
     'main_pipe_rule_order': MAIN_PIPE_RULE_ORDER,
+
+    # Zone pipe construction rules (Hydrology -> Zone Pipe). Declarative and
+    # bilingual; read by the generator, validation and UI. See ZONE_PIPE_RULES.
+    'zone_pipe_rules': ZONE_PIPE_RULES,
+    'zone_pipe_rule_order': ZONE_PIPE_RULE_ORDER,
+
+    # Second pipe construction rules (Hydrology 1 -> Second Pipe, the relay
+    # between MP and ZP). Declarative and bilingual. See SECOND_PIPE_RULES.
+    'second_pipe_rules': SECOND_PIPE_RULES,
+    'second_pipe_rule_order': SECOND_PIPE_RULE_ORDER,
 }
 
 

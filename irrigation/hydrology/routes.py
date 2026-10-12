@@ -34,6 +34,17 @@ def add_network_element(project_id, elem_type, name_en, name_ar, geometry, prope
     return elem
 
 
+def _invalidate_piping_report(project_id):
+    """Drop the cached AI piping report after a manual change to the network.
+
+    The report is a snapshot of the last AI generation. Once the user adds,
+    edits, or removes pipes/valves it no longer matches the stored network,
+    so keeping it would show stale counts and lengths (e.g. an "MP" report on
+    a project that has no main pipes).
+    """
+    mongo.db.piping_reports.delete_many({'project_id': project_id})
+
+
 # === MAIN PIPE ===
 
 @hydrology_bp.route('/<int:project_id>/main_pipe')
@@ -91,6 +102,7 @@ def main_pipe_add(project_id):
                         f'Main Pipe {count+1}', f'الأنبوب الرئيسي {count+1}',
                         geometry, props)
 
+    _invalidate_piping_report(project_id)
     flash('Main pipe added / تمت إضافة الأنبوب الرئيسي', 'success')
     return redirect(url_for('hydrology.main_pipe', project_id=project_id))
 
@@ -103,6 +115,74 @@ def main_pipe_validate(project_id):
         {'$set': {'validated': True}}
     )
     flash('Main pipe validated / تم التحقق من الأنبوب الرئيسي', 'success')
+    return redirect(url_for('hydrology.second_pipe', project_id=project_id))
+
+
+# === SECOND PIPE ===
+
+@hydrology_bp.route('/<int:project_id>/second_pipe')
+@login_required
+def second_pipe(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    zones = list(mongo.db.zones.find({'project_id': project_id}))
+    for z in zones:
+        z['_id'] = str(z['_id'])
+
+    second_pipes = list(mongo.db.network_elements.find({'project_id': project_id, 'type': 'second_pipe'}))
+    for p in second_pipes:
+        p['_id'] = str(p['_id'])
+
+    piping_report = mongo.db.piping_reports.find_one({'project_id': project_id})
+
+    return render_template('hydrology/second_pipe.html', project=project, zones=zones,
+                           second_pipes=second_pipes, piping_report=piping_report)
+
+
+@hydrology_bp.route('/<int:project_id>/second_pipe/add', methods=['POST'])
+@login_required
+def second_pipe_add(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    coords = request.form.get('coordinates', '').strip()
+    diameter = request.form.get('diameter', default=90, type=int)
+
+    if not coords:
+        flash('Pipe path required / مسار الأنبوب مطلوب', 'danger')
+        return redirect(url_for('hydrology.second_pipe', project_id=project_id))
+
+    try:
+        coords_list = json.loads(coords)
+    except Exception:
+        flash('Invalid coordinates / إحداثيات غير صالحة', 'danger')
+        return redirect(url_for('hydrology.second_pipe', project_id=project_id))
+
+    geometry = {'type': 'LineString', 'coordinates': coords_list}
+    count = mongo.db.network_elements.count_documents({'project_id': project_id, 'type': 'second_pipe'})
+
+    props = {'diameter': diameter}
+    props.update(_pipe_length_props(geometry, project))
+    add_network_element(project_id, 'second_pipe',
+                        f'Second Pipe {count+1}', f'الأنبوب الثانوي {count+1}',
+                        geometry, props)
+
+    _invalidate_piping_report(project_id)
+    flash('Second pipe added / تمت إضافة الأنبوب الثانوي', 'success')
+    return redirect(url_for('hydrology.second_pipe', project_id=project_id))
+
+
+@hydrology_bp.route('/<int:project_id>/second_pipe/validate', methods=['POST'])
+@login_required
+def second_pipe_validate(project_id):
+    mongo.db.network_elements.update_many(
+        {'project_id': project_id, 'type': 'second_pipe'},
+        {'$set': {'validated': True}}
+    )
+    flash('Second pipes validated / تم التحقق من الأنابيب الثانوية', 'success')
     return redirect(url_for('hydrology.sub_pipe', project_id=project_id))
 
 
@@ -129,7 +209,7 @@ def piping_generate(project_id):
         return redirect(url_for('project.index'))
 
     scope = request.form.get('scope', 'full')
-    if scope not in ('full', 'main', 'zone'):
+    if scope not in ('full', 'main', 'second', 'zone'):
         scope = 'full'
 
     options = {
@@ -141,7 +221,8 @@ def piping_generate(project_id):
         'source_flow_lpm': request.form.get('source_flow_lpm', type=float),
     }
 
-    dest = 'hydrology.sub_pipe' if scope == 'zone' else 'hydrology.main_pipe'
+    dest = {'zone': 'hydrology.sub_pipe',
+            'second': 'hydrology.second_pipe'}.get(scope, 'hydrology.main_pipe')
     try:
         report = generate_piping_structure(project_id, project, options)
     except ValueError as exc:
@@ -155,16 +236,19 @@ def piping_generate(project_id):
     if scope == 'main':
         flash('Main pipe generated: %d main pipe(s) / تم إنشاء الأنبوب الرئيسي'
               % c.get('main_pipe', 0), 'success')
+    elif scope == 'second':
+        flash('Second pipes generated: %d second pipe(s) / '
+              'تم إنشاء الأنابيب الثانوية' % c.get('second_pipe', 0), 'success')
     elif scope == 'zone':
         flash('Zone pipes generated: %d zone pipe(s), %d drip line(s) / '
               'تم إنشاء أنابيب المناطق' % (c.get('zone_pipe', 0),
                                           c.get('dripline', 0)), 'success')
     else:
         flash(
-            'Piping structure generated: %d main pipe(s), %d zone pipe(s), '
-            '%d drip line(s) / تم إنشاء هيكل الأنابيب'
-            % (c.get('main_pipe', 0), c.get('zone_pipe', 0),
-               c.get('dripline', 0)),
+            'Piping structure generated: %d main pipe(s), %d second pipe(s), '
+            '%d zone pipe(s), %d drip line(s) / تم إنشاء هيكل الأنابيب'
+            % (c.get('main_pipe', 0), c.get('second_pipe', 0),
+               c.get('zone_pipe', 0), c.get('dripline', 0)),
             'success')
     return redirect(url_for(dest, project_id=project_id))
 
@@ -221,6 +305,7 @@ def sub_pipe_add(project_id):
                         f'Zone Pipe {count+1}', f'أنبوب المنطقة {count+1}',
                         geometry, props)
 
+    _invalidate_piping_report(project_id)
     flash('Zone pipe added / تمت إضافة أنبوب المنطقة', 'success')
     return redirect(url_for('hydrology.sub_pipe', project_id=project_id))
 
@@ -238,11 +323,15 @@ def sub_pipe_validate(project_id):
 
 # === SHARED PIPE ACTIONS (MAIN PIPE & ZONE PIPE) ===
 
-PIPE_TYPES = ('main_pipe', 'sub_pipe')
+PIPE_TYPES = ('main_pipe', 'second_pipe', 'sub_pipe')
 
 
 def _pipe_page_endpoint(pipe_type):
-    return 'hydrology.main_pipe' if pipe_type == 'main_pipe' else 'hydrology.sub_pipe'
+    return {
+        'main_pipe': 'hydrology.main_pipe',
+        'second_pipe': 'hydrology.second_pipe',
+        'sub_pipe': 'hydrology.sub_pipe',
+    }.get(pipe_type, 'hydrology.main_pipe')
 
 
 @hydrology_bp.route('/<int:project_id>/pipe/<pipe_type>/rename', methods=['POST'])
@@ -312,6 +401,7 @@ def pipe_update(project_id, pipe_type):
             {'$set': updates})
         if result.matched_count:
             flash('Pipe updated / تم تحديث الأنبوب', 'success')
+            _invalidate_piping_report(project_id)
         else:
             flash('Pipe not found / الأنبوب غير موجود', 'warning')
     else:
@@ -337,6 +427,8 @@ def pipe_remove(project_id, pipe_type):
 
     result = mongo.db.network_elements.delete_many(
         {'project_id': project_id, 'type': pipe_type, 'id': {'$in': pipe_ids}})
+    if result.deleted_count:
+        _invalidate_piping_report(project_id)
     flash('Removed %d pipe(s) / تمت إزالة %d أنبوب' % (result.deleted_count, result.deleted_count), 'success')
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
         return jsonify({'ok': True, 'removed': result.deleted_count, 'ids': pipe_ids})
@@ -586,6 +678,8 @@ def _remove_network_elements(project_id, allowed_types, redirect_endpoint):
     if allowed_types:
         query['type'] = {'$in': allowed_types}
     result = mongo.db.network_elements.delete_many(query)
+    if result.deleted_count:
+        _invalidate_piping_report(project_id)
     flash('Removed %d element(s) / تمت إزالة %d عنصر' % (result.deleted_count, result.deleted_count), 'success')
     return redirect(url_for(redirect_endpoint, project_id=project_id))
 

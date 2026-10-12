@@ -47,7 +47,7 @@ from irrigation.engineering.projection import (
 
 
 STRUCTURAL_TYPES = [
-    'main_pipe', 'sub_pipe', 'dripline',
+    'main_pipe', 'second_pipe', 'sub_pipe', 'dripline',
     'master_valve', 'sector_valve', 'zone_valve', 'reduction',
 ]
 
@@ -58,6 +58,7 @@ SUB_MIN_DIAMETER_MM = 40
 
 _TYPE_EN = {
     'main_pipe': 'Main Pipe',
+    'second_pipe': 'Second Pipe',
     'sub_pipe': 'Pipe',
     'dripline': 'Drip Line',
     'master_valve': 'Master Valve',
@@ -69,6 +70,7 @@ _TYPE_EN = {
 }
 _TYPE_AR = {
     'main_pipe': 'أنبوب رئيسي',
+    'second_pipe': 'أنبوب ثانوي',
     'sub_pipe': 'أنبوب',
     'dripline': 'خط تنقيط',
     'master_valve': 'صمام رئيسي',
@@ -361,6 +363,7 @@ def generate_piping_structure(project_id, project=None, options=None):
         'replace': options.get('replace', True),
         'mode': options.get('mode', 'direct'),  # direct | lateral
         # scope: 'full' = whole network, 'main' = main pipe only,
+        # 'second' = second pipes only (relay between MP and ZP),
         # 'zone' = zone pipes only (built on top of the main pipe).
         'scope': options.get('scope', 'full'),
         'source_pressure_bar': options.get('source_pressure_bar'),
@@ -383,6 +386,7 @@ def generate_piping_structure(project_id, project=None, options=None):
 
     scope = opts['scope']
     main_only = scope == 'main'
+    build_second = scope == 'second'
     build_rows = scope in ('full', 'zone')
     build_points = scope == 'full'
 
@@ -444,7 +448,8 @@ def generate_piping_structure(project_id, project=None, options=None):
     # spine over the highest sectors is built (no zone pipes / driplines).
     sector_nodes, zone_nodes = _build_boundary_network(
         net, source_id, sectors, zones, proj, elevation_lookup,
-        elevation_range, config, opts, main_only=main_only)
+        elevation_range, config, opts, main_only=main_only,
+        build_second=build_second)
 
     # -- demand -----------------------------------------------------------
     q_tree_lps = config['emitter_flow_lph'] * config['emitters_per_tree'] / 3600.0
@@ -604,10 +609,19 @@ def generate_piping_structure(project_id, project=None, options=None):
         [pipe_velocity_mps(e['flow_lps'] / 1000.0, e['diameter'])
          for e in net.edges + [x for c in net.attachments for x in c]] or [0.0])
 
-    # -- valves / reductions / air release (full network scope only) -------
+    # -- valves / reductions / air release ---------------------------------
     valve_elements = []
     reduction_specs = []
     air_element = None
+
+    # Reductions at diameter changes (MP -> SP -> ZP -> lateral ...). Needed by
+    # the full network AND the second/zone scopes so the rule chain
+    # MP -> reduction -> SP (SP-3) is honoured.
+    if build_points or scope in ('zone', 'second'):
+        if not parent_edge:
+            _, parent_edge, _, _ = net.pressures(source_id, source_head)
+        reduction_specs = _collect_reductions(net, source_id, parent_edge)
+
     if build_points:
         master_valve = ('master_valve', source_id, {'generated': 'ai',
                                                     'node': 'source'})
@@ -620,9 +634,6 @@ def generate_piping_structure(project_id, project=None, options=None):
             if znid is not None:
                 valve_elements.append(('zone_valve', znid, {'generated': 'ai',
                                                             'zone_id': z['id']}))
-
-        # reductions at diameter changes
-        reduction_specs = _collect_reductions(net, source_id, parent_edge)
 
         # air release at highest point
         if opts['use_elevation'] and net.elevation_range >= 3.0 and net.nodes:
@@ -654,7 +665,13 @@ def generate_piping_structure(project_id, project=None, options=None):
             mongo.db.network_elements.delete_many({
                 'project_id': project_id,
                 'properties.generated': 'ai',
-                'type': {'$in': ['sub_pipe', 'dripline']},
+                'type': {'$in': ['sub_pipe', 'dripline', 'reduction']},
+            })
+        elif scope == 'second':
+            mongo.db.network_elements.delete_many({
+                'project_id': project_id,
+                'properties.generated': 'ai',
+                'type': {'$in': ['second_pipe', 'reduction']},
             })
 
     report = _insert_elements(
@@ -860,6 +877,89 @@ def _join_components(graph):
         del comps[rb]
 
 
+def _nearest_ring_vertex(ring, pt):
+    """Index of the ring vertex nearest to ``pt`` (ZP-3: nearest entry)."""
+    if not ring:
+        return None
+    px, py = pt
+    return min(range(len(ring)), key=lambda i: _dist(ring[i], (px, py)))
+
+
+def _closest_point_on_segment(p, a, b):
+    """Closest point on segment ``a``-``b`` to point ``p``."""
+    ax, ay = a
+    bx, by = b
+    px, py = p
+    dx, dy = bx - ax, by - ay
+    length2 = dx * dx + dy * dy
+    if length2 <= 1e-12:
+        return (ax, ay)
+    t = ((px - ax) * dx + (py - ay) * dy) / length2
+    t = max(0.0, min(1.0, t))
+    return (ax + t * dx, ay + t * dy)
+
+
+def _nearest_boundary_point(ring, pt):
+    """Point on the sector boundary nearest to ``pt``; among the boundary lines
+    that are (near-)equally close, the longest one wins (ZP-5: cover the biggest
+    line of the nearest zone boundary)."""
+    n = len(ring)
+    if n < 2:
+        return None
+    px, py = pt
+    best = None
+    for i in range(n):
+        a = ring[i]
+        b = ring[(i + 1) % n]
+        cp = _closest_point_on_segment((px, py), a, b)
+        cand = (_dist((px, py), cp), -_dist(a, b), cp)
+        if best is None or (cand[0], cand[1]) < (best[0], best[1]):
+            best = cand
+    return best[2] if best else None
+
+
+def _ring_path(ring, start_pt, end_pt):
+    """Ordered boundary vertices from the vertex nearest ``start_pt`` to the
+    vertex nearest ``end_pt``, taking the shorter way around the sector ring.
+
+    This keeps zone pipes on the sector boundary (ZP-2) and covers the boundary
+    line nearest the zone (ZP-5). Falls back to a straight segment when the ring
+    is degenerate.
+    """
+    n = len(ring)
+    if n == 0:
+        return [tuple(start_pt), tuple(end_pt)]
+    si = _nearest_ring_vertex(ring, start_pt)
+    ei = _nearest_ring_vertex(ring, end_pt)
+
+    fwd, d_fwd = [], 0.0
+    k = si
+    while True:
+        fwd.append(ring[k])
+        if k == ei:
+            break
+        nk = (k + 1) % n
+        d_fwd += _dist(ring[k], ring[nk])
+        k = nk
+
+    back, d_back = [], 0.0
+    k = si
+    while True:
+        back.append(ring[k])
+        if k == ei:
+            break
+        pk = (k - 1) % n
+        d_back += _dist(ring[k], ring[pk])
+        k = pk
+
+    path = [tuple(p) for p in (fwd if d_fwd <= d_back else back)]
+    if _dist(path[0], start_pt) > 1e-6:
+        path = [tuple(start_pt)] + path
+    if _dist(path[-1], end_pt) > 1e-6:
+        path = path + [tuple(end_pt)]
+    return path
+
+
 def _route_inside(poly, start, end):
     """Return polyline coordinates from ``start`` to ``end`` kept inside
     ``poly`` (clips a straight line to the polygon)."""
@@ -896,7 +996,7 @@ def _enforce_diameter_hierarchy(net):
     """Rule 5: the main pipe must have the highest diameter in the network."""
     all_edges = list(net.edges) + [x for chain in net.attachments for x in chain]
     sub_max = max((e['diameter'] for e in all_edges
-                   if e['kind'] in ('zp', 'lat', 'drip')), default=0)
+                   if e['kind'] in ('sp', 'zp', 'lat', 'drip')), default=0)
     if sub_max <= 0:
         return
     higher = [d for d in net.standards if d > sub_max]
@@ -908,7 +1008,7 @@ def _enforce_diameter_hierarchy(net):
 
 def _build_boundary_network(net, source_id, sectors, zones, proj,
                             elevation_lookup, elevation_range, config, opts,
-                            main_only=False):
+                            main_only=False, build_second=False):
     """Build the main pipe along sector boundaries and connect zones.
 
     Implements the piping rules:
@@ -921,6 +1021,10 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
     When ``main_only`` is set, only the main spine over the highest sectors
     is built: no branch pipes to lower sectors and no zone pipes inside the
     sectors (those belong to the zone-pipe step).
+
+    When ``build_second`` is set, the Second Pipes (SP) are built instead of
+    the zone pipes: each SP is the relay from the Main Pipe to the nearest
+    entry of a Zone (Rules SP-1, SP-2).
     Returns ``(sector_nodes, zone_nodes)`` for valve placement.
     """
     def elev(x, y):
@@ -971,6 +1075,7 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
             poly = None
         sector_data[s['id']] = {
             'poly': poly,
+            'ring': utm,
             'entry': entry,
             'entry_xy': (graph.nodes[entry][0], graph.nodes[entry][1]),
         }
@@ -1052,9 +1157,37 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
         entries_net[sid] = entry_net
         sector_nodes.append((s, entry_net))
 
-    # --- zone pipes inside each sector, branching from the entry ---
+    # --- second pipes: relay from the Main Pipe to the nearest zone entry --
+    # Rules SP-1/SP-2: each SP comes from the Main Pipe and covers up to the
+    # extremity of the nearest entry of a Zone.
     zone_nodes = {}
-    if not main_only:
+    if build_second:
+        for z in zones:
+            sid = z.get('sector_id')
+            d = sector_data.get(sid)
+            if d is None or not z.get('polygon'):
+                continue
+            try:
+                c = shape(z['polygon']).centroid
+                cx, cy = proj(c.x, c.y)
+            except Exception:
+                continue
+            ring = d.get('ring')
+            boundary_pt = _nearest_boundary_point(ring, (cx, cy)) if ring else None
+            zx, zy = boundary_pt if boundary_pt is not None else (cx, cy)
+            tap = net.tap(zx, zy, kinds=('mp',))
+            znid = net.add_node(zx, zy, 'zone', sector_id=sid, zone_id=z['id'])
+            net.add_edge(tap, znid, 'sp', 'second_pipe',
+                         config['sub_max_velocity_mps'], SUB_MIN_DIAMETER_MM,
+                         coords=[net._pt(tap), (zx, zy)],
+                         zone_id=z['id'], sector_id=sid)
+            zone_nodes[z['id']] = znid
+    elif not main_only:
+        # --- zone pipes along the sector boundary, one entry per zone -----
+        # Rules: ZP is fed by the MP already reached at the sector entry (ZP-1),
+        # runs ALWAYS along the sector boundary (ZP-2), reaches every zone at its
+        # nearest boundary entry (ZP-3) following the biggest nearby boundary line
+        # (ZP-5), and becomes the water source of the driplines (ZP-4).
         for z in zones:
             sid = z.get('sector_id')
             d = sector_data.get(sid)
@@ -1066,11 +1199,19 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
                 cx, cy = proj(c.x, c.y)
             except Exception:
                 continue
-            znid = net.add_node(cx, cy, 'zone', sector_id=sid, zone_id=z['id'])
-            if d['poly'] is not None:
-                coords = _route_inside(d['poly'], net._pt(entry_net), (cx, cy))
+            entry_pt = net._pt(entry_net)
+            ring = d.get('ring')
+            # nearest boundary entry of the zone (ZP-3) reached along the
+            # biggest line of the nearest zone boundary (ZP-2, ZP-5). The pipe
+            # stays on the boundary; driplines tap it from inside (ZP-4).
+            boundary_pt = _nearest_boundary_point(ring, (cx, cy)) if ring else None
+            if boundary_pt is not None:
+                coords = _ring_path(ring, entry_pt, boundary_pt)
+                zx, zy = boundary_pt
             else:
-                coords = [net._pt(entry_net), (cx, cy)]
+                coords = _route_inside(d['poly'], entry_pt, (cx, cy))
+                zx, zy = cx, cy
+            znid = net.add_node(zx, zy, 'zone', sector_id=sid, zone_id=z['id'])
             net.add_edge(entry_net, znid, 'zp', 'sub_pipe',
                          config['sub_max_velocity_mps'], SUB_MIN_DIAMETER_MM,
                          coords=coords, zone_id=z['id'], sector_id=sid)
@@ -1219,6 +1360,8 @@ def _insert_elements(project_id, net, unproj, valve_elements,
     def pipe_name(kind):
         if kind == 'mp':
             return 'Main Pipe', 'الأنبوب الرئيسي'
+        if kind == 'sp':
+            return 'Second Pipe', 'الأنبوب الثانوي'
         if kind == 'zp':
             return 'Zone Pipe', 'أنبوب المنطقة'
         if kind == 'lat':
@@ -1284,6 +1427,8 @@ def _insert_elements(project_id, net, unproj, valve_elements,
                 continue
             if scope == 'zone' and e['kind'] != 'zp':
                 continue
+            if scope == 'second' and e['kind'] != 'sp':
+                continue
             by_origin[(e['type'], e['origin'])].append(e)
         for frags in by_origin.values():
             frags.sort(key=lambda f: f['dist0'])
@@ -1346,6 +1491,7 @@ def _insert_elements(project_id, net, unproj, valve_elements,
     # expose counters for the report
     counts = {
         'main_pipe': counters.get('mp_edges', 0),
+        'second_pipe': counters.get('sp_edges', 0),
         'zone_pipe': counters.get('zp_edges', 0),
         'lateral': counters.get('lat_edges', 0),
         'dripline': counters.get('drip_edges', 0),

@@ -142,6 +142,7 @@ def get_geometry(project_id):
 def _get_elem_color(elem_type):
     colors = {
         'main_pipe': '#dc3545',
+        'second_pipe': '#0d6efd',
         'sub_pipe': '#fd7e14',
         'master_valve': '#6610f2',
         'sector_valve': '#6f42c1',

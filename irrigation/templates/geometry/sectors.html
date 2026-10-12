@@ -20,8 +20,8 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
-                    <tr class="table-light">
-                        <th colspan="7" class="text-center">
+<tr class="table-light">
+                        <th colspan="9" class="text-center" style="width: 100%; min-width: 1200px;">
                             <button class="btn btn-circle btn-success" data-bs-toggle="modal"
                                     data-bs-target="#addSectorModal" title="Add / إضافة">
                                 <i class="bi bi-plus-circle"></i>
@@ -50,7 +50,7 @@
                             </button>
                             {% endif %}
                             <button class="btn btn-circle btn-warning" data-bs-toggle="modal"
-                                    data-bs-target="#aiGenerateModal" title="Auto Generate / إنشاء بالذكاء الاصطناعي">
+                                    data-bs-target="#aiGenerateModal" title="Auto Generate / إنشاؤه بالذكاء الاصطناعي">
                                 <i class="bi bi-robot"></i>
                             </button>
                             <form method="POST" action="{{ url_for('geometry.sector_validate', project_id=project.id) }}" class="d-inline">
@@ -63,12 +63,14 @@
                     <tr>
                         <th width="40"><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
                         <th>ID</th>
-                        <th>Name / الاسم</th>
-                        <th class="text-center">Valid / التحقق</th>
-                        <th class="text-center">Area (m²) / المساحة</th>
-                        <th class="text-center">Percentage (%)</th>
-                        <th class="text-center">Actions / إجراءات</th>
-                    </tr>
+                        <th>الاسم / Name</th>
+                        <th class="text-center">مثبت / Valid</th>
+                        <th class="text-center">المساحة (م²) / Area (m²)</th>
+                        <th class="text-center">النسبة المئوية / Percentage (%)</th>
+                        <th class="text-center">الاتجاه / Orientation</th>
+                        <th class="text-center">الاتجاه (درجة) / Orientation (°)</th>
+                        <th class="text-center">إجراءات / Actions</th>
+</tr>
                 </thead>
                 <tbody>
                     {% for s in sectors %}
@@ -90,6 +92,19 @@
                         <td class="text-center">{{ '{:,.0f}'.format(s.area_m2 or 0) }}</td>
                         <td class="text-center">
                             {% if global_area_m2 %}{{ '{:.1f}'.format((s.area_m2 or 0) / global_area_m2 * 100) }}%{% else %}&mdash;{% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% if s.orientation %}
+                            <span class="badge bg-secondary" title="Downhill direction / اتجاه الانحدار">
+                                <i class="bi bi-compass"></i> {{ s.orientation }}
+                            </span>
+                            {% else %}
+                            <span class="text-muted">&mdash;</span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% set _deg = orientation_degrees.get(s.orientation) %}
+                            {% if _deg is not none %}{{ _deg }}°{% else %}<span class="text-muted">&mdash;</span>{% endif %}
                         </td>
                         <td class="text-center">
                             <button class="btn btn-circle btn-primary" data-bs-toggle="modal"
@@ -129,6 +144,20 @@
                                             <label class="form-label">Polygon Coordinates (JSON) / إحداثيات المضلع</label>
                                             <textarea name="polygon_coords" class="form-control" rows="4"
                                                       placeholder='[[lng,lat],...]'>{{ s.polygon.coordinates[0] | tojson | safe if s.polygon else '' }}</textarea>
+                                        </div>
+                                        <div class="mb-3">
+                                            <label class="form-label">Orientation / الاتجاه</label>
+                                            <select name="orientation" class="form-select">
+                                                <option value="auto"{% if not s.orientation %} selected{% endif %}>Auto (from slope) / تلقائي (من الميل)</option>
+                                                <option value="N"{% if s.orientation == 'N' %} selected{% endif %}>North / شمال</option>
+                                                <option value="NE"{% if s.orientation == 'NE' %} selected{% endif %}>North-East / شمال شرق</option>
+                                                <option value="E"{% if s.orientation == 'E' %} selected{% endif %}>East / شرق</option>
+                                                <option value="ES"{% if s.orientation == 'ES' %} selected{% endif %}>East-South / شرق جنوب</option>
+                                                <option value="S"{% if s.orientation == 'S' %} selected{% endif %}>South / جنوب</option>
+                                                <option value="SW"{% if s.orientation == 'SW' %} selected{% endif %}>South-West / جنوب غرب</option>
+                                                <option value="W"{% if s.orientation == 'W' %} selected{% endif %}>West / غرب</option>
+                                                <option value="WN"{% if s.orientation == 'WN' %} selected{% endif %}>West-North / غرب شمال</option>
+                                            </select>
                                         </div>
                                     </div>
                                     <div class="modal-footer">
@@ -235,6 +264,20 @@
                         <label class="form-label">Polygon Coordinates (JSON) / إحداثيات المضلع</label>
                         <textarea name="polygon_coords" id="polygonCoords" class="form-control" rows="5"
                                   placeholder='Draw on map or enter coordinates: [[lng,lat],[lng,lat],...]' required></textarea>
+                    </div>
+                    <div class="mt-3">
+                        <label class="form-label">Orientation / الاتجاه</label>
+                        <select name="orientation" class="form-select">
+                            <option value="auto" selected>Auto (from slope) / تلقائي (من الميل)</option>
+                            <option value="N">North / شمال</option>
+                            <option value="NE">North-East / شمال شرق</option>
+                            <option value="E">East / شرق</option>
+                            <option value="ES">East-South / شرق جنوب</option>
+                            <option value="S">South / جنوب</option>
+                            <option value="SW">South-West / جنوب غرب</option>
+                            <option value="W">West / غرب</option>
+                            <option value="WN">West-North / غرب شمال</option>
+                        </select>
                     </div>
                     <p class="text-muted small mt-2">
                         Draw a polygon on the map above and coordinates will be auto-filled, or enter manually.

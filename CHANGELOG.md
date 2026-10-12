@@ -6,11 +6,30 @@
 
 - **In-map delete on every map**: Sectors, Zones, Trees, Rows, Valves, Network and Dripline maps now show a circular trash button in the map toolbar (alongside the existing Main/Zone Pipe trash). It stays disabled until at least one item is selected — via the table checkboxes or by clicking features on the map with Select mode on — then opens the styled delete-confirmation modal.
 - **New remove endpoints**: `trees.trees_remove` (`tree_ids`) plus `hydrology.valves_remove`, `hydrology.dripline_remove` and `hydrology.network_remove` (`element_ids`) delete the selected records and flash a removal count.
+- **Second Pipe (SP) step**: New Hydrology 1 page between Main Pipe and Zone Pipe with bilingual table, map, Add Second Pipe modal, and Auto Generate Second Pipes (MP → reduction → SP → reduction → ZP). Rules SP-1/SP-2 stored and applied.
+- **Zone Pipe rules refinement**: ZPs routed along sector boundary (ring path), strictly on boundary, driplines tap from inside; reductions generated in `scope='zone'`; max vertex distance from boundary `6.6e-9°`.
 
 ### Changed
 
 - Trees, Valves, Network and Dripline tables gained a selection checkbox column (plus a select-all and a Remove button) so their maps can drive the new in-map delete.
 - `initMap` now accepts a `selectable.type` array, letting a single map select several element types (all valve types, all network-element types), and a new `mapDelete` option that renders the selection-gated trash button.
+
+## 0.3.39 - 2026-10-12
+
+### Added
+
+- **Second Pipe (SP) UI**: full page between Main Pipe and Zone Pipe with table + map + Add modal + Auto Generate modal; nav updated in `base.html`.
+- **Geometry Sectors/Zones tables**: bilingual 2-row header (Arabic top / English bottom) with circle-icon action buttons row; first header cell given `min-width` constraint.
+- **Sorting by name**: Sectors and Zones queries now sort by `name_en` ascending instead of `id`.
+- **API color**: `second_pipe` element color `#0d6efd` added to `_get_elem_color`.
+
+### Changed
+
+- PIPE_TYPES extended to `('main_pipe', 'second_pipe', 'sub_pipe')`; new routes `/second_pipe`, `/second_pipe/add`, `/second_pipe/validate`.
+- `_build_boundary_network` accepts `build_second` parameter; SP edges (`kind='sp'`, `type='second_pipe'`) built from Main Pipe to nearest Zone boundary entry.
+- `generate_piping_structure` handles `scope='second'` with correct reductions filter and delete block.
+- Second pipe validation toggles `validated` flag on all `second_pipe` elements.
+- README version badge and feature list updated.
 
 ## 0.3.37 - 2026-10-12
 

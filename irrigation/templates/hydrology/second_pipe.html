@@ -1,0 +1,259 @@
+{% extends "base.html" %}
+{% block title %}Second Pipe (SP) / الأنبوب الثانوي{% endblock %}
+
+{% block content %}
+<div class="wf-page-header mb-3">
+    <h2 class="wf-title-en">Second Pipe (SP)</h2>
+    <i class="bi bi-signpost-split wf-icon" aria-hidden="true"></i>
+    <h2 class="wf-title-ar" lang="ar">الأنبوب الثانوي</h2>
+</div>
+
+<div class="mb-3">
+    <span class="badge bg-primary"><i class="bi bi-folder"></i> {{ project.name }}</span>
+    {% if project.water_source and project.water_source.coordinates %}
+    <span class="badge bg-info"><i class="bi bi-water"></i> Water Source: [{{ project.water_source.coordinates[1] }}, {{ project.water_source.coordinates[0] }}]</span>
+    {% endif %}
+</div>
+
+{% set active_step = 'second' %}
+{% include "hydrology/_pipe_steps.html" %}
+
+<div class="alert alert-info">
+    <i class="bi bi-info-circle"></i>
+    The Second Pipe (SP) is the relay between the Main Pipe (MP) and the Zone Pipes (ZP):
+    MP &rarr; reduction &rarr; SP &rarr; reduction &rarr; ZP &rarr; dripline.
+    <br>
+    الأنبوب الثانوي (SP) هو الوصلة بين الأنبوب الرئيسي (MP) وأنابيب المناطق (ZP):
+    رئيسي &larr; تقليلة &larr; ثانوي &larr; تقليلة &larr; منطقة &larr; خط تنقيط.
+</div>
+
+{% if piping_report and second_pipes %}
+<div class="card shadow-sm mb-3">
+    <div class="card-header bg-light">
+        <h6 class="mb-0"><i class="bi bi-clipboard-data"></i> AI Second Pipe Report / تقرير الأنبوب الثانوي</h6>
+    </div>
+    <div class="card-body">
+        <div class="d-flex flex-wrap gap-2 mb-2">
+            <span class="badge bg-primary">SP: {{ second_pipes | length }}</span>
+            <span class="badge bg-success">Reductions: {{ piping_report.counts.get('reduction', 0) }}</span>
+        </div>
+        <div class="small text-muted">
+            Total length: {{ piping_report.lengths_m.get('second_pipe', 0) }} m (SP)
+            | Diameter schedule (SP): {{ piping_report.diameter_schedules.get('second_pipe', []) | join(', ') }} mm
+        </div>
+        {% if piping_report.warnings %}
+        <div class="alert alert-warning mt-2 mb-0 py-2 small">
+            <ul class="mb-0 ps-3">
+                {% for w in piping_report.warnings %}<li>{{ w }}</li>{% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Second Pipes Table -->
+<div class="card shadow-sm">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0" id="pipeTable">
+                <thead>
+                    <tr class="table-light">
+                        <th colspan="10" class="text-center">
+                            <button class="btn btn-circle btn-success" id="pipeHeaderAdd" type="button"
+                                    data-bs-toggle="modal" data-bs-target="#addSecondPipeModal" title="Add / إضافة">
+                                <i class="bi bi-plus-circle"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-primary" id="pipeHeaderEdit" type="button"
+                                    onclick="openPipeEdit()" title="Edit / تعديل">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-info" id="pipeHeaderRename" type="button"
+                                    onclick="pipeEditorRenameSelected()" title="Rename / إعادة تسمية">
+                                <i class="bi bi-input-cursor-text"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-danger" id="pipeHeaderRemove" type="button"
+                                    onclick="pipeEditorRemoveSelected()" title="Remove / إزالة">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <button class="btn btn-circle btn-warning" type="button" data-bs-toggle="modal"
+                                    data-bs-target="#aiPipingModal" title="Auto Generate / إنشاء تلقائي">
+                                <i class="bi bi-robot"></i>
+                            </button>
+                            <form method="POST" action="{{ url_for('hydrology.second_pipe_validate', project_id=project.id) }}" class="d-inline">
+                                <button type="submit" class="btn btn-circle btn-primary" title="Validate / التحقق">
+                                    <i class="bi bi-check-circle"></i>
+                                </button>
+                            </form>
+                        </th>
+                    </tr>
+                    <tr>
+                        <th width="40"><input type="checkbox" id="selectAllPipes" onclick="toggleAllPipes(this)"></th>
+                        <th>ID</th>
+                        <th>Name (EN)</th>
+                        <th>Name (AR)</th>
+                        <th>Ø mm</th>
+                        <th>Flow (L/s)</th>
+                        <th>Velocity (m/s)</th>
+                        <th>Length (m)</th>
+                        <th>Validated</th>
+                        <th class="text-center">Actions / إجراءات</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in second_pipes %}
+                    <tr>
+                        <td>
+                            <input type="checkbox" class="pipe-checkbox" value="{{ p.id }}"
+                                   data-name-en="{{ p.name_en }}"
+                                   data-name-ar="{{ p.name_ar }}"
+                                   data-diameter="{{ p.properties.get('diameter', '') }}"
+                                   data-coords="{{ p.geometry.coordinates | tojson }}">
+                        </td>
+                        <td>{{ p.id }}</td>
+                        <td>{{ p.name_en }}</td>
+                        <td class="ar-text">{{ p.name_ar }}</td>
+                        <td>{{ p.properties.get('diameter', '—') }}</td>
+                        <td>{{ p.properties.get('flow_lps', '—') }}</td>
+                        <td>{{ p.properties.get('velocity_mps', '—') }}</td>
+                        <td>{{ p.properties.get('length_m', '—') }}</td>
+                        <td>
+                            {% if p.validated %}
+                            <span class="badge bg-success"><i class="bi bi-check"></i></span>
+                            {% else %}
+                            <span class="badge bg-warning"><i class="bi bi-clock"></i></span>
+                            {% endif %}
+                        </td>
+                        <td class="text-center">
+                            <button type="button" class="btn btn-circle btn-info" onclick="openPipeRename({{ p.id }})" title="Rename / إعادة تسمية">
+                                <i class="bi bi-input-cursor-text"></i>
+                            </button>
+                            <button type="button" class="btn btn-circle btn-danger" onclick="removePipeById({{ p.id }})" title="Remove / إزالة">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="10" class="text-center text-muted py-3">No second pipes yet / لا توجد أنابيب ثانوية بعد</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Map -->
+<div class="card shadow-sm mt-4 geometry-map-card">
+    {% set map_title_en = "Map - Second Pipe" %}{% set map_title_ar = "الخريطة - الأنبوب الثانوي" %}
+    {% include "_map_header.html" %}
+    <div class="card-body">
+        <div id="map"></div>
+    </div>
+</div>
+
+<!-- Add / Edit / Rename / Remove pipe modals -->
+{% include "hydrology/_pipe_editor_modals.html" %}
+
+<!-- Auto Generate Piping Modal -->
+<div class="modal fade" id="aiPipingModal" tabindex="-1">
+    <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('hydrology.piping_generate', project_id=project.id) }}"
+                  data-confirm="AI will build the Second Pipes (the relay between the Main Pipe and the Zone entries). Continue? / سيبني الذكاء الاصطناعي الأنابيب الثانوية (الوصلة بين الأنبوب الرئيسي ومداخل المناطق). متابعة؟">
+                <input type="hidden" name="scope" value="second">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-robot"></i> Auto Generate Second Pipes / إنشاء الأنابيب الثانوية تلقائياً</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-info py-2 small mb-3">
+                        The generator builds the Second Pipes from the Main Pipe to the nearest entry of every Zone
+                        (MP &rarr; reduction &rarr; SP). Zone Pipes and drip lines are added in the next step.
+                        It auto-sizes the PVC diameter and checks flow and pressure using source elevation and gravity.
+                        <br>
+                        ينشئ النظام الأنابيب الثانوية من الأنبوب الرئيسي إلى أقرب مدخل لكل منطقة
+                        (رئيسي &rarr; تقليلة &rarr; ثانوي). تُضاف أنابيب المناطق وخطوط التنقيط في الخطوة التالية.
+                    </div>
+                    <h6 class="text-primary"><i class="bi bi-sliders"></i> Options / الخيارات</h6>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Source pressure (bar)</label>
+                            <input type="number" step="0.1" min="0" name="source_pressure_bar" class="form-control"
+                                   placeholder="Default">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Source flow (L/min)</label>
+                            <input type="number" step="1" min="0" name="source_flow_lpm" class="form-control"
+                                   placeholder="Default">
+                        </div>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" name="use_elevation" value="1" id="useElevationPipingS" checked>
+                        <label class="form-check-label" for="useElevationPipingS">
+                            Use terrain elevation &amp; gravity / استخدام الارتفاع والجاذبية
+                        </label>
+                    </div>
+                    <div class="form-check form-switch mb-2">
+                        <input class="form-check-input" type="checkbox" name="replace" value="1" id="replacePipingS" checked>
+                        <label class="form-check-label" for="replacePipingS">
+                            Replace existing generated second pipes / استبدال الأنابيب الثانوية المولّدة الحالية
+                        </label>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-robot"></i> Generate / إنشاء</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/pipe_editor.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
+    initMap('map', geojsonUrl, {
+        center: [34.0, -6.0],
+        zoom: 14,
+        selectable: { type: 'second_pipe', checkboxSelector: '.pipe-checkbox', toggleOnClick: true }
+    });
+
+    initPipeEditor({
+        type: 'second_pipe',
+        checkboxSelector: '.pipe-checkbox',
+        item: { en: 'second pipe', ar: 'أنبوب ثانوي' },
+        emptyLabel: 'No second pipes yet / لا توجد أنابيب ثانوية بعد',
+        addModalId: 'addSecondPipeModal',
+        traceButtons: false,
+        traceAdd: {
+            title: '<i class="bi bi-signpost-split"></i> Add Second Pipe (SP) / إضافة أنبوب ثانوي',
+            diameter: 90,
+            zone: false
+        },
+        selectors: {
+            add: '#pipeHeaderAdd',
+            rename: '#pipeHeaderRename',
+            remove: '#pipeHeaderRemove',
+            edit: '#pipeHeaderEdit'
+        },
+        urls: {
+            add: '{{ url_for("hydrology.second_pipe_add", project_id=project.id) }}',
+            update: '{{ url_for("hydrology.pipe_update", project_id=project.id, pipe_type="second_pipe") }}',
+            rename: '{{ url_for("hydrology.pipe_rename", project_id=project.id, pipe_type="second_pipe") }}',
+            remove: '{{ url_for("hydrology.pipe_remove", project_id=project.id, pipe_type="second_pipe") }}'
+        }
+    });
+});
+
+function startDrawLine() {
+    const modalEl = document.getElementById('addSecondPipeModal');
+    if (modalEl && window.bootstrap) {
+        bootstrap.Modal.getOrCreateInstance(modalEl).show();
+    }
+}
+</script>
+{% endblock %}

@@ -33,6 +33,39 @@
     </div>
 </div>
 
+<!-- Add Second Pipe Modal -->
+<div class="modal fade" id="addSecondPipeModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('hydrology.second_pipe_add', project_id=project.id) }}">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title"><i class="bi bi-signpost-split"></i> Add Second Pipe (SP) / إضافة أنبوب ثانوي</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Diameter (mm) / القطر (مم)</label>
+                        <input type="number" name="diameter" class="form-control" value="90" min="32">
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Pipe Path Coordinates (JSON) / مسار الأنبوب</label>
+                        <input type="text" name="coordinates" id="spCoords" class="form-control"
+                               placeholder='[[lng,lat],[lng,lat],...]' required>
+                    </div>
+                    <div class="text-muted small">
+                        The Second Pipe (SP) is the relay between the Main Pipe and the Zone Pipes.
+                        / الأنبوب الثانوي (SP) هو الوصلة بين الأنبوب الرئيسي وأنابيب المناطق.
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check"></i> Add / إضافة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Add Zone Pipe Modal -->
 <div class="modal fade" id="addZonePipeModal" tabindex="-1">
     <div class="modal-dialog modal-dialog-centered">

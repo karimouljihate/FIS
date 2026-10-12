@@ -18,8 +18,8 @@
         <div class="table-responsive">
             <table class="table table-hover mb-0">
                 <thead>
-                    <tr class="table-light">
-                        <th colspan="8" class="text-center">
+<tr class="table-light">
+                        <th colspan="10" class="text-center" style="width: 100%; min-width: 1400px;">
                             <button class="btn btn-circle btn-success" id="zoneAddBtn" data-bs-toggle="modal"
                                     data-bs-target="#addZoneModal" title="Add / إضافة">
                                 <i class="bi bi-plus-circle"></i>
@@ -56,7 +56,7 @@
                             </button>
                             {% endif %}
                             <button class="btn btn-circle btn-warning" data-bs-toggle="modal"
-                                    data-bs-target="#aiGenerateZoneModal" title="Auto Generate / إنشاء بالذكاء الاصطناعي">
+                                    data-bs-target="#aiGenerateZoneModal" title="Auto Generate / إنشاؤه بالذكاء الاصطناعي">
                                 <i class="bi bi-robot"></i>
                             </button>
                             <form method="POST" action="{{ url_for('geometry.zone_validate', project_id=project.id) }}" class="d-inline">
@@ -69,11 +69,34 @@
                     <tr>
                         <th width="40"><input type="checkbox" id="selectAllZones" onclick="toggleAllZones(this)"></th>
                         <th>ID</th>
+                        <th>الاسم / Name</th>
+                        <th class="text-center">مثبت / Valid</th>
+                        <th class="text-center">المساحة (م²) / Area (m²)</th>
+                        <th class="text-center">النسبة المئوية / Percentage (%)</th>
+                        <th class="text-center">الاتجاه / Orientation</th>
+                        <th class="text-center">الاتجاه (درجة) / Orientation (°)</th>
+                        <th class="text-center">إجراءات / Actions</th>
+                    </tr>
+                    <tr>
+                        <th width="40"></th>
+                        <th>ID</th>
+                        <th>Name</th>
+                        <th class="text-center">Valid</th>
+                        <th class="text-center">Area (m²)</th>
+                        <th class="text-center">Percentage (%)</th>
+                        <th class="text-center">Orientation</th>
+                        <th class="text-center">Orientation (°)</th>
+                        <th class="text-center">Actions</th>
+                    </tr>
+                    <tr>
+                        <th width="40"><input type="checkbox" id="selectAllZones" onclick="toggleAllZones(this)"></th>
+                        <th>ID</th>
                         <th>Name / اسم</th>
                         <th class="text-center">Valid / التحقق</th>
                         <th class="text-center">Area (m²) / المساحة</th>
                         <th class="text-center">Percentage (%)</th>
-                        <th class="text-center">Orientation</th>
+                        <th class="text-center">Orientation / الاتجاه</th>
+                        <th class="text-center">Orientation (°) / الاتجاه (درجة)</th>
                         <th class="text-center">Actions / إجراءات</th>
                     </tr>
                 </thead>
@@ -107,6 +130,10 @@
                             {% else %}
                             <span class="text-muted">&mdash;</span>
                             {% endif %}
+                        </td>
+                        <td class="text-center">
+                            {% set _deg = orientation_degrees.get(item.zone.orientation) %}
+                            {% if _deg is not none %}{{ _deg }}°{% else %}<span class="text-muted">&mdash;</span>{% endif %}
                         </td>
                         <td class="text-center">
                             <button class="btn btn-circle btn-primary" data-bs-toggle="modal"
@@ -147,9 +174,13 @@
                                             <select name="orientation" class="form-select">
                                                 <option value="auto"{% if not item.zone.orientation %} selected{% endif %}>Auto (from slope) / تلقائي (من الميل)</option>
                                                 <option value="N"{% if item.zone.orientation == 'N' %} selected{% endif %}>North / شمال</option>
+                                                <option value="NE"{% if item.zone.orientation == 'NE' %} selected{% endif %}>North-East / شمال شرق</option>
                                                 <option value="E"{% if item.zone.orientation == 'E' %} selected{% endif %}>East / شرق</option>
+                                                <option value="ES"{% if item.zone.orientation == 'ES' %} selected{% endif %}>East-South / شرق جنوب</option>
                                                 <option value="S"{% if item.zone.orientation == 'S' %} selected{% endif %}>South / جنوب</option>
+                                                <option value="SW"{% if item.zone.orientation == 'SW' %} selected{% endif %}>South-West / جنوب غرب</option>
                                                 <option value="W"{% if item.zone.orientation == 'W' %} selected{% endif %}>West / غرب</option>
+                                                <option value="WN"{% if item.zone.orientation == 'WN' %} selected{% endif %}>West-North / غرب شمال</option>
                                             </select>
                                         </div>
                                         <div class="mb-3">
@@ -278,9 +309,13 @@
                         <select name="orientation" class="form-select">
                             <option value="auto" selected>Auto (from slope) / تلقائي (من الميل)</option>
                             <option value="N">North / شمال</option>
+                            <option value="NE">North-East / شمال شرق</option>
                             <option value="E">East / شرق</option>
+                            <option value="ES">East-South / شرق جنوب</option>
                             <option value="S">South / جنوب</option>
+                            <option value="SW">South-West / جنوب غرب</option>
                             <option value="W">West / غرب</option>
+                            <option value="WN">West-North / غرب شمال</option>
                         </select>
                     </div>
                     <div class="mt-3">
@@ -407,9 +442,13 @@
                         <select name="orientation" class="form-select">
                             <option value="auto" selected>Auto from slope (recommended) / تلقائي من الميل (موصى به)</option>
                             <option value="N">North / شمال</option>
+                            <option value="NE">North-East / شمال شرق</option>
                             <option value="E">East / شرق</option>
+                            <option value="ES">East-South / شرق جنوب</option>
                             <option value="S">South / جنوب</option>
+                            <option value="SW">South-West / جنوب غرب</option>
                             <option value="W">West / غرب</option>
+                            <option value="WN">West-North / غرب شمال</option>
                         </select>
                         <div class="form-text">
                             Auto derives each zone's downhill direction from terrain slope; pick a compass point to force it.

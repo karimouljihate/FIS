@@ -475,15 +475,21 @@ def elevation_metrics_for_polygon(model, polygon_projected):
 
 
 # Compass points used for zone/sector orientation (clockwise from North).
-COMPASS_POINTS = ['N', 'E', 'S', 'W']
+COMPASS_POINTS = ['N', 'NE', 'E', 'ES', 'S', 'SW', 'W', 'WN']
 
 
 def compass_from_bearing(bearing_deg):
     """Map a bearing (0-360, clockwise from North) to the nearest compass point."""
     if bearing_deg is None:
         return None
-    index = int(round((bearing_deg % 360.0) / 90.0)) % 4
+    index = int(round((bearing_deg % 360.0) / 45.0)) % len(COMPASS_POINTS)
     return COMPASS_POINTS[index]
+
+
+# Canonical bearing (degrees, clockwise from North) for each compass point, so
+# the label and its numeric orientation stay linked: N=0, NE=45, E=90, ES=135,
+# S=180, SW=225, W=270, WN=315.
+ORIENTATION_DEGREES = {point: i * 45 for i, point in enumerate(COMPASS_POINTS)}
 
 
 def aspect_for_polygon(model, polygon_projected):
@@ -495,7 +501,7 @@ def aspect_for_polygon(model, polygon_projected):
     Returns a dict:
         {
             'bearing_deg': float,   # downhill direction, clockwise from North
-            'compass': 'N'|'E'|'S'|'W',
+            'compass': 'N'|'NE'|'E'|'ES'|'S'|'SW'|'W'|'WN',
             'slope_percent': float, # gradient magnitude * 100
             'slope_deg': float,
             'sample_count': int,

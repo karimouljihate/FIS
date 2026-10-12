@@ -80,7 +80,7 @@
                 </li>
                 <li class="nav-item">
                     {% if workflow_project_id %}
-                    <a class="nav-link{% if workflow_endpoint in ['hydrology.main_pipe', 'hydrology.sub_pipe'] %} active{% endif %}" href="{{ url_for('hydrology.main_pipe', project_id=workflow_project_id) }}">
+                    <a class="nav-link{% if workflow_endpoint in ['hydrology.main_pipe', 'hydrology.second_pipe', 'hydrology.sub_pipe'] %} active{% endif %}" href="{{ url_for('hydrology.main_pipe', project_id=workflow_project_id) }}">
                     {% else %}
                     <span class="nav-link disabled" aria-disabled="true" title="Open a project first">
                     {% endif %}
