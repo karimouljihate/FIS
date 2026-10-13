@@ -51,7 +51,7 @@ WEIGHT_SHAPE_REGULARITY_2D = 0.20
 # Minimum sector area fraction (avoid tiny slivers)
 MIN_AREA_FRACTION = 0.05
 
-# Named weight presets selectable from the AI Generate modal.
+# Named weight presets selectable from the Auto Generate modal.
 # Each preset provides 'elevation' (6-criterion) and '2d' (4-criterion) weights.
 WEIGHT_PRESETS = {
     'balanced': {
@@ -484,7 +484,7 @@ def regenerate_sectors(project_id, n_sectors=None, config=None):
     water-source proximity, shape regularity, and terrain elevation,
     then selects the best partition.
 
-    `config` (all optional) supports the AI Generate modal inputs:
+    `config` (all optional) supports the Auto Generate modal inputs:
       - n_sectors: int, number of sectors (default 4)
       - use_elevation: bool — enable terrain-aware scoring (default True)
       - water_source_mode: 'project' | 'custom' | 'none' (default 'project')
@@ -653,8 +653,10 @@ def regenerate_sectors(project_id, n_sectors=None, config=None):
 
         # Get elevation metrics for this sector
         elev_metrics = None
+        aspect = None
         if elevation_model:
             elev_metrics = elevation_metrics_for_polygon(elevation_model, part)
+            aspect = aspect_for_polygon(elevation_model, part)
 
         sector = {
             'id': get_next_id('sectors'),
@@ -662,6 +664,8 @@ def regenerate_sectors(project_id, n_sectors=None, config=None):
             'name_en': name_en,
             'name_ar': name_ar,
             'polygon': sector_geojson,
+            'orientation': aspect['compass'] if aspect else None,
+            'orientation_deg': round(aspect['bearing_deg'], 1) if aspect else None,
             'validated': False,
             'ai_generated': True,
             'ai_score': round(best_result['score'], 4),
@@ -685,13 +689,14 @@ def regenerate_zones(project_id, sector_id=None, zones_per_sector=None, use_elev
     Incorporates terrain elevation data for contour-aware zone partitioning.
     If trees exist, zones are sized proportionally to tree count (hydraulic demand).
 
-    ``orientation`` may be one of ``'N'``/``'E'``/``'S'``/``'W'`` (or ``'auto'``/
-    ``None``). When a compass point is given, every generated zone is assigned
-    that orientation; when ``'auto'`` the orientation of each zone is derived
-    from the terrain aspect (downhill direction) of its polygon.
+    ``orientation`` may be one of ``'N'``/``'NE'``/``'E'``/``'ES'``/``'S'``/``'SW'``/
+    ``'W'``/``'WN'`` (or ``'auto'``/``None``). When a compass point is given, every
+    generated zone is assigned that orientation; when ``'auto'`` the orientation
+    of each zone is derived from the terrain aspect (downhill direction) of its
+    polygon.
     """
     target_orientation = orientation.upper() if isinstance(orientation, str) else None
-    if target_orientation not in ('N', 'E', 'S', 'W'):
+    if target_orientation not in ('N', 'NE', 'E', 'ES', 'S', 'SW', 'W', 'WN'):
         target_orientation = None
 
     query = {'project_id': project_id}

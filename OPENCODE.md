@@ -1,0 +1,171 @@
+# OPENCODE.md - Web App Rebuild Prompt
+
+## Project Overview
+Irrigation Planning System - A Flask-based web application for irrigation planning and management.
+
+## Current Version
+- **Version**: 0.3.40
+- **Last Updated**: 2026-10-13
+
+## Architecture Overview
+
+### Main Tab Navigation Structure
+The main navigation tabs follow this order:
+```
+Project - Water Resource - Geometry - Pipes - Trees - Components - Estimation - Report
+```
+
+### Sub-Tab Structure
+
+#### 1. Project
+- **New**: Create a new project
+- **Load**: Load an existing project
+- **Link**: Open the project workspace (land documents, water sources, KML link/upload)
+
+#### 2. Water Resource
+- **Well**: Well management (Coming Soon placeholder)
+- **Basin**: Basin management (Coming Soon placeholder)
+- **Other**: Other water sources (Coming Soon placeholder)
+
+#### 3. Geometry
+- **Sectors**: Sector management (add, edit, rename, remove, split, merge, swap)
+- **Zones**: Zone management (add, edit, rename, remove, split, merge, swap)
+
+#### 4. Pipes
+- **Main Pipe (MP)**: Main pipe management (add, edit, rename, remove, Auto generation)
+- **Second Pipe (SP)**: Secondary pipe management
+- **Zone Pipe (ZP)**: Zone pipe management
+
+#### 5. Trees
+- **Rows**: Row management (add, edit, rename, remove, generate)
+- **Trees**: Tree management (add, edit, rename, remove, generate)
+
+#### 6. Components
+- **Mandatory**: Mandatory components (Coming Soon placeholder)
+- **Optional**: Optional components (Coming Soon placeholder)
+
+#### 7. Estimation
+- **Pricing**: Estimation pricing configuration (prices, items, notes, discount, tax)
+- **Result**: Estimation results and calculations (Coming Soon placeholder)
+
+#### 8. Report
+- **Charts**: Charts and graphs (Coming Soon placeholder)
+- **Standard**: Engineering validation report
+- **Technical (DPA)**: Technical report model for DPA
+
+## Technical Details
+
+### Framework
+- **Flask**: Python web framework
+- **Flask-Login**: Authentication management
+- **Flask-WTF**: Form handling
+- **Flask-Login**: User session management
+
+### Key Components
+- **irrigation/**: Main Python package
+- **irrigation/templates/**: HTML templates
+- **irrigation/static/**: Static files (CSS, JS, images)
+- **irrigation/api/**: API routes
+- **irrigation/engineering/**: Engineering calculations
+- **irrigation/hydrology**: Hydrology functions
+- **irrigation/geometry**: Geometry operations
+- **irrigation/trees**: Tree management
+- **irrigation/estimation**: Estimation calculations
+
+### Database
+- **MongoDB**: Document database
+- **Collections**: projects, sectors, zones, trees, trees_rows, water_resources, etc.
+
+### Key Features
+- Bilingual interface (English/Arabic)
+- KML/KMZ import/export
+- AI-powered sector/zones generation
+- Hydraulic calculations and validation
+- Estimation and cost calculation
+- Report generation (charts, bilan hydrique, technical reports)
+
+## Rebuild Instructions
+
+### Prerequisites
+1. Python 3.9+
+2. MongoDB running
+3. pip install -r requirements.txt
+
+### Setup
+```bash
+cd irrigation
+pip install -e .
+```
+
+### Running the App
+```bash
+python -c "from irrigation import create_app; app = create_app(); app.run(host='0.0.0.0', port=5000, debug=True)"
+```
+
+### Template Structure
+- **base.html**: Main layout with navigation
+- **auth/**: Authentication templates
+- **project/**: Project management templates
+- **geometry/**: Geometry management templates
+- **hydrology/**: Hydrology management templates
+- **trees/**: Tree management templates
+- **estimation/**: Estimation templates
+- **engineering/**: Engineering templates
+
+### Key Files to Modify
+1. **irrigation/templates/base.html**: Main navigation structure
+2. **irrigation/auth/routes.py**: Authentication routes
+3. **irrigation/project/routes.py**: Project management routes
+4. **irrigation/geometry/routes.py**: Geometry management routes
+5. **irrigation/hydrology/routes.py**: Hydrology management routes
+6. **irrigation/trees/routes.py**: Tree management routes
+7. **irrigation/estimation/routes.py**: Estimation routes
+
+### Navigation Structure
+The main navigation should follow this order:
+```
+Project - Water Resource - Geometry - Pipes - Trees - Components - Estimation - Report
+```
+
+With sub-tabs:
+- **Project**: New - Load - Link
+- **Water Resource**: Well - Basin - Other
+- **Geometry**: Sectors - Zones
+- **Pipes**: Main Pipe (MP) - Second Pipe (SP) - Zone Pipe (ZP)
+- **Trees**: Rows - Trees
+- **Components**: Mandatory - Optional (Coming Soon)
+- **Estimation**: Pricing - Result (Coming Soon)
+- **Report**: Charts (Coming Soon) - Standard - Technical (DPA)
+
+### API Endpoints
+Key API endpoints for rebuild:
+- `/api/project/<id>/geometry`: Get geometry data
+- `/water_resource/...`: Water resource routes
+- `/hydrology/...`: Hydrology routes
+- `/trees/...`: Tree routes
+- `/estimation/...`: Estimation routes
+
+### Testing
+- Run existing tests: `pytest`
+- Check all routes are functional
+- Verify navigation works correctly
+
+### Deployment
+- Set up MongoDB connection
+- Configure environment variables
+- Run: `python app.py`
+- Access at: `http://localhost:5000`
+
+### Version Control
+- Git branches: `project-settings-v1`
+- Version: 0.3.40
+- Changelog: CHANGELOG.md
+
+### Contributing
+- Follow existing code patterns
+- Maintain bilingual (English/Arabic) support
+- Ensure responsive design
+- Maintain API consistency
+
+---
+*Generated for Irrigation Planning System rebuild*

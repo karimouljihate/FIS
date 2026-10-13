@@ -151,9 +151,9 @@ def ai_regenerate_sectors(project_id):
     sectors = regenerate_sectors(project_id, n_sectors)
 
     if sectors:
-        flash(f'AI regenerated {len(sectors)} sectors with optimal partitioning / الذكاء الاصطناعي أنشأ {len(sectors)} قطاعات بتقسيم أمثل', 'success')
+        flash(f'Auto regenerated {len(sectors)} sectors with optimal partitioning / الذكاء الاصطناعي أنشأ {len(sectors)} قطاعات بتقسيم أمثل', 'success')
     else:
-        flash('AI regeneration failed - check boundary / فشل إعادة الإنشاء - تحقق من الحدود', 'danger')
+        flash('Auto regeneration failed - check boundary / فشل إعادة الإنشاء - تحقق من الحدود', 'danger')
 
     return redirect(url_for('geometry.sectors_view', project_id=project_id))
 
@@ -171,9 +171,9 @@ def ai_regenerate_zones(project_id):
     zones = regenerate_zones(project_id, sector_id, zones_per_sector)
 
     if zones:
-        flash(f'AI regenerated {len(zones)} zones with optimal partitioning / الذكاء الاصطناعي أنشأ {len(zones)} مناطق بتقسيم أمثل', 'success')
+        flash(f'Auto regenerated {len(zones)} zones with optimal partitioning / الذكاء الاصطناعي أنشأ {len(zones)} مناطق بتقسيم أمثل', 'success')
     else:
-        flash('AI regeneration failed / فشل إعادة الإنشاء', 'danger')
+        flash('Auto regeneration failed / فشل إعادة الإنشاء', 'danger')
 
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 

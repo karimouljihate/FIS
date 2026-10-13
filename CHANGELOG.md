@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.3.40 - 2026-10-13
+
+### Added
+
+- **Water Resource workflow tab**: a new top-level section with **Well**, **Basin** and **Other** sub-tabs. A new `water` blueprint serves `/water/<project_id>/well`, `/water/<project_id>/basin` and `/water/<project_id>/other`, rendering the centred "Coming Soon" placeholder pages inside the app layout.
+- **Terrain-derived sector orientation**: regenerated sectors now record an `orientation` compass point and `orientation_deg` bearing from the elevation model's downhill aspect, matching the per-zone behaviour.
+- **Coming Soon placeholders**: sub-tab rails mark not-yet-built items (Estimation **Result**, Report **Charts**, Components **Mandatory**/**Optional**) with a "Coming Soon" badge.
+
+### Changed
+
+- **Workflow navigation restructured** into eight tabs and their sub-tabs:
+  - **Project**: New / Load / Link
+  - **Water Resource**: Well / Basin / Other
+  - **Geometry**: Sectors / Zones
+  - **Pipes**: Main Pipe (MP) / Second Pipe (SP) / Zone Pipe (ZP)
+  - **Trees**: Rows / Trees
+  - **Components**: Mandatory / Optional (Coming Soon)
+  - **Estimation**: Pricing / Result
+  - **Report**: Charts / Standard / Technical (DPA)
+- Second Pipe (SP) moved from a top-level tab into the **Pipes** sub-tabs; the former **Hydrology 2** (Valves / Dripline / Network) is no longer shown in the navigation (its routes remain reachable directly).
+- **Eight-point zone orientation**: `regenerate_zones` now accepts the full compass set (`N`, `NE`, `E`, `ES`, `S`, `SW`, `W`, `WN`), so non-cardinal directions chosen in the modal are no longer silently dropped.
+- Renamed the "AI regenerated" flash messages to "Auto regenerated" for consistency with the Auto Generate UI; the sub-tab rails are now always centred.
+
 ## 0.3.38 - 2026-10-12
 
 ### Added

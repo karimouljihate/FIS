@@ -3,7 +3,7 @@ from flask import Flask, render_template
 from irrigation.extensions import mongo, login_manager
 from irrigation.utils.logger import setup_logging
 
-__version__ = '0.3.39'
+__version__ = '0.3.40'
 
 
 def create_app():
@@ -40,6 +40,7 @@ def create_app():
     from irrigation.api.routes import api_bp
     from irrigation.engineering.routes import engineering_bp
     from irrigation.estimation.routes import estimation_bp
+    from irrigation.water.routes import water_bp
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(project_bp)
@@ -49,6 +50,7 @@ def create_app():
     app.register_blueprint(api_bp)
     app.register_blueprint(engineering_bp, url_prefix='/engineering')
     app.register_blueprint(estimation_bp, url_prefix='/estimation')
+    app.register_blueprint(water_bp, url_prefix='/water')
 
     # Error handlers
     @app.context_processor
