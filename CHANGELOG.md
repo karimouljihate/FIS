@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.50 - 2026-10-17
+
+### Changed
+- **Tree Setup modal zone cards**: removed Arabic variety fields (Variety 2/3 AR, Pct AR variants); each variety row now shows only Variety N (EN) + Pct N (%).
+
 ## 0.3.49 - 2026-10-17
 
 ### Changed
