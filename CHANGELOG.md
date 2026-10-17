@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.47 - 2026-10-17
+
+### Changed
+- **Tree Setup modal bigger**: `#treeSetupModal` max-width increased to 1000px (95% width) for more room on setup cards.
+
 ## 0.3.46 - 2026-10-17
 
 ### Fixed
