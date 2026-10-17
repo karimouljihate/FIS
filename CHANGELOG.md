@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.49 - 2026-10-17
+
+### Changed
+- **Tree Setup modal zone cards**: each Variety/Pct pair now on its own row (Spacing row; Variety1+AR+Pct1 row; Variety2+AR+Pct2 row; Variety3+AR+Pct3 row), instead of all fields in one crowded row.
+
 ## 0.3.48 - 2026-10-17
 
 ### Changed

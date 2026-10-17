@@ -206,44 +206,50 @@
                                             <span class="text-light small">Rows: {{ zone.row_count|default(0) }}</span>
                                         </div>
                                         <div class="card-body p-2">
-                                            <div class="row g-1 align-items-center zone-fields">
-                                                <div class="col">
+                                            <div class="row g-2 mb-1">
+                                                <div class="col-md-3">
                                                     <label class="form-label small mb-0">Spacing (m)</label>
                                                     <input type="number" name="spacing_{{ zone.id }}" step="0.5" min="1" class="form-control form-control-sm" value="4">
                                                 </div>
-                                                <div class="col">
+                                            </div>
+                                            <div class="row g-2 mb-1">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0">Variety 1 (EN)</label>
                                                     <input type="text" name="variety_{{ zone.id }}_1" class="form-control form-control-sm" value="Olive">
                                                 </div>
-                                                <div class="col">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0">Variety 1 (AR)</label>
                                                     <input type="text" name="variety_ar_{{ zone.id }}_1" class="form-control form-control-sm" value="زيتون">
                                                 </div>
-                                                <div class="col">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0">Pct 1 (%)</label>
                                                     <input type="number" name="pct_{{ zone.id }}_1" step="1" min="0" max="100" class="form-control form-control-sm" value="100">
                                                 </div>
-                                                <div class="col">
+                                            </div>
+                                            <div class="row g-2 mb-1">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0">Variety 2 (EN)</label>
                                                     <input type="text" name="variety_{{ zone.id }}_2" class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0">Variety 2 (AR)</label>
                                                     <input type="text" name="variety_ar_{{ zone.id }}_2" class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0">Pct 2 (%)</label>
                                                     <input type="number" name="pct_{{ zone.id }}_2" step="1" min="0" max="100" class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col">
+                                            </div>
+                                            <div class="row g-2">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0">Variety 3 (EN)</label>
                                                     <input type="text" name="variety_{{ zone.id }}_3" class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0">Variety 3 (AR)</label>
                                                     <input type="text" name="variety_ar_{{ zone.id }}_3" class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col">
+                                                <div class="col-md-4">
                                                     <label class="form-label small mb-0">Pct 3 (%)</label>
                                                     <input type="number" name="pct_{{ zone.id }}_3" step="1" min="0" max="100" class="form-control form-control-sm">
                                                 </div>
