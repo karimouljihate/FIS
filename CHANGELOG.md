@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.48 - 2026-10-17
+
+### Changed
+- **Tree Setup modal sector cards**: added collapse/expand button (chevron icon) at the extreme right of each sector card header to toggle the sector body.
+- **Tree Setup modal zone cards**: reduced zone fields to Spacing, Variety 1 (EN/AR), Pct 1, Variety 2 (EN/AR), Pct 2, Variety 3 (EN/AR), Pct 3 — laid out in a single row per zone card. Removed Drips/Tree input (defaults to 2 server-side).
+
 ## 0.3.47 - 2026-10-17
 
 ### Changed

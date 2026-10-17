@@ -176,45 +176,76 @@
 
                     <!-- Per-zone setup cards grouped by sector -->
                     {% for group in zone_groups %}
-                    <div class="card mb-3">
-                        <div class="card-header bg-secondary text-white">
-                            {% if group.sector %}
-                            {{ group.sector.name_en }} / {{ group.sector.name_ar }}
-                            {% else %}
-                            Ungrouped / غير مصنف
-                            {% endif %}
+                    <div class="card mb-3 sector-card">
+                        <div class="card-header bg-secondary text-white d-flex justify-content-between align-items-center">
+                            <div>
+                                {% if group.sector %}
+                                {{ group.sector.name_en }} / {{ group.sector.name_ar }}
+                                {% else %}
+                                Ungrouped / غير مصنف
+                                {% endif %}
+                            </div>
+                            <button class="btn btn-sm btn-outline-light collapse-sector" type="button"
+                                    data-bs-toggle="collapse"
+                                    data-bs-target="#sectorBody{{ loop.index }}"
+                                    aria-expanded="true" aria-controls="sectorBody{{ loop.index }}"
+                                    title="Collapse / expand / طي / توسيع">
+                                <i class="bi bi-chevron-down"></i>
+                            </button>
                         </div>
-                        <div class="card-body">
+                        <div class="card-body collapse show" id="sectorBody{{ loop.index }}">
                             <div class="row g-3">
                                 {% for zone in group.zones %}
                                 <div class="col-md-6">
-                                    <div class="card border-primary">
-                                        <div class="card-header bg-primary text-white small">
-                                            <strong>{{ zone.name_en }} / {{ zone.name_ar }}</strong>
-                                            <br><code>{{ zone.short_name }}</code>
-                                            <span class="float-end text-light">Rows: {{ zone.row_count|default(0) }}</span>
+                                    <div class="card border-primary zone-card">
+                                        <div class="card-header bg-primary text-white small d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>{{ zone.name_en }} / {{ zone.name_ar }}</strong>
+                                                <br><code>{{ zone.short_name }}</code>
+                                            </div>
+                                            <span class="text-light small">Rows: {{ zone.row_count|default(0) }}</span>
                                         </div>
                                         <div class="card-body p-2">
-                                            <div class="row g-2 align-items-end">
-                                                <div class="col-6">
-                                                    <label class="form-label small">Spacing (m)</label>
+                                            <div class="row g-1 align-items-center zone-fields">
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Spacing (m)</label>
                                                     <input type="number" name="spacing_{{ zone.id }}" step="0.5" min="1" class="form-control form-control-sm" value="4">
                                                 </div>
-                                                <div class="col-6">
-                                                    <label class="form-label small">Drips/Tree</label>
-                                                    <input type="number" name="drips_{{ zone.id }}" step="1" min="1" class="form-control form-control-sm" value="2">
-                                                </div>
-                                                <div class="col-4">
-                                                    <label class="form-label small">Variety 1 (EN)</label>
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Variety 1 (EN)</label>
                                                     <input type="text" name="variety_{{ zone.id }}_1" class="form-control form-control-sm" value="Olive">
                                                 </div>
-                                                <div class="col-4">
-                                                    <label class="form-label small">Variety 1 (AR)</label>
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Variety 1 (AR)</label>
                                                     <input type="text" name="variety_ar_{{ zone.id }}_1" class="form-control form-control-sm" value="زيتون">
                                                 </div>
-                                                <div class="col-4">
-                                                    <label class="form-label small">Pct 1 (%)</label>
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Pct 1 (%)</label>
                                                     <input type="number" name="pct_{{ zone.id }}_1" step="1" min="0" max="100" class="form-control form-control-sm" value="100">
+                                                </div>
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Variety 2 (EN)</label>
+                                                    <input type="text" name="variety_{{ zone.id }}_2" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Variety 2 (AR)</label>
+                                                    <input type="text" name="variety_ar_{{ zone.id }}_2" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Pct 2 (%)</label>
+                                                    <input type="number" name="pct_{{ zone.id }}_2" step="1" min="0" max="100" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Variety 3 (EN)</label>
+                                                    <input type="text" name="variety_{{ zone.id }}_3" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Variety 3 (AR)</label>
+                                                    <input type="text" name="variety_ar_{{ zone.id }}_3" class="form-control form-control-sm">
+                                                </div>
+                                                <div class="col">
+                                                    <label class="form-label small mb-0">Pct 3 (%)</label>
+                                                    <input type="number" name="pct_{{ zone.id }}_3" step="1" min="0" max="100" class="form-control form-control-sm">
                                                 </div>
                                             </div>
                                         </div>
@@ -364,5 +395,18 @@ function treesDeleteAllConfirm() {
     const modal = new bootstrap.Modal(document.getElementById('deleteAllTreesModal'));
     modal.show();
 }
+
+// Sector card collapse/expand: toggle chevron icon direction
+document.querySelectorAll('.collapse-sector').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        const icon = btn.querySelector('i');
+        if (icon) {
+            const expanded = btn.getAttribute('aria-expanded') === 'true';
+            btn.setAttribute('aria-expanded', String(!expanded));
+            icon.classList.toggle('bi-chevron-down');
+            icon.classList.toggle('bi-chevron-up');
+        }
+    });
+});
 </script>
 {% endblock %}
