@@ -1145,6 +1145,12 @@ body.map-fullscreen-lock {
   justify-content: center;
 }
 
+.search-input {
+  flex: 11 auto;
+  padding: 0.375rem 0.75rem;
+  border-radius: 20px;
+}
+
 .zone-search {
   position: relative;
   min-width: 260px;
@@ -1162,8 +1168,6 @@ body.map-fullscreen-lock {
 .zone-search .zone-search-input {
   flex: 1 1 auto;
   padding-right: 6.75rem;
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
   border-radius: 20px;
 }
 

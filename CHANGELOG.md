@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.46 - 2026-10-17
+
+### Fixed
+- **Tree Setup button**: added missing `#treeSetupModal` HTML (was referenced by the button but never defined). Modal posts to `trees.trees_generate` with an "All Sectors / Zones" shared setup card plus per-zone setup cards grouped by sector, each with spacing, drips, and variety fields matching the `trees_generate` route form expectations.
+
 ## 0.3.45 - 2026-10-17
 
 ### Added

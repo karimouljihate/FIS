@@ -3,10 +3,9 @@
 
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h2><i class="bi bi-tree"></i> Trees / الأشجار</h2>
-    <a href="{{ url_for('project.detail', project_id=project.id) }}" class="btn btn-outline-secondary">
-        <i class="bi bi-arrow-left"></i> Back / رجوع
-    </a>
+    <h2 class="wf-title-en">Trees</h2>
+    <i class="bi bi-tree wf-icon xl" aria-hidden="true"></i>
+    <h2 class="wf-title-ar" lang="ar">الأشجار</h2>
 </div>
 
 <div class="mb-3">
@@ -61,7 +60,7 @@
                         <th colspan="10" class="text-center align-middle">
                             <div class="input-group input-group-sm tree-search">
                                 <div class="zone-search-field">
-                                    <input type="text" id="treeSearch" class="form-control tree-search-input"
+                                    <input type="text" id="treeSearch" class="form-control search-input"
                                            placeholder="Filter trees / تصفية الأشجار" autocomplete="off">
                                     <div class="zone-search-suffix">
                                         <span class="badge rounded-pill text-bg-secondary tree-row-count" id="treeRowCount"
@@ -131,6 +130,105 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
                     <button type="submit" class="btn btn-danger"><i class="bi bi-trash2-fill"></i> Delete All / حذف الكل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Tree Setup Modal -->
+<div class="modal fade" id="treeSetupModal" tabindex="-1" aria-labelledby="treeSetupModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('trees.trees_generate', project_id=project.id) }}">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="treeSetupModalTitle"><i class="bi bi-tree"></i> Tree Setup / إعداد الشجرة</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <!-- All Sectors / Zones shared setup -->
+                    <div class="card mb-3">
+                        <div class="card-header bg-light">
+                            <strong>All Sectors / Zones / جميع القطاعات والمناطق</strong>
+                            <span class="float-end text-muted small">(applies to zones without their own setup / تُطبَّق على المناطق التي لا لديها إعداد)</span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-md-3">
+                                    <label class="form-label small">Spacing (m) / المسافة</label>
+                                    <input type="number" name="spacing_all" step="0.5" min="1" class="form-control form-control-sm" value="4">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Drips/Tree / القطاعات لكل شجرة</label>
+                                    <input type="number" name="drips_all" step="1" min="1" class="form-control form-control-sm" value="2">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Variety 1 (EN) / النوع 1</label>
+                                    <input type="text" name="variety_all_1" class="form-control form-control-sm" value="Olive">
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label small">Pct 1 (%) / النسبة 1</label>
+                                    <input type="number" name="pct_all_1" step="1" min="0" max="100" class="form-control form-control-sm" value="100">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Per-zone setup cards grouped by sector -->
+                    {% for group in zone_groups %}
+                    <div class="card mb-3">
+                        <div class="card-header bg-secondary text-white">
+                            {% if group.sector %}
+                            {{ group.sector.name_en }} / {{ group.sector.name_ar }}
+                            {% else %}
+                            Ungrouped / غير مصنف
+                            {% endif %}
+                        </div>
+                        <div class="card-body">
+                            <div class="row g-3">
+                                {% for zone in group.zones %}
+                                <div class="col-md-6">
+                                    <div class="card border-primary">
+                                        <div class="card-header bg-primary text-white small">
+                                            <strong>{{ zone.name_en }} / {{ zone.name_ar }}</strong>
+                                            <br><code>{{ zone.short_name }}</code>
+                                            <span class="float-end text-light">Rows: {{ zone.row_count|default(0) }}</span>
+                                        </div>
+                                        <div class="card-body p-2">
+                                            <div class="row g-2 align-items-end">
+                                                <div class="col-6">
+                                                    <label class="form-label small">Spacing (m)</label>
+                                                    <input type="number" name="spacing_{{ zone.id }}" step="0.5" min="1" class="form-control form-control-sm" value="4">
+                                                </div>
+                                                <div class="col-6">
+                                                    <label class="form-label small">Drips/Tree</label>
+                                                    <input type="number" name="drips_{{ zone.id }}" step="1" min="1" class="form-control form-control-sm" value="2">
+                                                </div>
+                                                <div class="col-4">
+                                                    <label class="form-label small">Variety 1 (EN)</label>
+                                                    <input type="text" name="variety_{{ zone.id }}_1" class="form-control form-control-sm" value="Olive">
+                                                </div>
+                                                <div class="col-4">
+                                                    <label class="form-label small">Variety 1 (AR)</label>
+                                                    <input type="text" name="variety_ar_{{ zone.id }}_1" class="form-control form-control-sm" value="زيتون">
+                                                </div>
+                                                <div class="col-4">
+                                                    <label class="form-label small">Pct 1 (%)</label>
+                                                    <input type="number" name="pct_{{ zone.id }}_1" step="1" min="0" max="100" class="form-control form-control-sm" value="100">
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-magic"></i> Generate Trees / إنشاء الأشجار</button>
                 </div>
             </form>
         </div>
