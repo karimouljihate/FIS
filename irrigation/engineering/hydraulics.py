@@ -204,11 +204,12 @@ def zone_pipe_rules():
 #
 # Node kinds referenced by the rules:
 #   'main_pipe'    -> the Main Pipe (MP) produced with ``scope='main'``
-#   'reduction'    -> a diameter reduction (placed on both MP->SP and SP->ZP)
 #   'second_pipe'  -> the Second Pipe (SP), the relay between MP and ZP
+#   'sector'       -> the sector boundary the Second Pipe follows
+#   'zone'         -> a zone reached at the entry of its nearest boundary
 #   'zone_pipe'    -> a Zone Pipe (ZP) fed by the Second Pipe
-#   'zone'         -> a zone reached at the extremity of its nearest entry
 #   'dripline'     -> the direct drip line fed by the Zone Pipe
+#   'reduction'    -> a diameter reduction (created in the zone stage)
 
 SECOND_PIPE_RULES = {
     'SP-1': {
@@ -229,38 +230,68 @@ SECOND_PIPE_RULES = {
     },
     'SP-2': {
         'id': 'SP-2',
-        'name_en': 'Second Pipe runs from the extremity of MP to the extremity of the nearest Zone entry',
-        'name_ar': 'يمتد الأنبوب الثاني من نهاية الأنبوب الرئيسي إلى نهاية أقرب مدخل للمنطقة',
+        'name_en': 'Second Pipe starts at the Main Pipe, NOT at the MP extremity',
+        'name_ar': 'يبدأ الأنبوب الثاني من الأنبوب الرئيسي وليس من نهايته',
         'from': 'main_pipe',
-        'to': 'zone',
+        'to': 'second_pipe',
         'element': 'second_pipe',
-        'condition': 'from the MP extremity to the nearest zone entry extremity',
+        'condition': 'always',
         'required': True,
-        'description_en': ('The Second Pipe starts at the extremity (end point) of '
-                           'the Main Pipe and covers up to the extremity of the '
-                           'nearest entry of the Zone.'),
-        'description_ar': ('يبدأ الأنبوب الثاني من نهاية (طرف) الأنبوب الرئيسي '
-                           'ويغطي حتى نهاية أقرب مدخل للمنطقة.'),
+        'description_en': ('The Second Pipe starts where the Main Pipe meets the '
+                           'sector boundary; it never starts at the extremity '
+                           '(end point) of the Main Pipe.'),
+        'description_ar': ('يبدأ الأنبوب الثاني عند التقاء الأنبوب الرئيسي بحدّ '
+                           'القطاع، ولا يبدأ إطلاقاً عند نهاية (طرف) الأنبوب الرئيسي.'),
     },
     'SP-3': {
         'id': 'SP-3',
-        'name_en': 'MP -> reduction -> SP -> reduction -> ZP -> direct dripline',
-        'name_ar': 'رئيسي ← تقليلة ← ثانٍ ← تقليلة ← منطقة ← خط تنقيط مباشر',
+        'name_en': 'Second Pipe stays on the sector boundary only',
+        'name_ar': 'يمتد الأنبوب الثاني على حدّ القطاع فقط',
+        'from': 'sector',
+        'to': 'second_pipe',
+        'element': 'second_pipe',
+        'condition': 'always',
+        'required': True,
+        'description_en': ('The Second Pipe is routed strictly along the sector '
+                           'boundary lines and never cuts across the interior of '
+                           'a sector.'),
+        'description_ar': ('يُوجّه الأنبوب الثاني على خطوط حدود القطاع حصراً ولا '
+                           'يقطع داخل القطاع أبداً.'),
+    },
+    'SP-4': {
+        'id': 'SP-4',
+        'name_en': 'Second Pipe terminates at the entry of the respective Zone',
+        'name_ar': 'ينتهي الأنبوب الثاني عند مدخل المنطقة المعنية',
+        'from': 'second_pipe',
+        'to': 'zone',
+        'element': 'second_pipe',
+        'condition': 'every zone has a boundary entry',
+        'required': True,
+        'description_en': ('Each Second Pipe ends at the entry of its respective '
+                           'Zone — the boundary point nearest to that Zone.'),
+        'description_ar': ('ينتهي كل أنبوب ثانٍ عند مدخل المنطقة المعنية — أقرب '
+                           'نقطة على الحدّ إلى تلك المنطقة.'),
+    },
+    'SP-5': {
+        'id': 'SP-5',
+        'name_en': 'Diameter hierarchy: MP -> reduction -> SP -> reduction -> ZP -> dripline',
+        'name_ar': 'تدرّج الأقطار: رئيسي ← تقليلة ← ثانٍ ← تقليلة ← منطقة ← خط تنقيط',
         'from': 'main_pipe',
         'to': 'dripline',
         'element': 'second_pipe',
         'condition': 'diameter hierarchy always',
         'required': True,
-        'description_en': ('The connection chain is strictly: Main Pipe, then a '
-                           'diameter reduction, then the Second Pipe, then a '
-                           'reduction, then the Zone Pipe, then a direct drip line.'),
-        'description_ar': ('تسلسل التوصيل الصارم: الأنبوب الرئيسي، ثم تقليلة قطر، '
+        'description_en': ('The overall connection chain is: Main Pipe, a diameter '
+                           'reduction, the Second Pipe, a reduction, the Zone '
+                           'Pipe, then a direct drip line (the reductions are '
+                           'created in the zone stage).'),
+        'description_ar': ('سلسلة التوصيل الكلية: الأنبوب الرئيسي، ثم تقليلة قطر، '
                            'ثم الأنبوب الثاني، ثم تقليلة قطر، ثم أنبوب المنطقة، ثم '
-                           'خط تنقيط مباشر.'),
+                           'خط تنقيط مباشر (تُنشأ التقليلات في مرحلة المناطق).'),
     },
 }
 
-SECOND_PIPE_RULE_ORDER = ['SP-1', 'SP-2', 'SP-3']
+SECOND_PIPE_RULE_ORDER = ['SP-1', 'SP-2', 'SP-3', 'SP-4', 'SP-5']
 
 
 def second_pipe_rules():

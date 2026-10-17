@@ -47,6 +47,18 @@
                                class="btn btn-circle btn-primary" title="Open / فتح">
                                 <i class="bi bi-folder2-open"></i>
                             </a>
+                            {% if p.kml_file %}
+                            <button type="button" class="btn btn-circle btn-info" disabled
+                                    title="KML already linked / ملف KML مرتبط بالفعل">
+                                <i class="bi bi-link-45deg"></i>
+                            </button>
+                            {% else %}
+                            <button type="button" class="btn btn-circle btn-info"
+                                    data-bs-toggle="modal" data-bs-target="#linkKmlModal{{ p.id }}"
+                                    title="Link KML/KMZ / ربط ملف">
+                                <i class="bi bi-link-45deg"></i>
+                            </button>
+                            {% endif %}
                             <a href="{{ url_for('project.export_kml', project_id=p.id) }}"
                                class="btn btn-circle btn-success" title="Export KML / تصدير">
                                 <i class="bi bi-download"></i>
@@ -66,6 +78,34 @@
         </div>
     </div>
 </div>
+
+{% for p in projects %}
+{% if not p.kml_file %}
+<div class="modal fade" id="linkKmlModal{{ p.id }}" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" action="{{ url_for('project.upload_kml', project_id=p.id) }}"
+                  enctype="multipart/form-data">
+                <div class="modal-header">
+                    <h5 class="modal-title"><i class="bi bi-link-45deg"></i> Link KML/KMZ file / ربط ملف KML/KMZ</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <label class="form-label">KML or KMZ file / ملف KML أو KMZ</label>
+                    <input type="file" name="kml_file" class="form-control" accept=".kml,.kmz" required>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-primary">
+                        <i class="bi bi-upload"></i> Link / ربط
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endif %}
+{% endfor %}
 {% else %}
 <div class="text-center py-5">
     <i class="bi bi-folder-x" style="font-size: 3rem; color: #ccc;"></i>

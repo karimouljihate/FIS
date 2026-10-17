@@ -1,24 +1,27 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from irrigation.extensions import mongo
-from irrigation.models import get_next_id, serialize_doc
+from irrigation.models import get_next_id, serialize_doc, assign_short_names
 from irrigation.engineering.regeneration import regenerate_sectors, regenerate_zones
 from irrigation.engineering.projection import projected_shape, get_project_centroid
 from irrigation.engineering.elevation import (
-    get_or_build_elevation_model, aspect_for_polygon, ORIENTATION_DEGREES)
+    get_or_build_elevation_model, aspect_for_polygon, ORIENTATION_DEGREES,
+    ORIENTATION_OPTIONS, COMPASS_POINTS, ORIENTATION_ALIASES)
 from shapely.geometry import shape
 import json
 
 geometry_bp = Blueprint('geometry', __name__)
 
-# Compass orientations accepted for zone.orientation.
-VALID_ORIENTATIONS = ('N', 'NE', 'E', 'ES', 'S', 'SW', 'W', 'WN')
+# Compass orientations accepted for zone/sector orientation: the 32 named
+# cardinal points of the compass rose.
+VALID_ORIENTATIONS = tuple(COMPASS_POINTS)
 
 
 def normalize_orientation(value):
-    """Return a valid compass point ('N'/'NE'/'E'/'ES'/'S'/'SW'/'W'/'WN') or None."""
+    """Return a valid 32-point compass code (e.g. 'NNE', 'SWbW') or None."""
     if isinstance(value, str):
         upper = value.strip().upper()
+        upper = ORIENTATION_ALIASES.get(upper, upper)
         if upper in VALID_ORIENTATIONS:
             return upper
     return None
@@ -88,7 +91,8 @@ def sectors_view(project_id):
 
     return render_template('geometry/sectors.html', project=project, sectors=sectors,
                            global_area_m2=global_area_m2,
-                           orientation_degrees=ORIENTATION_DEGREES)
+                           orientation_degrees=ORIENTATION_DEGREES,
+                           orientation_options=ORIENTATION_OPTIONS)
 
 
 @geometry_bp.route('/<int:project_id>/sectors/add', methods=['POST'])
@@ -465,6 +469,8 @@ def zones_view(project_id):
     if not project:
         return redirect(url_for('project.index'))
 
+    assign_short_names(project_id)
+
     sectors = list(mongo.db.sectors.find({'project_id': project_id}).sort('name_en', 1))
     zones = list(mongo.db.zones.find({'project_id': project_id}).sort('name_en', 1))
     for s in sectors + zones:
@@ -490,7 +496,7 @@ def zones_view(project_id):
     default_zones_per_sector = (project.get('spec') or {}).get('config', {}).get('zones_per_sector', 2)
     global_area_m2 = _global_area_m2(project, zones)
 
-    return render_template('geometry/zones.html', project=project, sectors=sectors, zones=zones, table_data=table_data, default_zones_per_sector=default_zones_per_sector, global_area_m2=global_area_m2, orientation_degrees=ORIENTATION_DEGREES)
+    return render_template('geometry/zones.html', project=project, sectors=sectors, zones=zones, table_data=table_data, default_zones_per_sector=default_zones_per_sector, global_area_m2=global_area_m2, orientation_degrees=ORIENTATION_DEGREES, orientation_options=ORIENTATION_OPTIONS)
 
 
 @geometry_bp.route('/<int:project_id>/zones/add', methods=['POST'])
@@ -777,6 +783,51 @@ def zone_ai_regenerate(project_id):
     zones = regenerate_zones(project_id, zones_per_sector=zones_per_sector,
                              use_elevation=use_elevation, orientation=orientation or None)
     flash(f'Auto Generated {len(zones)} zones / الذكاء الاصطناعي أنشأ {len(zones)} مناطق', 'success')
+    return redirect(url_for('geometry.zones_view', project_id=project_id))
+
+
+@geometry_bp.route('/<int:project_id>/zones/generate_for_sector', methods=['POST'])
+@login_required
+def zone_generate_for_sector(project_id):
+    """Split a single selected sector into N zones using terrain slope /
+    elevation and orientation (Auto Generate scoped to one sector)."""
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    sector_id = request.form.get('sector_id', type=int)
+    if not sector_id:
+        flash('No sector selected / لم يتم تحديد قطاع', 'warning')
+        return redirect(url_for('geometry.zones_view', project_id=project_id))
+
+    sector = mongo.db.sectors.find_one({'id': sector_id, 'project_id': project_id})
+    if not sector:
+        flash('Sector not found / القطاع غير موجود', 'danger')
+        return redirect(url_for('geometry.zones_view', project_id=project_id))
+
+    parts = request.form.get('parts', type=int) or 3
+    parts = max(2, min(parts, 8))
+    use_elevation = request.form.get('use_elevation') == '1'
+    orientation = normalize_orientation(request.form.get('orientation', ''))
+
+    # Remove only this sector's existing zones and their dependent data.
+    old_zone_ids = [z['id'] for z in mongo.db.zones.find(
+        {'project_id': project_id, 'sector_id': sector_id})]
+    if old_zone_ids:
+        mongo.db.tree_rows.delete_many({'project_id': project_id, 'zone_id': {'$in': old_zone_ids}})
+        mongo.db.trees.delete_many({'project_id': project_id, 'zone_id': {'$in': old_zone_ids}})
+        mongo.db.network_elements.delete_many({'project_id': project_id, 'zone_id': {'$in': old_zone_ids}})
+    mongo.db.zones.delete_many({'project_id': project_id, 'sector_id': sector_id})
+
+    zones = regenerate_zones(project_id, sector_id=sector_id,
+                             zones_per_sector=parts,
+                             use_elevation=use_elevation,
+                             orientation=orientation)
+    if zones:
+        flash(f'Sector split into {len(zones)} zones / تم تقسيم القطاع إلى {len(zones)} مناطق',
+              'success')
+    else:
+        flash('Could not split sector / تعذّر تقسيم القطاع', 'danger')
     return redirect(url_for('geometry.zones_view', project_id=project_id))
 
 @geometry_bp.route('/<int:project_id>/zones/validate', methods=['POST'])

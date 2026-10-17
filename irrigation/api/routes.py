@@ -1,7 +1,7 @@
 from flask import Blueprint, jsonify, request
 from flask_login import login_required, current_user
 from irrigation.extensions import mongo
-from irrigation.models import serialize_doc
+from irrigation.models import serialize_doc, assign_short_names
 import json
 
 api_bp = Blueprint('api', __name__, url_prefix='/api')
@@ -14,6 +14,8 @@ def get_geometry(project_id):
     project = mongo.db.projects.find_one({'id': project_id, 'user_id': int(current_user.id)})
     if not project:
         return jsonify({'error': 'Project not found'}), 404
+
+    assign_short_names(project_id)
 
     features = []
 
@@ -57,6 +59,7 @@ def get_geometry(project_id):
                 'properties': {
                     'name': zone.get('name_en', ''),
                     'name_ar': zone.get('name_ar', ''),
+                    'short_name': zone.get('short_name', ''),
                     'type': 'zone',
                     'color': '#ffc107',
                     'id': zone['id'],
@@ -90,6 +93,7 @@ def get_geometry(project_id):
                 'properties': {
                     'name': row.get('name_en', ''),
                     'name_ar': row.get('name_ar', ''),
+                    'short_name': row.get('short_name', ''),
                     'type': 'tree_row',
                     'color': '#6c757d',
                     'id': row['id'],
@@ -107,6 +111,7 @@ def get_geometry(project_id):
                 'properties': {
                     'name': tree.get('name_en', ''),
                     'name_ar': tree.get('name_ar', ''),
+                    'short_name': tree.get('short_name', ''),
                     'type': 'tree',
                     'color': '#28a745',
                     'id': tree['id'],

@@ -108,7 +108,6 @@
                 <li class="nav-item">
                     <span class="nav-link disabled" aria-disabled="true" title="Coming Soon">
                         <i class="bi bi-gear"></i> Components / المكونات
-                        <span class="badge text-bg-secondary rounded-pill ms-1">Coming Soon</span>
                     </span>
                 </li>
                 <li class="nav-item">
@@ -132,15 +131,9 @@
             </ul>
         </div>
     </nav>
-        {% if workflow_project_id or workflow_endpoint in ['project.index', 'project.create'] %}
+        {% if workflow_project_id %}
         {% set workflow_subnav = [] %}
-        {% if workflow_endpoint in ['project.index', 'project.create', 'project.detail'] %}
-            {% set workflow_subnav = [
-                ('project.create', url_for('project.create'), 'New / جديد', 'bi-file-earmark-plus', False),
-                ('project.index', url_for('project.index'), 'Load / تحميل', 'bi-folder2-open', False),
-                ('project.detail', url_for('project.detail', project_id=workflow_project_id) if workflow_project_id else None, 'Link / ربط', 'bi-link-45deg', False)
-            ] %}
-        {% elif workflow_endpoint in ['water.well', 'water.basin', 'water.other'] %}
+        {% if workflow_endpoint in ['water.well', 'water.basin', 'water.other'] %}
             {% set workflow_subnav = [
                 ('water.well', url_for('water.well', project_id=workflow_project_id), 'Well / بئر', 'bi-droplet', False),
                 ('water.basin', url_for('water.basin', project_id=workflow_project_id), 'Basin / حوض', 'bi-water', False),
@@ -187,7 +180,6 @@
                     {% else %}
                     <span class="nav-link disabled" aria-disabled="true" title="{% if sub_soon %}Coming Soon{% else %}Open a project first{% endif %}">
                         <i class="bi {{ sub_icon }}"></i> {{ sub_label }}
-                        {% if sub_soon %}<span class="badge text-bg-secondary rounded-pill ms-1">Coming Soon</span>{% endif %}
                     </span>
                     {% endif %}
                 </li>
@@ -244,7 +236,8 @@
     <div id="globalLoadingOverlay" class="global-loading-overlay" aria-hidden="true" aria-live="polite">
         <div class="global-loading-box">
             <img src="{{ url_for('static', filename='img/loading.gif') }}" alt="Working.... / جارٍ العمل" class="global-loading-gif">
-            <span class="global-loading-text">Working.... / جارٍ العمل</span>
+            <span class="global-loading-text"> جارٍ العمل</span>
+            <span class="global-loading-text">Working.... </span>
         </div>
     </div>
 
@@ -365,6 +358,9 @@
                 pendingAction = action;
                 modal.show();
             }
+
+            // Public API: confirmAction(message, onConfirm)
+            window.confirmAction = askForConfirmation;
 
             document.addEventListener('submit', (event) => {
                 const form = event.target;

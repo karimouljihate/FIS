@@ -50,8 +50,8 @@
                             </button>
                             {% endif %}
                             <button class="btn btn-circle btn-sm btn-warning" data-bs-toggle="modal"
-                                    data-bs-target="#aiGenerateModal" title="Auto Generate /_ENABLED">
-                                <i class="bi bi-robot"></i>
+                                    data-bs-target="#aiGenerateModal" title="Auto Generate / توليد تلقائي">
+                                <i class="bi bi-magic"></i>
                             </button>
                             <form method="POST" action="{{ url_for('geometry.sector_validate', project_id=project.id) }}" class="d-inline">
                                 <button type="submit" class="btn btn-circle btn-sm btn-primary" title="Validate /_ENABLED">
@@ -62,14 +62,14 @@
                     </tr>
                     <tr>
                         <th width="40" style="vertical-align: middle;"><input type="checkbox" id="selectAll" onclick="toggleAll(this)"></th>
-                        <th style="vertical-align: middle;">ID</th>
-                        <th style="vertical-align: middle;" aria-label="Name ar top / Name en bottom"><span class="ar-text">الاسم</span><br>Name</th>
-                        <th style="vertical-align: middle;" aria-label="Valid ar top / Valid en top"><span class="ar-text">مثبت</span><br>Valid</th>
-                        <th style="vertical-align: middle;" aria-label="Area ar top / Area en top"><span class="ar-text">المساحة</span><br>Area (m²)</th>
-                        <th style="vertical-align: middle;" aria-label="Percentage ar top / Percentage en top"><span class="ar-text">النسبة المئوية</span><br>Percentage (%)</th>
-                        <th style="vertical-align: middle;" aria-label="Orientation ar top / Orientation en top"><span class="ar-text">الاتجاه</span><br>Orientation</th>
-                        <th style="vertical-align: middle;" aria-label="Orientation° ar top / Orientation° en top"><span class="ar-text">الاتجاه</span><br>Orientation (°)</th>
-                        <th style="vertical-align: middle;" aria-label="Actions ar top / Actions en top"><span class="ar-text">إجراءات</span><br>Actions</th>
+                        <th style="text-align: center; vertical-align: middle;">ID</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Name ar top / Name en bottom"><span class="ar-text">الاسم</span><br>Name</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Valid ar top / Valid en top"><span class="ar-text">مثبت</span><br>Valid</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Area ar top / Area en top"><span class="ar-text">المساحة</span><br>Area (m²)</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Percentage ar top / Percentage en top"><span class="ar-text">النسبة المئوية</span><br>Percentage (%)</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Orientation ar top / Orientation en top"><span class="ar-text">الاتجاه</span><br>Orientation</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Orientation° ar top / Orientation° en top"><span class="ar-text">الاتجاه</span><br>Orientation (°)</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Actions ar top / Actions en top"><span class="ar-text">إجراءات</span><br>Actions</th>
                     </tr>
                 </tbody>
                 <tfoot class="table-light">
@@ -152,16 +152,12 @@
                                         </div>
                                         <div class="mb-3">
                                             <label class="form-label">Orientation / الاتجاه</label>
+                                            {% set s_orient = {'ES': 'SE', 'WN': 'NW'}.get(s.orientation, s.orientation) %}
                                             <select name="orientation" class="form-select">
                                                 <option value="auto"{% if not s.orientation %} selected{% endif %}>Auto (from slope) / تلقائي (من الميل)</option>
-                                                <option value="N"{% if s.orientation == 'N' %} selected{% endif %}>North / شمال</option>
-                                                <option value="NE"{% if s.orientation == 'NE' %} selected{% endif %}>North-East / شمال شرق</option>
-                                                <option value="E"{% if s.orientation == 'E' %} selected{% endif %}>East / شرق</option>
-                                                <option value="ES"{% if s.orientation == 'ES' %} selected{% endif %}>East-South / شرق جنوب</option>
-                                                <option value="S"{% if s.orientation == 'S' %} selected{% endif %}>South / جنوب</option>
-                                                <option value="SW"{% if s.orientation == 'SW' %} selected{% endif %}>South-West / جنوب غرب</option>
-                                                <option value="W"{% if s.orientation == 'W' %} selected{% endif %}>West / غرب</option>
-                                                <option value="WN"{% if s.orientation == 'WN' %} selected{% endif %}>West-North / غرب شمال</option>
+                                                {% for opt in orientation_options %}
+                                                <option value="{{ opt.code }}"{% if s_orient == opt.code %} selected{% endif %}>{{ opt.en }} / {{ opt.ar }}</option>
+                                                {% endfor %}
                                             </select>
                                         </div>
                                     </div>
@@ -274,14 +270,9 @@
                         <label class="form-label">Orientation / الاتجاه</label>
                         <select name="orientation" class="form-select">
                             <option value="auto" selected>Auto (from slope) / تلقائي (من الميل)</option>
-                            <option value="N">North / شمال</option>
-                            <option value="NE">North-East / شمال شرق</option>
-                            <option value="E">East / شرق</option>
-                            <option value="ES">East-South / شرق جنوب</option>
-                            <option value="S">South / جنوب</option>
-                            <option value="SW">South-West / جنوب غرب</option>
-                            <option value="W">West / غرب</option>
-                            <option value="WN">West-North / غرب شمال</option>
+                            {% for opt in orientation_options %}
+                            <option value="{{ opt.code }}">{{ opt.en }} / {{ opt.ar }}</option>
+                            {% endfor %}
                         </select>
                     </div>
                     <p class="text-muted small mt-2">
@@ -394,7 +385,7 @@
             <form method="POST" action="{{ url_for('geometry.sector_ai_regenerate', project_id=project.id) }}"
                 data-confirm="AI will rebuild all sectors, zones, network and trees using these parameters. Continue? / سيعيد الذكاء الاصطناعي بناء القطاعات والمناطق والشبكة والأشجار بناءً على هذه المعايير. متابعة؟">
                 <div class="modal-header bg-warning">
-                    <h5 class="modal-title"><i class="bi bi-robot"></i> Auto Generate Sectors / إنشاء القطاعات بالذكاء الاصطناعي</h5>
+                    <h5 class="modal-title"><i class="bi bi-magic"></i> Auto Generate Sectors / إنشاء القطاعات بالذكاء الاصطناعي</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
@@ -498,7 +489,7 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
                     <button type="submit" class="btn btn-warning">
-                        <i class="bi bi-robot"></i> Generate / إنشاء
+                        <i class="bi bi-magic"></i> Generate / إنشاء
                     </button>
                 </div>
             </form>

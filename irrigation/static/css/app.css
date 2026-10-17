@@ -806,6 +806,28 @@ body.map-fullscreen-lock {
     opacity: 0.85;
 }
 
+.map-feature-label {
+    pointer-events: none;
+    background: rgba(255, 255, 255, 0.9);
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    padding: 1px 6px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1.3;
+    color: #212529;
+    white-space: nowrap;
+    text-align: center;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+}
+
+.map-feature-label .map-label-ar {
+    display: block;
+    font-size: 10px;
+    font-weight: 500;
+    color: #495057;
+}
+
 .geometry-map-actions {
     margin-top: 6px;
 }
@@ -824,8 +846,44 @@ body.map-fullscreen-lock {
     cursor: not-allowed;
 }
 
+/* Map label categories widget (Sector / Zone / Row / Tree) */
+.map-label-toggle {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 4px;
+    border-radius: 18px;
+}
+
+.map-label-toggle-button {
+    width: 30px;
+    height: 30px;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: 50%;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+}
+
 .geometry-map-select-mode .leaflet-interactive {
     cursor: pointer;
+}
+
+.geometry-sector-pick-mode .leaflet-interactive {
+    cursor: crosshair;
+}
+
+.geometry-sector-widget .geometry-sector-pick-button.active {
+    background: var(--pal-green, var(--bs-primary));
+    color: var(--pal-ink, #fff);
+}
+
+.geometry-sector-widget .geometry-sector-action-button i.bi-magic {
+    color: #6f42c1;
+}
+
+.geometry-sector-widget .geometry-sector-action-button:disabled i.bi-magic {
+    color: inherit;
 }
 
 #map {
@@ -865,6 +923,42 @@ body.map-fullscreen-lock {
 /* Table styling */
 .table th {
     background-color: #f8f9fa;
+}
+
+/* Zones table: fit all columns to the table width (no horizontal scroll) */
+.geometry-zones-table {
+    table-layout: fixed;
+    width: 100%;
+}
+
+.geometry-zones-table th,
+.geometry-zones-table td {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+    vertical-align: middle;
+}
+
+.zone-empty-banner {
+    background-color: #f8f9fa;
+    border: 1px dashed #ced4da;
+    border-radius: 0.5rem;
+    color: #6c757d;
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+}
+
+/* Pipe rules info card (grey) */
+.pipe-rules-card {
+    border: 1px solid #ced4da;
+}
+
+.pipe-rules-card .rules-toggle .bi-chevron-up {
+    transition: transform .2s ease;
+    display: inline-block;
+}
+
+.pipe-rules-card .rules-toggle[aria-expanded="false"] .bi-chevron-up {
+    transform: rotate(180deg);
 }
 
 /* Badge styling */
@@ -973,6 +1067,43 @@ body.map-fullscreen-lock {
     flex-shrink: 0; /* never compress — always fully visible */
 }
 
+/* ── Tree setup modal: scrollable body, always-visible footer ─────────────────
+   The <form> wraps header/body/footer, so Bootstrap's modal-dialog-scrollable
+   (which expects body as a direct child of modal-content) cannot bound the
+   body height. Make content → form → body a flex chain and scroll the body.
+   ──────────────────────────────────────────────────────────────────────────── */
+#treeSetupModal .modal-dialog {
+    max-height: calc(100dvh - 120px); /* navbar≈60px + footer≈44px + 16px air */
+    margin-top: 16px;
+    margin-bottom: 60px; /* clears fixed footer */
+}
+
+#treeSetupModal .modal-content {
+    max-height: calc(100dvh - 120px);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+#treeSetupModal .modal-content > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+}
+
+#treeSetupModal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+#treeSetupModal .modal-footer {
+    flex-shrink: 0; /* never compress — always fully visible */
+}
+
 /* Bilingual toggle for the whole page */
 .page-rtl {
     direction: rtl;
@@ -1012,6 +1143,55 @@ body.map-fullscreen-lock {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+}
+
+.zone-search {
+  position: relative;
+  min-width: 260px;
+  max-width: 380px;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.zone-search-field {
+  position: relative;
+  flex: 1 1 auto;
+  display: flex;
+}
+
+.zone-search .zone-search-input {
+  flex: 1 1 auto;
+  padding-right: 6.75rem;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-radius: 20px;
+}
+
+.zone-search-suffix {
+  position: absolute;
+  top: 50%;
+  right: 0.5rem;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.zone-row-count {
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.zone-search-clear {
+  border: 0;
+  background: transparent;
+  padding: 0 0.125rem;
+  line-height: 1;
+  color: var(--bs-secondary-color);
+}
+
+.zone-search-clear:hover {
+  color: var(--bs-body-color);
 }
 
 .global-loading-overlay {
@@ -1065,3 +1245,499 @@ body.map-fullscreen-lock {
   letter-spacing: 0.02em;
 }
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   PASTEL THEME — gradient tendency from green to brown
+   Applied on top of the Bootswatch Journal / Bootstrap 5.3 theme.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+:root {
+    /* Ramp: green (1) → brown (9), all soft & desaturated pastels */
+    --pal-green:      #9fbf8d;
+    --pal-green-2:    #b2c795;
+    --pal-sage:       #c3cd9d;
+    --pal-olive:      #d2d2a3;
+    --pal-wheat:      #ded0a6;
+    --pal-sand:       #e2c6a3;
+    --pal-almond:     #d6b489;
+    --pal-tan:        #c19f72;
+    --pal-brown:      #a9855a;
+
+    /* Surfaces, ink (text) and borders */
+    --pal-cream:      #f8f5ec;
+    --pal-cream-2:    #f1ecdd;
+    --pal-ink:        #45402f;
+    --pal-ink-soft:   #6a6350;
+    --pal-border:     #e0d9c4;
+    --pal-olive-deep: #6b7a44;   /* accessible green for text/links */
+
+    /* Map the palette onto Bootstrap theme roles.
+       Pastel backgrounds live here; text that sits on them is forced dark
+       further down (see the .bg-*.text-white rules). */
+    --bs-primary:        #9fbf8d;
+    --bs-primary-rgb:    159, 191, 141;
+    --bs-secondary:      #c19f72;
+    --bs-secondary-rgb:  193, 159, 114;
+    --bs-success:        #8fae74;
+    --bs-success-rgb:    143, 174, 116;
+    --bs-info:           #b2c795;
+    --bs-info-rgb:       178, 199, 149;
+    --bs-warning:        #e2c6a3;
+    --bs-warning-rgb:    226, 198, 163;
+    --bs-danger:         #c98b7a;
+    --bs-danger-rgb:     201, 139, 122;
+    --bs-light:          #f8f5ec;
+    --bs-light-rgb:      248, 245, 236;
+    --bs-dark:           #7a6a4f;
+    --bs-dark-rgb:       122, 106, 79;
+
+    --bs-body-bg:        var(--pal-cream);
+    --bs-body-color:     var(--pal-ink);
+    --bs-border-color:   var(--pal-border);
+    --bs-link-color:     var(--pal-olive-deep);
+    --bs-link-color-rgb: 107, 122, 68;
+    --bs-link-hover-color: #8a6d3f;
+}
+
+body {
+    background-color: var(--pal-cream);
+    color: var(--pal-ink);
+}
+
+/* ── Navbar: soft green bar with dark ink text ───────────────────────────── */
+.navbar-dark {
+    --bs-navbar-color:          rgba(69, 64, 47, 0.85);
+    --bs-navbar-hover-color:    var(--pal-ink);
+    --bs-navbar-active-color:   var(--pal-ink);
+    --bs-navbar-brand-color:    var(--pal-ink);
+    --bs-navbar-brand-hover-color: #322f22;
+    --bs-navbar-toggler-border-color: rgba(69, 64, 47, 0.3);
+    --bs-navbar-toggler-icon-bg: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 30 30'%3e%3cpath stroke='%2345402f' stroke-linecap='round' stroke-miterlimit='10' stroke-width='2' d='M4 7h22M4 15h22M4 23h22'/%3e%3c/svg%3e");
+}
+
+.navbar.bg-primary {
+    background-image: linear-gradient(90deg, var(--pal-green), var(--pal-sage) 55%, var(--pal-almond)) !important;
+}
+
+/* ── Footer: green → brown gradient ──────────────────────────────────────── */
+footer {
+    background: linear-gradient(90deg, var(--pal-green-2), var(--pal-tan));
+    color: var(--pal-ink);
+}
+
+.version-badge {
+    background-color: rgba(69, 64, 47, 0.15);
+    color: var(--pal-ink);
+}
+
+/* ── Dark ink for text placed on pastel backgrounds ──────────────────────── */
+.bg-primary.text-white,
+.bg-secondary.text-white,
+.bg-success.text-white,
+.bg-info.text-white,
+.bg-warning.text-white,
+.bg-danger.text-white,
+.bg-primary .text-white,
+.bg-secondary .text-white,
+.bg-success .text-white,
+.bg-info .text-white,
+.bg-warning .text-white,
+.bg-danger .text-white {
+    color: var(--pal-ink) !important;
+}
+
+/* ── Badges ──────────────────────────────────────────────────────────────── */
+.badge {
+    color: var(--pal-ink);
+}
+
+.badge.bg-dark,
+.badge.bg-danger {
+    color: #fff;
+}
+
+/* ── Buttons: pastel surfaces with ink text ──────────────────────────────── */
+.btn-primary,
+.btn-secondary,
+.btn-success,
+.btn-info,
+.btn-warning,
+.btn-danger,
+.btn-light {
+    --bs-btn-color: var(--pal-ink);
+    --bs-btn-hover-color: var(--pal-ink);
+    --bs-btn-active-color: var(--pal-ink);
+    --bs-btn-disabled-color: var(--pal-ink);
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--pal-green);
+    --bs-btn-border-color: var(--pal-green);
+    --bs-btn-hover-bg: var(--pal-green-2);
+    --bs-btn-hover-border-color: var(--pal-green-2);
+    --bs-btn-active-bg: var(--pal-sage);
+    --bs-btn-active-border-color: var(--pal-sage);
+    --bs-btn-disabled-bg: var(--pal-green);
+    --bs-btn-disabled-border-color: var(--pal-green);
+}
+
+.btn-secondary {
+    --bs-btn-bg: var(--pal-almond);
+    --bs-btn-border-color: var(--pal-almond);
+    --bs-btn-hover-bg: var(--pal-sand);
+    --bs-btn-hover-border-color: var(--pal-sand);
+    --bs-btn-active-bg: var(--pal-tan);
+    --bs-btn-active-border-color: var(--pal-tan);
+    --bs-btn-disabled-bg: var(--pal-almond);
+    --bs-btn-disabled-border-color: var(--pal-almond);
+}
+
+.btn-success {
+    --bs-btn-bg: var(--pal-green-2);
+    --bs-btn-border-color: var(--pal-green-2);
+    --bs-btn-hover-bg: var(--pal-green);
+    --bs-btn-hover-border-color: var(--pal-green);
+    --bs-btn-active-bg: var(--pal-sage);
+    --bs-btn-active-border-color: var(--pal-sage);
+    --bs-btn-disabled-bg: var(--pal-green-2);
+    --bs-btn-disabled-border-color: var(--pal-green-2);
+}
+
+.btn-info {
+    --bs-btn-bg: var(--pal-sage);
+    --bs-btn-border-color: var(--pal-sage);
+    --bs-btn-hover-bg: var(--pal-olive);
+    --bs-btn-hover-border-color: var(--pal-olive);
+    --bs-btn-active-bg: var(--pal-wheat);
+    --bs-btn-active-border-color: var(--pal-wheat);
+    --bs-btn-disabled-bg: var(--pal-sage);
+    --bs-btn-disabled-border-color: var(--pal-sage);
+}
+
+.btn-warning {
+    --bs-btn-bg: var(--pal-wheat);
+    --bs-btn-border-color: var(--pal-wheat);
+    --bs-btn-hover-bg: var(--pal-sand);
+    --bs-btn-hover-border-color: var(--pal-sand);
+    --bs-btn-active-bg: var(--pal-almond);
+    --bs-btn-active-border-color: var(--pal-almond);
+    --bs-btn-disabled-bg: var(--pal-wheat);
+    --bs-btn-disabled-border-color: var(--pal-wheat);
+}
+
+.btn-danger {
+    --bs-btn-bg: #c98b7a;
+    --bs-btn-border-color: #c98b7a;
+    --bs-btn-hover-bg: #bd7a68;
+    --bs-btn-hover-border-color: #bd7a68;
+    --bs-btn-active-bg: #a76b5a;
+    --bs-btn-active-border-color: #a76b5a;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+.table th {
+    background-color: var(--pal-cream-2);
+    color: var(--pal-ink);
+}
+
+.table {
+    --bs-table-color: var(--pal-ink);
+    --bs-table-border-color: var(--pal-border);
+}
+
+/* ── Cards ───────────────────────────────────────────────────────────────── */
+.card {
+    border-color: var(--pal-border);
+}
+
+.card-header {
+    border-bottom-color: var(--pal-border);
+}
+
+/* ── Workflow tab navigation ─────────────────────────────────────────────── */
+.project-workflow-nav {
+    background-color: var(--pal-cream);
+    border-bottom-color: var(--pal-border);
+}
+
+.project-workflow-nav .nav-link {
+    color: var(--pal-ink);
+    background-color: var(--pal-cream-2);
+    border-color: var(--pal-border);
+    border-bottom-color: var(--pal-sage);
+}
+
+.project-workflow-nav .nav-link.active {
+    color: var(--pal-ink);
+    background-color: var(--pal-green);
+    border-color: var(--pal-green);
+    border-bottom-color: var(--pal-tan);
+}
+
+.project-workflow-nav .nav-link.disabled {
+    color: var(--pal-ink-soft);
+    background-color: var(--pal-cream-2);
+    border-color: var(--pal-border);
+}
+
+.project-workflow-subnav {
+    background-color: var(--pal-cream-2);
+    border-bottom-color: var(--pal-border);
+}
+
+/* ── Text accents ────────────────────────────────────────────────────────── */
+.text-primary {
+    color: var(--pal-olive-deep) !important;
+}
+
+/* ── Map controls ────────────────────────────────────────────────────────── */
+.map-fullscreen-btn {
+    color: var(--pal-olive-deep);
+    border-color: currentColor;
+    background: transparent;
+}
+
+.map-fullscreen-btn:hover,
+.map-fullscreen-btn:focus,
+.map-fullscreen-btn.active {
+    background-color: var(--pal-green);
+    color: var(--pal-ink);
+}
+
+.geometry-map-select-button.active,
+.leaflet-draw-toolbar a.geometry-ruler-button.active {
+    background: var(--pal-green);
+    color: var(--pal-ink);
+}
+
+.map-legend {
+    background: var(--pal-cream);
+    border: 1px solid var(--pal-border);
+}
+
+/* North indicator: always-visible compass on every map */
+.leaflet-north-indicator {
+    position: relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    background: var(--pal-cream);
+    border: 1px solid var(--pal-border);
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.25);
+    margin-bottom: 6px;
+}
+
+.leaflet-north-indicator .north-needle {
+    position: absolute;
+    top: 5px;
+    left: calc(50% - 6px);
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-bottom: 15px solid var(--pal-danger, #c98b7a);
+    transform-origin: 6px 17px;
+}
+
+.leaflet-north-indicator .north-needle::after {
+    content: "";
+    position: absolute;
+    top: 15px;
+    left: -6px;
+    width: 0;
+    height: 0;
+    border-left: 6px solid transparent;
+    border-right: 6px solid transparent;
+    border-top: 8px solid var(--pal-olive-deep);
+}
+
+.leaflet-north-indicator .north-label {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 2px;
+    text-align: center;
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--pal-olive-deep);
+}
+
+.zone-empty-banner {
+    background-color: var(--pal-cream-2);
+    border-color: var(--pal-border);
+    color: var(--pal-ink-soft);
+}
+
+/* ── Loading overlay ─────────────────────────────────────────────────────── */
+.global-loading-overlay {
+    background: rgba(248, 245, 236, 0.6);
+}
+
+.global-loading-box {
+    background: rgba(248, 245, 236, 0.95);
+    box-shadow: 0 12px 40px rgba(159, 191, 141, 0.35);
+}
+
+.global-loading-text {
+    color: var(--pal-olive-deep);
+}
+
+.input-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+
+    .input-wrapper input {
+        padding-right: 40px;
+    }
+
+    .input-wrapper button {
+        position: absolute;
+        top: 0;
+        right: 0;
+        border: none;
+        background-color: transparent;
+        cursor: pointer;
+    }
+
+.fileupload-wrapper {
+    position: relative;
+    display: inline-block;
+}
+
+.fileupload-wrapper input {
+    padding-right: 40px;
+}
+
+.fileupload-wrapper button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    border: 1px solid #9fbf8d;
+    background-color: #9fbf8d;
+    border-radius: 20px;
+    cursor: pointer;
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.35),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+        0 4px 8px rgba(0, 0, 0, 0.2);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.fileupload-wrapper .btn-success:hover {
+    transform: translateY(-2px);
+    box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.45),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.25),
+        0 6px 12px rgba(0, 0, 0, 0.25);
+}
+
+.fileupload-wrapper .btn-success:active {
+    transform: translateY(1px);
+    box-shadow:
+        inset 0 2px 5px rgba(0, 0, 0, 0.35),
+        0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+/* ===== Tree Setup modal (Trees page) ===== */
+.tree-setup-scroll {
+  max-height: 62vh;
+  overflow-y: auto;
+  padding-right: 0.25rem;
+}
+
+.zone-setup-sector {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.85rem 0.15rem 0.45rem;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
+.zone-setup-sector:first-child {
+  margin-top: 0;
+}
+
+.zone-setup-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 0.75rem;
+}
+
+.zone-setup-card {
+  border: 1px solid var(--bs-border-color);
+  border-radius: 0.5rem;
+  background: var(--bs-body-bg);
+  overflow: hidden;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.zone-setup-card.zone-setup-invalid {
+  border-color: var(--bs-danger);
+  box-shadow: 0 0 0 0.15rem rgba(var(--bs-danger-rgb), 0.12);
+}
+
+.zone-setup-head {
+  padding: 0.6rem 0.75rem;
+  background: var(--bs-tertiary-bg);
+  border-bottom: 1px solid var(--bs-border-color);
+}
+
+.zone-setup-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+
+.zone-setup-code {
+  font-size: 0.72rem;
+  padding: 0.05rem 0.35rem;
+}
+
+.zone-setup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 0.6rem;
+}
+
+.zone-setup-meta-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.zone-setup-meta-item input {
+  width: 5.25rem;
+}
+
+.zone-setup-sum {
+  margin-left: auto;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.zone-setup-varieties th {
+  padding: 0.3rem 0.5rem;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: var(--bs-secondary-color);
+}
+
+.zone-setup-varieties td {
+  padding: 0.3rem 0.5rem;
+  vertical-align: middle;
+}
+
+.zone-setup-varieties .input-group-text {
+  padding: 0 0.4rem;
+}

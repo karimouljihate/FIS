@@ -3,7 +3,8 @@ from flask_login import login_required, current_user
 from irrigation.extensions import mongo
 from irrigation.models import get_next_id
 from irrigation.engineering.piping import generate_piping_structure
-from irrigation.engineering.hydraulics import calculate_pipe_length_m
+from irrigation.engineering.hydraulics import (
+    calculate_pipe_length_m, main_pipe_rules, second_pipe_rules, zone_pipe_rules)
 from irrigation.engineering.projection import get_project_centroid
 import json
 
@@ -70,7 +71,7 @@ def main_pipe(project_id):
 
     piping_report = mongo.db.piping_reports.find_one({'project_id': project_id})
 
-    return render_template('hydrology/main_pipe.html', project=project, sectors=sectors, zones=zones, main_pipes=main_pipes, water_source=water_source, piping_report=piping_report)
+    return render_template('hydrology/main_pipe.html', project=project, sectors=sectors, zones=zones, main_pipes=main_pipes, water_source=water_source, piping_report=piping_report, pipe_rules=main_pipe_rules())
 
 
 @hydrology_bp.route('/<int:project_id>/main_pipe/add', methods=['POST'])
@@ -138,7 +139,8 @@ def second_pipe(project_id):
     piping_report = mongo.db.piping_reports.find_one({'project_id': project_id})
 
     return render_template('hydrology/second_pipe.html', project=project, zones=zones,
-                           second_pipes=second_pipes, piping_report=piping_report)
+                           second_pipes=second_pipes, piping_report=piping_report,
+                           pipe_rules=second_pipe_rules())
 
 
 @hydrology_bp.route('/<int:project_id>/second_pipe/add', methods=['POST'])
@@ -272,7 +274,7 @@ def sub_pipe(project_id):
 
     piping_report = mongo.db.piping_reports.find_one({'project_id': project_id})
 
-    return render_template('hydrology/sub_pipe.html', project=project, zones=zones, sub_pipes=sub_pipes, piping_report=piping_report)
+    return render_template('hydrology/sub_pipe.html', project=project, zones=zones, sub_pipes=sub_pipes, piping_report=piping_report, pipe_rules=zone_pipe_rules())
 
 
 @hydrology_bp.route('/<int:project_id>/sub_pipe/add', methods=['POST'])

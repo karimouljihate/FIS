@@ -21,56 +21,64 @@
     الأشجار تتبع مسار الصفوف. حدد المسافة بين الأشجار ونوع الشجرة. سيكون لكل شجرة قطاعتان.
 </div>
 
-<!-- Generate Trees -->
-<div class="card shadow-sm mb-4">
-    <div class="card-header bg-success text-white">
-        <h5 class="mb-0"><i class="bi bi-magic"></i> Generate Trees from Rows / إنشاء الأشجار من الصفوف</h5>
-    </div>
-    <div class="card-body">
-        <form method="POST" action="{{ url_for('trees.trees_generate', project_id=project.id) }}">
-            <div class="row align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label">Spacing (m) / المسافة بين الأشجار</label>
-                    <input type="number" step="0.5" name="spacing" class="form-control" value="4" min="1">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Tree Variety (EN) / نوع الشجرة</label>
-                    <input type="text" name="variety" class="form-control" value="Olive">
-                </div>
-                <div class="col-md-3">
-                    <label class="form-label">Tree Variety (AR) / نوع الشجرة</label>
-                    <input type="text" name="variety_ar" class="form-control" value="زيتون">
-                </div>
-                <div class="col-md-3">
-                        <button type="submit" class="btn btn-success w-100"
-                            data-confirm="This will replace all existing trees. Continue? / سيستبدل هذا جميع الأشجار الموجودة. متابعة؟">
-                        <i class="bi bi-magic"></i> Generate / إنشاء
-                    </button>
-                </div>
-            </div>
-        </form>
-    </div>
-</div>
-
 <!-- Trees Table -->
-<div class="mb-3">
-    <button class="btn btn-circle btn-outline-danger" id="treeRemoveBtn" type="button"
-            onclick="treesRemoveSelected()" title="Remove / إزالة">
-        <i class="bi bi-trash"></i>
-    </button>
-    <form method="POST" id="removeTreesForm"
-          action="{{ url_for('trees.trees_remove', project_id=project.id) }}" class="d-none"></form>
-</div>
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover table-sm mb-0">
+            <table class="table table-hover table-sm mb-0" id="treesTable">
                 <thead>
+                    <tr class="table-light">
+                        <th colspan="10" class="text-center">
+                            <button class="btn btn-circle btn-outline-success" id="treeSetupBtn" type="button"
+                                    data-bs-toggle="modal" data-bs-target="#treeSetupModal" title="Tree Setup / إعداد الشجرة">
+                                <i class="bi bi-tree"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-primary" id="treeAddBtn" type="button" title="Add / إضافة">
+                                <i class="bi bi-plus"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-primary" id="treeEditBtn" type="button" title="Edit / تعديل">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-danger" id="treeRemoveBtnHeader" type="button"
+                                    onclick="treesRemoveSelected()" title="Remove / إزالة">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                            <button class="btn btn-circle btn-outline-danger" id="treeDeleteAllBtn" type="button"
+                                    onclick="treesDeleteAllConfirm()" title="Delete All / حذف الكل">
+                                <i class="bi bi-trash2"></i>
+                            </button>
+                            <button class="btn btn-circle btn-warning" id="treeGenerateBtn" type="button"
+                                    title="Generate / إنشاء">
+                                <i class="bi bi-magic"></i>
+                            </button>
+                            <button class="btn btn-circle btn-primary" id="treeValidateBtn" type="button"
+                                    title="Validate / التحقق">
+                                <i class="bi bi-check-circle"></i>
+                            </button>
+                        </th>
+                    </tr>
+                    <tr class="table-light">
+                        <th colspan="10" class="text-center align-middle">
+                            <div class="input-group input-group-sm tree-search">
+                                <div class="zone-search-field">
+                                    <input type="text" id="treeSearch" class="form-control tree-search-input"
+                                           placeholder="Filter trees / تصفية الأشجار" autocomplete="off">
+                                    <div class="zone-search-suffix">
+                                        <span class="badge rounded-pill text-bg-secondary tree-row-count" id="treeRowCount"
+                                              title="Selected / found trees / الأشجار المحددة من إجمالي النتائج">0/0</span>
+                                        <button type="button" class="tree-search-clear d-none" id="treeSearchClear"
+                                                aria-label="Clear / مسح"><i class="bi bi-x-lg"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+                    </tr>
                     <tr>
                         <th width="40"><input type="checkbox" id="selectAllTrees" onclick="toggleAllTrees(this)"></th>
                         <th>ID</th>
                         <th>Name</th>
                         <th>Row</th>
+                        <th class="text-center"> الاسم المختصر <br>Short Name</th>
                         <th>Variety (EN)</th>
                         <th>Variety (AR)</th>
                         <th>Spacing (m)</th>
@@ -85,6 +93,7 @@
                         <td>{{ t.id }}</td>
                         <td>{{ t.name_en }}</td>
                         <td>{{ t.row_id }}</td>
+                        <td class="text-center"><code>{{ t.short_name }}</code></td>
                         <td>{{ t.variety_en }}</td>
                         <td class="ar-text">{{ t.variety_ar }}</td>
                         <td>{{ t.spacing_m }} m</td>
@@ -98,10 +107,32 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="9" class="text-center text-muted py-3">No trees yet / لا توجد أشجار</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted py-3">No trees yet / لا توجد أشجار</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- Delete All Trees Modal -->
+<div class="modal fade" id="deleteAllTreesModal" tabindex="-1" aria-labelledby="deleteAllTreesTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" id="deleteAllTreesForm" action="{{ url_for('trees.trees_remove', project_id=project.id) }}">
+                <div class="modal-header bg-danger text-white">
+                    <h5 class="modal-title" id="deleteAllTreesTitle"><i class="bi bi-trash2-fill"></i> Delete All Trees / حذف جميع الأشجار</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="mb-3">Are you sure you want to delete all trees? This action cannot be undone.</p>
+                    <p class="mb-0">هل أنت متأكد أنك تريد حذف جميع الأشجار؟ لا يمكن التراجع عن هذا الإجراء.</p>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-danger"><i class="bi bi-trash2-fill"></i> Delete All / حذف الكل</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -110,14 +141,7 @@
 <p class="text-muted small mt-2">Showing first 100 of {{ trees|length }} trees / عرض أول 100 من {{ trees|length }} شجرة</p>
 {% endif %}
 
-<!-- Validate -->
-<div class="mt-3">
-    <form method="POST" action="{{ url_for('trees.trees_validate', project_id=project.id) }}">
-        <button type="submit" class="btn btn-primary">
-            <i class="bi bi-check-circle"></i> Validate & Continue / التحقق والمتابعة
-        </button>
-    </form>
-</div>
+
 
 <!-- Map -->
 <div class="card shadow-sm mt-4">
@@ -146,12 +170,15 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     updateTreesToolbar();
+    setupTreeSearch();
 });
 
 function updateTreesToolbar() {
     const count = document.querySelectorAll('.tree-checkbox:checked').length;
     const removeBtn = document.getElementById('treeRemoveBtn');
+    const removeBtnHeader = document.getElementById('treeRemoveBtnHeader');
     if (removeBtn) removeBtn.disabled = count === 0;
+    if (removeBtnHeader) removeBtnHeader.disabled = count === 0;
 }
 
 function toggleAllTrees(source) {
@@ -187,6 +214,57 @@ function treesRemoveSelected() {
     } else if (window.confirm('Delete ' + nameEn + ' ?')) {
         doSubmit();
     }
+}
+function setupTreeSearch() {
+    const input = document.getElementById('treeSearch');
+    if (!input) return;
+    const clearBtn = document.getElementById('treeSearchClear');
+    const badge = document.getElementById('treeRowCount');
+
+    function applyFilter() {
+        const query = input.value.trim().toLowerCase();
+        if (clearBtn) clearBtn.classList.toggle('d-none', !query);
+        let total = 0;
+        let selected = 0;
+        document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
+            if (!tr.querySelector('.tree-checkbox')) return;
+            const text = tr.textContent.toLowerCase();
+            const visible = text.indexOf(query) !== -1;
+            tr.style.display = visible ? '' : 'none';
+            if (visible) {
+                total += 1;
+                if (tr.querySelector('.tree-checkbox').checked) selected += 1;
+            }
+        });
+        if (badge) {
+            badge.textContent = selected + '/' + total;
+            badge.classList.toggle('text-bg-primary', selected > 0);
+            badge.classList.toggle('text-bg-secondary', selected === 0);
+        }
+    }
+
+    input.addEventListener('input', applyFilter);
+    input.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            input.value = '';
+            applyFilter();
+        }
+    });
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            input.value = '';
+            applyFilter();
+            input.focus();
+        });
+    }
+}
+function treesDeleteAll() {
+    treesDeleteAllConfirm();
+}
+
+function treesDeleteAllConfirm() {
+    const modal = new bootstrap.Modal(document.getElementById('deleteAllTreesModal'));
+    modal.show();
 }
 </script>
 {% endblock %}

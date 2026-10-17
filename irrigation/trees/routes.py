@@ -1,9 +1,10 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, jsonify
 from flask_login import login_required, current_user
 from irrigation.extensions import mongo
-from irrigation.models import get_next_id
+from irrigation.models import get_next_id, assign_short_names
 import json
 import math
+import re
 
 trees_bp = Blueprint('trees', __name__)
 
@@ -24,18 +25,22 @@ def _principal_axis_angle(poly):
     return 0.5 * math.atan2(2 * cov_xy, cov_xx - cov_yy)
 
 
-def _trace_rows_in_poly(poly, spacing_m):
+def _trace_rows_in_poly(poly, spacing_m, angle_deg=None):
     """Trace parallel rows inside a projected polygon along its dominant axis.
 
+    ``angle_deg`` forces the row direction (degrees) instead of the dominant axis.
     Returns a list of ``(LineString, orientation_deg)`` pairs.
     """
     from shapely.geometry import LineString
     parts = poly.geoms if poly.geom_type == 'MultiPolygon' else [poly]
+    forced = None if angle_deg is None else math.radians(angle_deg)
     rows = []
     for part in parts:
-        angle = _principal_axis_angle(part)
+        angle = forced if forced is not None else _principal_axis_angle(part)
         ux, uy = math.cos(angle), math.sin(angle)
         nx, ny = -uy, ux
+        origin = part.centroid
+        origin_n = origin.x * nx + origin.y * ny
         minx, miny, maxx, maxy = part.bounds
         corners = [(minx, miny), (minx, maxy), (maxx, miny), (maxx, maxy)]
         tvals = [c[0] * nx + c[1] * ny for c in corners]
@@ -43,9 +48,10 @@ def _trace_rows_in_poly(poly, spacing_m):
         half = math.hypot(maxx - minx, maxy - miny) * 2.0
         t = tmin
         while t <= tmax + 1e-9:
+            offset = t - origin_n
             line = LineString([
-                (t * nx - half * ux, t * ny - half * uy),
-                (t * nx + half * ux, t * ny + half * uy),
+                (origin.x + offset * nx - half * ux, origin.y + offset * ny - half * uy),
+                (origin.x + offset * nx + half * ux, origin.y + offset * ny + half * uy),
             ])
             inter = part.intersection(line)
             segs = inter.geoms if inter.geom_type in ('MultiLineString', 'GeometryCollection') else [inter]
@@ -67,6 +73,19 @@ def get_project_or_redirect(project_id):
 
 # === ROWS ===
 
+_SHORT_NAME_PARTS = re.compile(r'(\d+)')
+
+
+def _short_name_key(row):
+    """Natural sort key so ``S1Z1R2`` sorts before ``S1Z1R10``."""
+    parts = []
+    for chunk in _SHORT_NAME_PARTS.split(row.get('short_name') or ''):
+        if not chunk:
+            continue
+        parts.append((0, int(chunk)) if chunk.isdigit() else (1, chunk.lower()))
+    return (parts, row.get('id') or 0)
+
+
 @trees_bp.route('/<int:project_id>/rows')
 @login_required
 def rows_view(project_id):
@@ -74,19 +93,33 @@ def rows_view(project_id):
     if not project:
         return redirect(url_for('project.index'))
 
+    assign_short_names(project_id)
+
     zones = list(mongo.db.zones.find({'project_id': project_id}))
     for z in zones:
         z['_id'] = str(z['_id'])
     zone_by_id = {z['id']: z for z in zones}
 
-    rows = list(mongo.db.tree_rows.find({'project_id': project_id}).sort('id', 1))
+    zone_options = [
+        {
+            'id': z.get('id'),
+            'code': z.get('short_name') or '',
+            'en': z.get('name_en') or '',
+            'ar': z.get('name_ar') or '',
+        }
+        for z in zones
+    ]
+    zone_options.sort(key=lambda z: _short_name_key({'short_name': z['code'], 'id': z['id']}))
+
+    rows = list(mongo.db.tree_rows.find({'project_id': project_id}))
+    rows.sort(key=_short_name_key)
     for r in rows:
         r['_id'] = str(r['_id'])
         zz = zone_by_id.get(r.get('zone_id'))
         r['zone_name_en'] = zz['name_en'] if zz else f"Zone {r.get('zone_id')}"
         r['zone_name_ar'] = zz['name_ar'] if zz else ''
 
-    return render_template('trees/rows.html', project=project, rows=rows)
+    return render_template('trees/rows.html', project=project, rows=rows, zone_options=zone_options)
 
 
 @trees_bp.route('/<int:project_id>/rows/add', methods=['POST'])
@@ -181,6 +214,132 @@ def rows_generate(project_id):
     return redirect(url_for('trees.rows_view', project_id=project_id))
 
 
+@trees_bp.route('/<int:project_id>/rows/change-orientation', methods=['POST'])
+@login_required
+def rows_change_orientation(project_id):
+    """Rotate the row direction of every zone behind the selected rows."""
+    payload = request.get_json(silent=True) or {}
+    raw_ids = payload.get('row_ids')
+    if raw_ids is None:
+        raw_ids = request.form.getlist('row_ids')
+
+    raw_angle = payload.get('angle')
+    if raw_angle is None:
+        raw_angle = request.form.get('angle')
+    try:
+        forced_angle = None if raw_angle in (None, '') else float(raw_angle) % 180.0
+    except (TypeError, ValueError):
+        forced_angle = None
+
+    ids = []
+    for raw in raw_ids or []:
+        try:
+            ids.append(int(raw))
+        except (TypeError, ValueError):
+            continue
+    if not ids:
+        return jsonify({'ok': False, 'message': 'No rows selected / لم يتم تحديد صفوف'}), 400
+
+    selected = list(mongo.db.tree_rows.find({'project_id': project_id, 'id': {'$in': ids}}))
+    if not selected:
+        return jsonify({'ok': False, 'message': 'Rows not found / الصفوف غير موجودة'}), 404
+
+    selected_by_zone = {}
+    for row in selected:
+        zone_id = row.get('zone_id')
+        if zone_id is not None:
+            selected_by_zone.setdefault(zone_id, []).append(row)
+    if not selected_by_zone:
+        return jsonify({'ok': False, 'message': 'Rows have no zone / الصفوف بدون منطقة'}), 404
+
+    zones = list(mongo.db.zones.find(
+        {'project_id': project_id, 'id': {'$in': list(selected_by_zone)}}))
+
+    from irrigation.engineering.projection import (
+        projected_shape, unproject_shape, get_project_centroid)
+    project_doc = mongo.db.projects.find_one({'id': project_id})
+    lng, lat = get_project_centroid(project_doc) if project_doc else (0.0, 0.0)
+
+    changed_zones = 0
+    replaced_rows = 0
+    removed_trees = 0
+
+    for zone in zones:
+        zone_selected = selected_by_zone.get(zone['id']) or []
+        base_orientation = zone_selected[0].get('orientation') or 0.0
+        if forced_angle is not None:
+            new_angle = forced_angle
+        else:
+            new_angle = (float(base_orientation) + 90.0) % 180.0
+
+        poly = None
+        geom = zone.get('polygon')
+        if geom:
+            try:
+                poly = projected_shape(geom, lng, lat)
+                if not poly.is_valid:
+                    poly = poly.buffer(0)
+            except Exception:
+                poly = None
+            if poly is not None and poly.is_empty:
+                poly = None
+
+        if poly is None:
+            # No geometry to re-trace: keep the DB consistent by rotating the stored angle.
+            mongo.db.tree_rows.update_many(
+                {'project_id': project_id, 'zone_id': zone['id']},
+                {'$set': {'orientation': round(new_angle, 1)}}
+            )
+            changed_zones += 1
+            continue
+
+        zone_row = mongo.db.tree_rows.find_one(
+            {'project_id': project_id, 'zone_id': zone['id']})
+        spacing = (zone_row or {}).get('spacing_m') or 5.0
+        spacing = spacing if spacing >= 1 else 5.0
+
+        traced = _trace_rows_in_poly(poly, spacing, angle_deg=new_angle)
+
+        removed_trees += mongo.db.trees.delete_many(
+            {'project_id': project_id, 'zone_id': zone['id']}).deleted_count
+        mongo.db.tree_rows.delete_many(
+            {'project_id': project_id, 'zone_id': zone['id']})
+
+        count = mongo.db.tree_rows.count_documents({'project_id': project_id})
+        for line, orientation in traced:
+            count += 1
+            mongo.db.tree_rows.insert_one({
+                'id': get_next_id('tree_rows'),
+                'project_id': project_id,
+                'zone_id': zone['id'],
+                'name_en': f'Row {count}',
+                'name_ar': f'صف {count}',
+                'geometry': unproject_shape(line, lng, lat),
+                'spacing_m': round(spacing, 2),
+                'orientation': round(orientation, 1),
+                'validated': False,
+                'auto_generated': True
+            })
+            replaced_rows += 1
+        changed_zones += 1
+
+    if not changed_zones:
+        return jsonify({'ok': False, 'message': 'No zones updated / لم يتم تحديث أي منطقة'}), 404
+
+    assign_short_names(project_id)
+
+    return jsonify({
+        'ok': True,
+        'zones': changed_zones,
+        'rows': replaced_rows,
+        'trees_removed': removed_trees,
+        'angle': round(forced_angle, 1) if forced_angle is not None else None,
+        'message': (f'Orientation changed for {changed_zones} zone(s), {replaced_rows} rows re-traced'
+                    f' ({removed_trees} trees removed)'
+                    f' / تم تغيير اتجاه {changed_zones} منطقة وإعادة رسم {replaced_rows} صف')
+    })
+
+
 @trees_bp.route('/<int:project_id>/rows/<int:row_id>/edit', methods=['POST'])
 @login_required
 def rows_edit(project_id, row_id):
@@ -257,7 +416,9 @@ def trees_view(project_id):
     if not project:
         return redirect(url_for('project.index'))
 
-    rows = list(mongo.db.tree_rows.find({'project_id': project_id}))
+    assign_short_names(project_id)
+
+    rows = list(mongo.db.tree_rows.find({'project_id': project_id}).sort('id', 1))
     for r in rows:
         r['_id'] = str(r['_id'])
 
@@ -265,7 +426,49 @@ def trees_view(project_id):
     for t in trees:
         t['_id'] = str(t['_id'])
 
-    return render_template('trees/trees.html', project=project, rows=rows, trees=trees)
+    sectors = list(mongo.db.sectors.find({'project_id': project_id}).sort('id', 1))
+    for s in sectors:
+        s['_id'] = str(s['_id'])
+
+    zones = list(mongo.db.zones.find({'project_id': project_id}).sort('id', 1))
+    for z in zones:
+        z['_id'] = str(z['_id'])
+
+    row_counts = {}
+    for r in rows:
+        row_counts[r.get('zone_id')] = row_counts.get(r.get('zone_id'), 0) + 1
+    for z in zones:
+        z['row_count'] = row_counts.get(z['id'], 0)
+
+    # Order trees by Sector -> Zone -> Row (fallback rank keeps unknowns last).
+    sector_rank = {s['id']: i for i, s in enumerate(sectors)}
+    zones_sorted = sorted(
+        zones,
+        key=lambda z: (sector_rank.get(z.get('sector_id'), len(sectors)), z['id'])
+    )
+    zone_rank = {z['id']: i for i, z in enumerate(zones_sorted)}
+    row_rank = {r['id']: i for i, r in enumerate(rows)}
+    trees.sort(key=lambda t: (
+        zone_rank.get(t.get('zone_id'), len(zones)),
+        row_rank.get(t.get('row_id'), len(rows)),
+        t.get('short_name', ''),
+        t['id']
+    ))
+
+    # Modal groups: order zones by short name, keeping consecutive sectors together.
+    sector_by_id = {s['id']: s for s in sectors}
+    zone_groups = []
+    for z in sorted(zones, key=_short_name_key):
+        if not zone_groups or zone_groups[-1]['sector_id'] != z.get('sector_id'):
+            zone_groups.append({
+                'sector_id': z.get('sector_id'),
+                'sector': sector_by_id.get(z.get('sector_id')),
+                'zones': [],
+            })
+        zone_groups[-1]['zones'].append(z)
+
+    return render_template('trees/trees.html', project=project, rows=rows, trees=trees,
+                           sectors=sectors, zones=zones, zone_groups=zone_groups)
 
 
 @trees_bp.route('/<int:project_id>/trees/remove', methods=['POST'])
@@ -277,32 +480,95 @@ def trees_remove(project_id):
             ids.append(int(raw))
         except (TypeError, ValueError):
             continue
-    removed = 0
     if ids:
         removed = mongo.db.trees.delete_many(
             {'id': {'$in': ids}, 'project_id': project_id}).deleted_count
+    else:
+        removed = mongo.db.trees.delete_many({'project_id': project_id}).deleted_count
     flash(f'Removed {removed} tree(s) / تمت إزالة {removed} شجرة', 'success')
     return redirect(url_for('trees.trees_view', project_id=project_id))
+
+
+VARIETY_SLOTS = 3
+
+
+def _zone_setup_from_form(form, zone_id):
+    """Read one zone's setup: spacing, drips and up to VARIETY_SLOTS variety/percentage entries."""
+    spacing = form.get(f'spacing_{zone_id}', type=float)
+    drips = form.get(f'drips_{zone_id}', type=int)
+
+    varieties = []
+    for slot in range(1, VARIETY_SLOTS + 1):
+        en = (form.get(f'variety_{zone_id}_{slot}') or '').strip()
+        ar = (form.get(f'variety_ar_{zone_id}_{slot}') or '').strip()
+        pct = form.get(f'pct_{zone_id}_{slot}', type=float)
+        if not en and not pct:
+            continue
+        varieties.append({
+            'en': en,
+            'ar': ar or en,
+            'pct': round(pct, 2) if pct and pct > 0 else 0.0
+        })
+
+    if not varieties and spacing is None:
+        return None
+
+    return {
+        'spacing_m': round(spacing, 2) if spacing and spacing >= 1 else None,
+        'drips_per_tree': drips if drips and drips >= 1 else 2,
+        'varieties': varieties
+    }
+
+
+def _variety_for_index(varieties, index, total):
+    """Pick the variety for the tree at `index` so each variety keeps its percentage share."""
+    if not varieties or total <= 0:
+        return None
+    weights = [max(0.0, float(v.get('pct') or 0)) for v in varieties]
+    weight_sum = sum(weights)
+    if weight_sum <= 0:
+        return varieties[0]
+    position = (index + 0.5) / total * weight_sum
+    cumulative = 0.0
+    for variety, weight in zip(varieties, weights):
+        cumulative += weight
+        if position <= cumulative:
+            return variety
+    return varieties[-1]
 
 
 @trees_bp.route('/<int:project_id>/trees/generate', methods=['POST'])
 @login_required
 def trees_generate(project_id):
-    """Generate tree points along validated rows based on spacing."""
-    rows = list(mongo.db.tree_rows.find({'project_id': project_id}))
+    """Generate tree points along rows using each zone's spacing, drips and variety mix."""
+    rows = list(mongo.db.tree_rows.find({'project_id': project_id}).sort('id', 1))
     if not rows:
         flash('No rows found. Create rows first / لا توجد صفوف. أنشئ الصفوف أولاً', 'warning')
         return redirect(url_for('trees.trees_view', project_id=project_id))
 
-    spacing = request.form.get('spacing', default=4, type=float)
-    variety = request.form.get('variety', default='Olive').strip()
-    variety_ar = request.form.get('variety_ar', default='زيتون').strip()
+    zones = list(mongo.db.zones.find({'project_id': project_id}))
+    zone_setups = {}
+    for zone in zones:
+        setup = _zone_setup_from_form(request.form, zone['id'])
+        if setup is None:
+            continue
+        zone_setups[zone['id']] = setup
+        mongo.db.zones.update_one(
+            {'id': zone['id'], 'project_id': project_id},
+            {'$set': {'tree_setup': setup}}
+        )
+
+    # Shared "All Sectors / Zones" setup, used for zones without their own.
+    all_setup = _zone_setup_from_form(request.form, 'all')
+
+    # Legacy form-level values, used when a zone has no stored setup.
+    fallback_spacing = request.form.get('spacing', default=4, type=float)
+    fallback_variety = (request.form.get('variety') or 'Olive').strip()
+    fallback_variety_ar = (request.form.get('variety_ar') or 'زيتون').strip()
 
     # Clear existing trees
     mongo.db.trees.delete_many({'project_id': project_id})
 
-    from shapely.geometry import shape as shp_shape, Point
-    from shapely.geometry import mapping
     from irrigation.models import get_next_id as _gid
     from irrigation.engineering.projection import projected_shape, unproject_shape, get_project_centroid
 
@@ -310,22 +576,44 @@ def trees_generate(project_id):
     project_doc = mongo.db.projects.find_one({'id': project_id})
     lng, lat = get_project_centroid(project_doc) if project_doc else (0.0, 0.0)
 
-    total = 0
+    rows_by_zone = {}
     for row in rows:
-        # Use projected geometry for accurate meter-based length calculation
-        row_geom = projected_shape(row['geometry'], lng, lat)
-        length = row_geom.length  # Now in meters, not degrees
-        row_spacing = row.get('spacing_m', spacing)
+        rows_by_zone.setdefault(row.get('zone_id'), []).append(row)
 
-        if length <= 0:
+    total = 0
+    for zone_id, zone_rows in rows_by_zone.items():
+        setup = zone_setups.get(zone_id) or all_setup or {}
+        tree_spacing = setup.get('spacing_m') or fallback_spacing
+        drips = setup.get('drips_per_tree') or 2
+        varieties = setup.get('varieties') or []
+        if tree_spacing <= 0:
             continue
 
-        num_trees = max(1, int(length / row_spacing))
-        for i in range(num_trees + 1):
-            fraction = i / num_trees if num_trees > 0 else 0
-            point = row_geom.interpolate(fraction * length)
-            # Convert projected point back to WGS84 for storage
-            point_geojson = unproject_shape(point, lng, lat)
+        # Lay out every tree of this zone first, so variety percentages apply
+        # over the whole zone rather than per individual row.
+        points = []
+        for row in zone_rows:
+            row_geom = projected_shape(row['geometry'], lng, lat)
+            length = row_geom.length  # Now in meters, not degrees
+            if length <= 0:
+                continue
+            num_trees = max(1, int(length / tree_spacing))
+            for i in range(num_trees + 1):
+                fraction = i / num_trees if num_trees > 0 else 0
+                point = row_geom.interpolate(fraction * length)
+                points.append((row, i, unproject_shape(point, lng, lat)))
+
+        for index, (row, i, point_geojson) in enumerate(points):
+            variety = _variety_for_index(varieties, index, len(points))
+            if variety:
+                variety_en = variety.get('en') or fallback_variety
+                variety_ar = variety.get('ar') or variety_en
+                variety_pct = variety.get('pct')
+            else:
+                variety_en = fallback_variety
+                variety_ar = fallback_variety_ar
+                variety_pct = None
+
             tree = {
                 'id': _gid('trees'),
                 'project_id': project_id,
@@ -334,10 +622,11 @@ def trees_generate(project_id):
                 'name_en': f'Tree {row["id"]}-{i+1}',
                 'name_ar': f'شجرة {row["id"]}-{i+1}',
                 'geometry': point_geojson,
-                'variety_en': variety,
+                'variety_en': variety_en,
                 'variety_ar': variety_ar,
-                'spacing_m': row_spacing,
-                'drips_per_tree': 2,
+                'variety_pct': variety_pct,
+                'spacing_m': tree_spacing,
+                'drips_per_tree': drips,
                 'validated': False
             }
             mongo.db.trees.insert_one(tree)

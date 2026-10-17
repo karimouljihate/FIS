@@ -614,10 +614,10 @@ def generate_piping_structure(project_id, project=None, options=None):
     reduction_specs = []
     air_element = None
 
-    # Reductions at diameter changes (MP -> SP -> ZP -> lateral ...). Needed by
-    # the full network AND the second/zone scopes so the rule chain
-    # MP -> reduction -> SP (SP-3) is honoured.
-    if build_points or scope in ('zone', 'second'):
+    # Reductions at diameter changes (MP -> ZP -> lateral ...). Created by the
+    # full network and the zone scope only: the Second Pipe stage builds second
+    # pipes exclusively (Rules SP-1..SP-4) and must not create any reduction.
+    if build_points or scope == 'zone':
         if not parent_edge:
             _, parent_edge, _, _ = net.pressures(source_id, source_head)
         reduction_specs = _collect_reductions(net, source_id, parent_edge)
@@ -668,10 +668,12 @@ def generate_piping_structure(project_id, project=None, options=None):
                 'type': {'$in': ['sub_pipe', 'dripline', 'reduction']},
             })
         elif scope == 'second':
+            # Rebuilding the second pipes only replaces second pipes; it must
+            # not create or remove reductions (those belong to the zone stage).
             mongo.db.network_elements.delete_many({
                 'project_id': project_id,
                 'properties.generated': 'ai',
-                'type': {'$in': ['second_pipe', 'reduction']},
+                'type': 'second_pipe',
             })
 
     report = _insert_elements(
@@ -1023,8 +1025,10 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
     sectors (those belong to the zone-pipe step).
 
     When ``build_second`` is set, the Second Pipes (SP) are built instead of
-    the zone pipes: each SP is the relay from the Main Pipe to the nearest
-    entry of a Zone (Rules SP-1, SP-2).
+    the zone pipes: each SP is the relay from the Main Pipe to a Zone
+    (Rules SP-1..SP-4). The SP starts on the Main Pipe (never at its
+    extremity, SP-2), follows the sector boundary only (SP-3), and
+    terminates at the entry of its respective Zone (SP-4).
     Returns ``(sector_nodes, zone_nodes)`` for valve placement.
     """
     def elev(x, y):
@@ -1158,8 +1162,9 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
         sector_nodes.append((s, entry_net))
 
     # --- second pipes: relay from the Main Pipe to the nearest zone entry --
-    # Rules SP-1/SP-2: each SP comes from the Main Pipe and covers up to the
-    # extremity of the nearest entry of a Zone.
+    # Rules SP-1..SP-4: each SP starts on the Main Pipe (SP-2, never at the MP
+    # extremity), stays on the sector boundary only (SP-3), and terminates at
+    # the entry of its respective Zone (SP-4).
     zone_nodes = {}
     if build_second:
         for z in zones:
@@ -1173,13 +1178,24 @@ def _build_boundary_network(net, source_id, sectors, zones, proj,
             except Exception:
                 continue
             ring = d.get('ring')
+            # SP terminates at the entry of its respective Zone (SP-4): the
+            # boundary point nearest to the Zone centroid.
             boundary_pt = _nearest_boundary_point(ring, (cx, cy)) if ring else None
             zx, zy = boundary_pt if boundary_pt is not None else (cx, cy)
+            # SP starts on the Main Pipe (SP-2), at the point on the MP nearest
+            # the Zone entry — never at the MP extremity.
             tap = net.tap(zx, zy, kinds=('mp',))
+            tap_pt = net._pt(tap)
+            # SP stays on the sector boundary only (SP-3): follow the sector
+            # ring from the MP tap point to the Zone entry.
+            if ring is not None and boundary_pt is not None:
+                coords = _ring_path(ring, tap_pt, boundary_pt)
+            else:
+                coords = [tap_pt, (zx, zy)]
             znid = net.add_node(zx, zy, 'zone', sector_id=sid, zone_id=z['id'])
             net.add_edge(tap, znid, 'sp', 'second_pipe',
                          config['sub_max_velocity_mps'], SUB_MIN_DIAMETER_MM,
-                         coords=[net._pt(tap), (zx, zy)],
+                         coords=coords,
                          zone_id=z['id'], sector_id=sid)
             zone_nodes[z['id']] = znid
     elif not main_only:

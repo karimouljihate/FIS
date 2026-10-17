@@ -15,17 +15,23 @@
     {% endif %}
 </div>
 
-{% set active_step = 'second' %}
-{% include "hydrology/_pipe_steps.html" %}
+<!-- {% set active_step = 'second' %}
+{% include "hydrology/_pipe_steps.html" %} -->
 
 <div class="alert alert-info">
     <i class="bi bi-info-circle"></i>
-    The Second Pipe (SP) is the relay between the Main Pipe (MP) and the Zone Pipes (ZP):
-    MP &rarr; reduction &rarr; SP &rarr; reduction &rarr; ZP &rarr; dripline.
+    The Second Pipe (SP) is the relay between the Main Pipe (MP) and the Zone Pipes (ZP).
+    It starts on the Main Pipe (not at the MP extremity), stays on the sector boundary only,
+    and terminates at the entry of its respective Zone.
     <br>
-    الأنبوب الثانوي (SP) هو الوصلة بين الأنبوب الرئيسي (MP) وأنابيب المناطق (ZP):
-    رئيسي &larr; تقليلة &larr; ثانوي &larr; تقليلة &larr; منطقة &larr; خط تنقيط.
+    الأنبوب الثانوي (SP) هو الوصلة بين الأنبوب الرئيسي (MP) وأنابيب المناطق (ZP).
+    يبدأ من الأنبوب الرئيسي (وليس من نهايته)، ويمتد على حدّ القطاع فقط، وينتهي عند مدخل المنطقة المعنية.
 </div>
+
+{% set rules_id = 'spRulesCollapse' %}
+{% set rules_title_en = 'Second Pipe Rules' %}
+{% set rules_title_ar = 'قواعد الأنبوب الثانوي' %}
+{% include "hydrology/_pipe_rules.html" %}
 
 {% if piping_report and second_pipes %}
 <div class="card shadow-sm mb-3">
@@ -35,7 +41,6 @@
     <div class="card-body">
         <div class="d-flex flex-wrap gap-2 mb-2">
             <span class="badge bg-primary">SP: {{ second_pipes | length }}</span>
-            <span class="badge bg-success">Reductions: {{ piping_report.counts.get('reduction', 0) }}</span>
         </div>
         <div class="small text-muted">
             Total length: {{ piping_report.lengths_m.get('second_pipe', 0) }} m (SP)
@@ -59,7 +64,7 @@
             <table class="table table-hover mb-0" id="pipeTable">
                 <thead>
                     <tr class="table-light">
-                        <th colspan="10" class="text-center">
+                        <th colspan="7" class="text-center">
                             <button class="btn btn-circle btn-sm btn-success" id="pipeHeaderAdd" type="button"
                                     data-bs-toggle="modal" data-bs-target="#addSecondPipeModal" title="Add / إضافة">
                                 <i class="bi bi-plus-circle"></i>
@@ -78,7 +83,7 @@
                             </button>
                             <button class="btn btn-circle btn-sm btn-warning" type="button" data-bs-toggle="modal"
                                     data-bs-target="#aiPipingModal" title="Auto Generate / إنشاء تلقائي">
-                                <i class="bi bi-robot"></i>
+                                <i class="bi bi-magic"></i>
                             </button>
                             <form method="POST" action="{{ url_for('hydrology.second_pipe_validate', project_id=project.id) }}" class="d-inline">
                                 <button type="submit" class="btn btn-circle btn-primary" title="Validate / التحقق">
@@ -88,19 +93,16 @@
                         </th>
                     </tr>
                     <tr>
-                        <th width="40"><input type="checkbox" id="selectAllPipes" onclick="toggleAllPipes(this)"></th>
-                        <th>ID</th>
-                        <th>Name (EN)</th>
-                        <th>Name (AR)</th>
-                        <th>Ø mm</th>
-                        <th>Flow (L/s)</th>
-                        <th>Velocity (m/s)</th>
-                        <th>Length (m)</th>
-                        <th>Validated</th>
-                        <th class="text-center">Actions / إجراءات</th>
+                        <th width="40" style="vertical-align: middle;"><input type="checkbox" id="selectAllPipes" onclick="toggleAllPipes(this)"></th>
+                        <th style="text-align: center; vertical-align: middle;">ID</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Name ar top / Name en bottom"><span class="ar-text">الاسم</span><br>Name</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Diameter ar top / Diameter en bottom"><span class="ar-text">قُطْر</span><br>Diameter</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Length ar top / Length en bottom"><span class="ar-text">طول</span><br>Length (m)</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Status ar top / Status en bottom"><span class="ar-text">حالة</span><br>Status</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Action ar top / Action en bottom"><span class="ar-text">إجراءات</span><br>Action</th>
                     </tr>
                 </thead>
-                <tbody class="align-middle">
+                <tbody class="align-middle text-center">
                     {% for p in second_pipes %}
                     <tr>
                         <td>
@@ -111,11 +113,11 @@
                                    data-coords="{{ p.geometry.coordinates | tojson }}">
                         </td>
                         <td>{{ p.id }}</td>
-                        <td>{{ p.name_en }}</td>
-                        <td class="ar-text">{{ p.name_ar }}</td>
+                        <td>
+                            <div>{{ p.name_en }}</div>
+                            <div class="ar-text">{{ p.name_ar }}</div>
+                        </td>
                         <td>{{ p.properties.get('diameter', '—') }}</td>
-                        <td>{{ p.properties.get('flow_lps', '—') }}</td>
-                        <td>{{ p.properties.get('velocity_mps', '—') }}</td>
                         <td>{{ p.properties.get('length_m', '—') }}</td>
                         <td>
                             {% if p.validated %}
@@ -134,9 +136,19 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="10" class="text-center text-muted py-3">No second pipes yet / لا توجد أنابيب ثانوية بعد</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-3">No second pipes yet / لا توجد أنابيب ثانوية بعد</td></tr>
                     {% endfor %}
                 </tbody>
+                <tfoot class="table-light fw-bold">
+                    {% set length_ns = namespace(total=0) %}
+                    {% for p in second_pipes %}{% set length_ns.total = length_ns.total + (p.properties.get('length_m') or 0) %}{% endfor %}
+                    <tr>
+                        <td></td>
+                        <td colspan="3" class="text-center">Total / المجموع</td>
+                        <td class="text-center">{{ '%.2f' | format(length_ns.total) }}</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
@@ -162,17 +174,17 @@
                   data-confirm="AI will build the Second Pipes (the relay between the Main Pipe and the Zone entries). Continue? / سيبني الذكاء الاصطناعي الأنابيب الثانوية (الوصلة بين الأنبوب الرئيسي ومداخل المناطق). متابعة؟">
                 <input type="hidden" name="scope" value="second">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-robot"></i> Auto Generate Second Pipes / إنشاء الأنابيب الثانوية تلقائياً</h5>
+                    <h5 class="modal-title"><i class="bi bi-magic"></i> Auto Generate Second Pipes / إنشاء الأنابيب الثانوية تلقائياً</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
                     <div class="alert alert-info py-2 small mb-3">
                         The generator builds the Second Pipes from the Main Pipe to the nearest entry of every Zone
-                        (MP &rarr; reduction &rarr; SP). Zone Pipes and drip lines are added in the next step.
+                        (MP &rarr; SP). Zone Pipes, reductions and drip lines are added in the next step.
                         It auto-sizes the PVC diameter and checks flow and pressure using source elevation and gravity.
                         <br>
                         ينشئ النظام الأنابيب الثانوية من الأنبوب الرئيسي إلى أقرب مدخل لكل منطقة
-                        (رئيسي &rarr; تقليلة &rarr; ثانوي). تُضاف أنابيب المناطق وخطوط التنقيط في الخطوة التالية.
+                        (رئيسي &rarr; ثانوي). تُضاف أنابيب المناطق والتقليلات وخطوط التنقيط في الخطوة التالية.
                     </div>
                     <h6 class="text-primary"><i class="bi bi-sliders"></i> Options / الخيارات</h6>
                     <div class="row g-2 mb-3">
@@ -202,7 +214,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
-                    <button type="submit" class="btn btn-warning"><i class="bi bi-robot"></i> Generate / إنشاء</button>
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-magic"></i> Generate / إنشاء</button>
                 </div>
             </form>
         </div>

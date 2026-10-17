@@ -25,7 +25,8 @@ from irrigation.engineering.projection import (
 )
 from irrigation.engineering.elevation import (
     get_or_build_elevation_model, elevation_metrics_for_polygon,
-    get_elevation_at_point, aspect_for_polygon
+    get_elevation_at_point, aspect_for_polygon,
+    COMPASS_POINTS, ORIENTATION_ALIASES
 )
 
 
@@ -689,14 +690,16 @@ def regenerate_zones(project_id, sector_id=None, zones_per_sector=None, use_elev
     Incorporates terrain elevation data for contour-aware zone partitioning.
     If trees exist, zones are sized proportionally to tree count (hydraulic demand).
 
-    ``orientation`` may be one of ``'N'``/``'NE'``/``'E'``/``'ES'``/``'S'``/``'SW'``/
-    ``'W'``/``'WN'`` (or ``'auto'``/``None``). When a compass point is given, every
+    ``orientation`` may be any of the 32 named compass points (see
+    ``COMPASS_POINTS``) or ``'auto'``/``None``. When a compass point is given, every
     generated zone is assigned that orientation; when ``'auto'`` the orientation
     of each zone is derived from the terrain aspect (downhill direction) of its
     polygon.
     """
     target_orientation = orientation.upper() if isinstance(orientation, str) else None
-    if target_orientation not in ('N', 'NE', 'E', 'ES', 'S', 'SW', 'W', 'WN'):
+    if target_orientation:
+        target_orientation = ORIENTATION_ALIASES.get(target_orientation, target_orientation)
+    if target_orientation not in COMPASS_POINTS:
         target_orientation = None
 
     query = {'project_id': project_id}

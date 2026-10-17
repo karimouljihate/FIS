@@ -474,22 +474,74 @@ def elevation_metrics_for_polygon(model, polygon_projected):
     }
 
 
-# Compass points used for zone/sector orientation (clockwise from North).
-COMPASS_POINTS = ['N', 'NE', 'E', 'ES', 'S', 'SW', 'W', 'WN']
+# 32 named cardinal points of the compass (clockwise from North), at 11.25°
+# steps. The abbreviations are the traditional 32-wind compass-rose names.
+COMPASS_POINTS = [
+    'N', 'NbE', 'NNE', 'NEbN', 'NE', 'NEbE', 'ENE', 'EbN',
+    'E', 'EbS', 'ESE', 'SEbE', 'SE', 'SEbS', 'SSE', 'SbE',
+    'S', 'SbW', 'SSW', 'SWbS', 'SW', 'SWbW', 'WSW', 'WbS',
+    'W', 'WbN', 'WNW', 'NWbW', 'NW', 'NWbN', 'NNW', 'NbW',
+]
+
+# Human-readable names for each of the 32 points (for the Orientation lists).
+COMPASS_NAMES_EN = {
+    'N': 'North', 'NbE': 'North by East', 'NNE': 'North-Northeast',
+    'NEbN': 'Northeast by North', 'NE': 'Northeast', 'NEbE': 'Northeast by East',
+    'ENE': 'East-Northeast', 'EbN': 'East by North', 'E': 'East',
+    'EbS': 'East by South', 'ESE': 'East-Southeast', 'SEbE': 'Southeast by East',
+    'SE': 'Southeast', 'SEbS': 'Southeast by South', 'SSE': 'South-Southeast',
+    'SbE': 'South by East', 'S': 'South', 'SbW': 'South by West',
+    'SSW': 'South-Southwest', 'SWbS': 'Southwest by South', 'SW': 'Southwest',
+    'SWbW': 'Southwest by West', 'WSW': 'West-Southwest', 'WbS': 'West by South',
+    'W': 'West', 'WbN': 'West by North', 'WNW': 'West-Northwest',
+    'NWbW': 'Northwest by West', 'NW': 'Northwest', 'NWbN': 'Northwest by North',
+    'NNW': 'North-Northwest', 'NbW': 'North by West',
+}
+
+COMPASS_NAMES_AR = {
+    'N': 'شمال', 'NbE': 'شمال نحو الشرق', 'NNE': 'شمال-شمال شرق',
+    'NEbN': 'شمال شرق نحو الشمال', 'NE': 'شمال شرق', 'NEbE': 'شمال شرق نحو الشرق',
+    'ENE': 'شرق-شمال شرق', 'EbN': 'شرق نحو الشمال', 'E': 'شرق',
+    'EbS': 'شرق نحو الجنوب', 'ESE': 'شرق-جنوب شرق', 'SEbE': 'جنوب شرق نحو الشرق',
+    'SE': 'جنوب شرق', 'SEbS': 'جنوب شرق نحو الجنوب', 'SSE': 'جنوب-جنوب شرق',
+    'SbE': 'جنوب نحو الشرق', 'S': 'جنوب', 'SbW': 'جنوب نحو الغرب',
+    'SSW': 'جنوب-جنوب غرب', 'SWbS': 'جنوب غرب نحو الجنوب', 'SW': 'جنوب غرب',
+    'SWbW': 'جنوب غرب نحو الغرب', 'WSW': 'غرب-جنوب غرب', 'WbS': 'غرب نحو الجنوب',
+    'W': 'غرب', 'WbN': 'غرب نحو الشمال', 'WNW': 'غرب-شمال غرب',
+    'NWbW': 'شمال غرب نحو الغرب', 'NW': 'شمال غرب', 'NWbN': 'شمال غرب نحو الشمال',
+    'NNW': 'شمال-شمال غرب', 'NbW': 'شمال نحو الغرب',
+}
+
+# Legacy 8-point codes that predate the 32-point rose, mapped to their new code.
+ORIENTATION_ALIASES = {'ES': 'SE', 'WN': 'NW'}
 
 
 def compass_from_bearing(bearing_deg):
-    """Map a bearing (0-360, clockwise from North) to the nearest compass point."""
+    """Map a bearing (0-360, clockwise from North) to the nearest of the 32 points."""
     if bearing_deg is None:
         return None
-    index = int(round((bearing_deg % 360.0) / 45.0)) % len(COMPASS_POINTS)
+    step = 360.0 / len(COMPASS_POINTS)
+    index = int(round((bearing_deg % 360.0) / step)) % len(COMPASS_POINTS)
     return COMPASS_POINTS[index]
 
 
 # Canonical bearing (degrees, clockwise from North) for each compass point, so
-# the label and its numeric orientation stay linked: N=0, NE=45, E=90, ES=135,
-# S=180, SW=225, W=270, WN=315.
-ORIENTATION_DEGREES = {point: i * 45 for i, point in enumerate(COMPASS_POINTS)}
+# the label and its numeric orientation stay linked (N=0, NbE=11.25, NNE=22.5, ...).
+ORIENTATION_DEGREES = {
+    point: round(i * (360.0 / len(COMPASS_POINTS)), 2)
+    for i, point in enumerate(COMPASS_POINTS)
+}
+
+# Ordered options for the Orientation dropdown lists in templates.
+ORIENTATION_OPTIONS = [
+    {
+        'code': point,
+        'en': COMPASS_NAMES_EN.get(point, point),
+        'ar': COMPASS_NAMES_AR.get(point, point),
+        'deg': ORIENTATION_DEGREES[point],
+    }
+    for point in COMPASS_POINTS
+]
 
 
 def aspect_for_polygon(model, polygon_projected):
@@ -501,7 +553,7 @@ def aspect_for_polygon(model, polygon_projected):
     Returns a dict:
         {
             'bearing_deg': float,   # downhill direction, clockwise from North
-            'compass': 'N'|'NE'|'E'|'ES'|'S'|'SW'|'W'|'WN',
+            'compass': one of the 32 named compass points (see COMPASS_POINTS),
             'slope_percent': float, # gradient magnitude * 100
             'slope_deg': float,
             'sample_count': int,

@@ -1,5 +1,59 @@
 # Changelog
 
+## 0.3.45 - 2026-10-17
+
+### Added
+- **Trees table Delete All button**: circular trash2 button in the Trees table header action row opens a confirmation modal and deletes all trees at once (no `tree_ids` → `delete_many` across the whole project).
+
+### Changed
+- **Trees table headers**: restructured to 3 rows mirroring the Trees → Rows table — row 1 has circle action buttons (Tree Setup, Add, Edit, Remove, Delete All, Generate, Validate), row 2 has the search input with selected/visible badge and clear button, row 3 keeps the column labels (ID, Name, Row, Short Name, Variety EN/AR, Spacing (m), Drips/Tree, Validated).
+- **Tree Setup button**: restored and displayed inline in the table header action row, targeting `#treeSetupModal`.
+- **Trees table ordering**: trees sorted by zone → row → short_name → id for hierarchical ordering (`S1Z1R1T1`, `S1Z1R1T2`, …).
+- **Tree Setup button**: removed the Generate Trees from Rows card; tree generation moved to the table header Generate button via the Tree Setup modal.
+- **Delete All route**: `trees_remove` now deletes all trees for the project when no `tree_ids` are posted.
+
+## 0.3.44 - 2026-10-16
+### Added
+- **Trees table Short Name column**: Trees -> Trees table now shows each tree's hierarchical short name (e.g. `S1Z1R1T1`) in a `<code>` cell, sourced from `assign_short_names`.
+### Changed
+- **Trees table headers bilingual**: Trees -> Trees table header now matches the Trees -> Rows header style (Arabic + English stacked, centred) across ID, Tree Name, Short Name, Row, Variety (EN/AR), Spacing (m), Drips/Tree and Validated, with centred, middle-aligned body cells.
+
+## 0.3.43 - 2026-10-16
+
+### Added
+- **Rows zone search input**: Trees → Rows filter row Zone dropdown replaced with a live text input; typing a zone short code (e.g. `S1Z`, `Z1`), a zone id, or an English/Arabic name filters the rows live, with a clear (×) button.
+- **Rows selection counter badge**: rounded pill inside the zone-search input shows selected / visible rows (`0/24`, `n/N`) and switches colour once rows are selected.
+- **Tree Setup "All Sectors / Zones" card**: first card in the Tree Setup modal; filling it live-propagates the shared spacing, drips and variety split to every zone card.
+
+### Changed
+- **Rows table ordering**: rows are now always sorted ascending by Short Name (natural order, `R2` before `R10`), computed server-side in `trees_view`/`rows_view` via `_short_name_key`.
+- **Tree Setup modal redesigned**: zones are now cards (header with EN/AR name, short name, Rows, Spacing, Drips and live Σ%) laid out in a scrollable auto-fill grid grouped by sector with sector labels, replacing the single wide multi-column table. Zones are ordered by zone short name, and the "All Sectors / Zones" card is pinned first.
+- **Generate button no longer gated on full configuration**: enabled whenever at least one zone has rows; zones left unset fall back to the shared setup or legacy defaults. Progress text reports `N / N zones ready`, shared-setup, or "unset zones use defaults".
+- **Tree Setup modal init ordering**: `setupTreeSetupModal()` now runs before `initMap`, and `initMap` is wrapped in try/catch, so a map error can no longer leave the Generate button disabled.
+
+## 0.3.42 - 2026-10-13
+
+### Added
+
+- **Pipe rules cards**: the Pipes sub-tabs (Main Pipe, Second Pipe, Zone Pipe) now show a collapsible grey "Rules" card (centred header button toggles the body) listing every applicable rule (id, English/Arabic name and description) sourced from `engineering.hydraulics`.
+- **Link (KML) shortcut**: the project list gained a circular link button in the Actions column (enabled only for projects without an attached KML) that opens the per-project KML-linking dialog.
+- **Rows table zone filter**: the Trees → Rows table gained a filter row (between the actions row and the column titles) with a Zone dropdown; selecting a zone hides the other rows.
+- **Zones empty state**: when a project has no zones at all, the Geometry → Zones table now shows a centered full-width "No Zone Yet" banner row.
+- **Zones name filter**: the Geometry → Zones table gained a filter row (between the actions row and the column titles), split into three parts with a centered search box in the middle; it filters the rows by zone name (English or Arabic).
+
+### Changed
+
+- **Project tab simplified**: removed the New / Load / Link sub-tab rail; the Project tab is now a single link to the project list, and its sub-pages remain reachable through the list.
+- **Coming Soon badges removed** from the navigation; placeholder items are now distinguished only by their tooltip and disabled state.
+- **Zones table fits the page width** (no horizontal scroll): fixed layout with explicit column widths and wrapped content; sector table headers are centred.
+- **Second Pipe stage builds second pipes only**: `scope='second'` no longer creates diameter reductions (they belong to the zone stage) and its replace step now removes only second pipes, leaving reductions untouched. The Second Pipe rules card and generate dialog reflect the `MP → SP` link without the reduction step.
+- **Second Pipe rules clarified and enforced**: `SECOND_PIPE_RULES` now states SP-2 (starts on the Main Pipe, never at the MP extremity), SP-3 (stays on the sector boundary only) and SP-4 (terminates at the entry of its respective Zone). The generator routes each SP along the sector ring from the Main Pipe tap point to the Zone entry, instead of a straight line.
+- **Pipe tables simplified with a Total row**: the Main Pipe, Second Pipe and Zone Pipe tables now share one column set — checkbox, `ID`, `Name / الاسم` (English + Arabic stacked), `Diameter / قُطْر`, `Length (m) / طول`, `Status / حالة` and `Action / إجراءات` — and sum the pipe lengths in a footer row (`Total / المجموع`). The separate Name (EN/AR), Flow, Velocity and Zone columns were removed.
+
+### Fixed
+
+- **Trees tab generated nothing**: the row tracer anchored each parallel line at the coordinate origin instead of the polygon centroid, so with real projected (UTM) coordinates the lines never crossed the zones and Generate produced zero rows — and therefore zero trees. The traced lines are now centred on each polygon's centroid, so Rows and Trees generation work.
+
 ## 0.3.40 - 2026-10-13
 
 ### Added

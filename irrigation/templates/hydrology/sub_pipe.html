@@ -22,6 +22,11 @@
     أنابيب المناطق (ZP) تتفرع من الأنبوب الرئيسي وتغذي جميع المناطق، ثم تتصل خطوط التنقيط بجميع صفوف الأشجار.
 </div>
 
+{% set rules_id = 'zpRulesCollapse' %}
+{% set rules_title_en = 'Zone Pipe Rules' %}
+{% set rules_title_ar = 'قواعد أنابيب المناطق' %}
+{% include "hydrology/_pipe_rules.html" %}
+
 {% if piping_report and sub_pipes %}
 <div class="card shadow-sm mb-3">
     <div class="card-header bg-light">
@@ -58,7 +63,7 @@
             <table class="table table-hover mb-0" id="pipeTable">
                 <thead>
                     <tr class="table-light">
-                        <th colspan="11" class="text-center">
+                        <th colspan="7" class="text-center">
                             <button class="btn btn-circle btn-success" id="pipeHeaderAdd" type="button"
                                     data-bs-toggle="modal" data-bs-target="#addZonePipeModal" title="Add / إضافة">
                                 <i class="bi bi-plus-circle"></i>
@@ -77,7 +82,7 @@
                             </button>
                             <button class="btn btn-circle btn-warning" type="button" data-bs-toggle="modal"
                                     data-bs-target="#aiPipingModal" title="Auto Generate / إنشاء بالذكاء الاصطناعي">
-                                <i class="bi bi-robot"></i>
+                                <i class="bi bi-magic"></i>
                             </button>
                             <form method="POST" action="{{ url_for('hydrology.sub_pipe_validate', project_id=project.id) }}" class="d-inline">
                                 <button type="submit" class="btn btn-circle btn-primary" title="Validate / التحقق">
@@ -87,20 +92,16 @@
                         </th>
                     </tr>
                     <tr>
-                        <th width="40"><input type="checkbox" id="selectAllPipes" onclick="toggleAllPipes(this)"></th>
-                        <th>ID</th>
-                        <th>Name (EN)</th>
-                        <th>Name (AR)</th>
-                        <th>Zone / المنطقة</th>
-                        <th>Ø mm</th>
-                        <th>Flow (L/s)</th>
-                        <th>Velocity (m/s)</th>
-                        <th>Length (m)</th>
-                        <th>Validated</th>
-                        <th class="text-center">Actions / إجراءات</th>
+                        <th width="40" style="vertical-align: middle;"><input type="checkbox" id="selectAllPipes" onclick="toggleAllPipes(this)"></th>
+                        <th style="text-align: center; vertical-align: middle;">ID</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Name ar top / Name en bottom"><span class="ar-text">الاسم</span><br>Name</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Diameter ar top / Diameter en bottom"><span class="ar-text">قُطْر</span><br>Diameter</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Length ar top / Length en bottom"><span class="ar-text">طول</span><br>Length (m)</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Status ar top / Status en bottom"><span class="ar-text">حالة</span><br>Status</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Action ar top / Action en bottom"><span class="ar-text">إجراءات</span><br>Action</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody class="align-middle text-center">
                     {% for p in sub_pipes %}
                     <tr>
                         <td>
@@ -111,12 +112,11 @@
                                    data-coords="{{ p.geometry.coordinates | tojson }}">
                         </td>
                         <td>{{ p.id }}</td>
-                        <td>{{ p.name_en }}</td>
-                        <td class="ar-text">{{ p.name_ar }}</td>
-                        <td>{{ p.properties.get('zone_id') or '—' }}</td>
+                        <td>
+                            <div>{{ p.name_en }}</div>
+                            <div class="ar-text">{{ p.name_ar }}</div>
+                        </td>
                         <td>{{ p.properties.get('diameter', '—') }}</td>
-                        <td>{{ p.properties.get('flow_lps', '—') }}</td>
-                        <td>{{ p.properties.get('velocity_mps', '—') }}</td>
                         <td>{{ p.properties.get('length_m', '—') }}</td>
                         <td>
                             {% if p.validated %}
@@ -135,9 +135,19 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="11" class="text-center text-muted py-3">No zone pipes yet / لا توجد أنابيب مناطق</td></tr>
+                    <tr><td colspan="7" class="text-center text-muted py-3">No zone pipes yet / لا توجد أنابيب مناطق</td></tr>
                     {% endfor %}
                 </tbody>
+                <tfoot class="table-light fw-bold">
+                    {% set length_ns = namespace(total=0) %}
+                    {% for p in sub_pipes %}{% set length_ns.total = length_ns.total + (p.properties.get('length_m') or 0) %}{% endfor %}
+                    <tr>
+                        <td></td>
+                        <td colspan="3" class="text-center">Total / المجموع</td>
+                        <td class="text-center">{{ '%.2f' | format(length_ns.total) }}</td>
+                        <td colspan="2"></td>
+                    </tr>
+                </tfoot>
             </table>
         </div>
     </div>
@@ -163,7 +173,7 @@
                   data-confirm="AI will build the Zone Pipes and drip lines (using the existing Main Pipe). Continue? / سيبني الذكاء الاصطناعي أنابيب المناطق وخطوط التنقيط (بالاعتماد على الأنبوب الرئيسي). متابعة؟">
                 <input type="hidden" name="scope" value="zone">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="bi bi-robot"></i> Auto Generate Zone Pipes / إنشاء أنابيب المناطق بالذكاء الاصطناعي</h5>
+                    <h5 class="modal-title"><i class="bi bi-magic"></i> Auto Generate Zone Pipes / إنشاء أنابيب المناطق بالذكاء الاصطناعي</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
                 </div>
                 <div class="modal-body">
@@ -210,7 +220,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
-                    <button type="submit" class="btn btn-warning"><i class="bi bi-robot"></i> Generate / إنشاء</button>
+                    <button type="submit" class="btn btn-warning"><i class="bi bi-magic"></i> Generate / إنشاء</button>
                 </div>
             </form>
         </div>

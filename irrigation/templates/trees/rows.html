@@ -21,7 +21,7 @@
 <div class="card shadow-sm">
     <div class="card-body p-0">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0" id="rowsTable">
                 <thead>
                     <tr class="table-light">
                         <th colspan="9" class="text-center">
@@ -40,6 +40,11 @@
                                     <i class="bi bi-trash"></i>
                                 </button>
                             </form>
+                            <button class="btn btn-circle btn-outline-secondary" id="rowOrientationBtn" type="button"
+                                    onclick="rowsChangeOrientation()"
+                                    title="Change Orientation for all selected zones / تغيير الاتجاه لكل المناطق المحددة">
+                                <i class="bi bi-compass"></i>
+                            </button>
                             <button class="btn btn-circle btn-warning" type="button" data-bs-toggle="modal"
                                     data-bs-target="#generateRowsModal" title="Generate / إنشاء">
                                 <i class="bi bi-magic"></i>
@@ -51,26 +56,46 @@
                             </form>
                         </th>
                     </tr>
+                    <tr class="table-light">
+                        
+                        <th colspan="9" class="text-center align-middle">
+                            <div class="input-group input-group-sm zone-search">
+                                <!-- <span class="input-group-text"><i class="bi bi-search"></i></span> -->
+                                <div class="zone-search-field">
+                                    <input type="text" id="zoneSearch" class="form-control zone-search-input"
+                                           placeholder="Filter by zone / تصفية حسب المنطقة"
+                                           autocomplete="off" aria-label="Filter by zone / تصفية حسب المنطقة">
+                                    <div class="zone-search-suffix">
+                                        <span class="badge rounded-pill text-bg-secondary zone-row-count" id="zoneRowCount"
+                                              title="Selected / found rows / الصفوف المحددة من إجمالي النتائج">0/0</span>
+                                        <button type="button" class="zone-search-clear d-none" id="zoneSearchClear"
+                                                aria-label="Clear / مسح"><i class="bi bi-x-lg"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+                        </th>
+                        
+                    </tr>
                     <tr>
                         <th width="40"><input type="checkbox" id="selectAllRows" onclick="toggleAllRows(this)"></th>
                         <th>ID</th>
-                        <th>Row Name (EN) / اسم الصف</th>
-                        <th>Row Name (AR) / اسم الصف</th>
-                        <th class="text-center">Zone / المنطقة</th>
-                        <th class="text-center">Spacing (m) / المسافة</th>
-                        <th class="text-center">Orientation / الاتجاه</th>
-                        <th class="text-center">Validated / تم التحقق</th>
-                        <th class="text-center">Actions / إجراءات</th>
+                        <th class="text-center"> اسم الصف <br> Row Name</th>
+                        <th class="text-center"> الاسم المختصر <br>Short Name</th>
+                        <th class="text-center"> المنطقة<br>Zone</th>
+                        <th class="text-center"> المسافة<br>Spacing (m) </th>
+                        <th class="text-center"> الاتجاه<br>Orientation</th>
+                        <th class="text-center"> تم التحقق<br>Validated</th>
+                        <th class="text-center"> إجراءات<br>Actions </th>
                     </tr>
                 </thead>
                 <tbody class="align-middle">
                     {% for r in rows %}
-                    <tr>
+                    <tr data-zone="{{ r.zone_id }}" data-orientation="{{ r.orientation }}">
                         <td><input type="checkbox" class="row-checkbox" value="{{ r.id }}"
                                    data-name-en="{{ r.name_en }}" data-name-ar="{{ r.name_ar }}"></td>
                         <td>{{ r.id }}</td>
-                        <td>{{ r.name_en }}</td>
-                        <td class="ar-text">{{ r.name_ar }}</td>
+                        <td class="text-center">{{ r.name_en }} <span class="ar-text">/ {{ r.name_ar }}</span></td>
+                        <td class="text-center"><code>{{ r.short_name }}</code></td>
                         <td class="text-center">{{ r.zone_name_en }} ({{ r.zone_name_ar }})</td>
                         <td class="text-center">{{ r.spacing_m }} m</td>
                         <td class="text-center">{{ r.orientation }}&deg;</td>
@@ -214,6 +239,52 @@
     </div>
 </div>
 
+<!-- Change Orientation Modal -->
+<div class="modal fade" id="orientationModal" tabindex="-1" aria-labelledby="orientationModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form id="orientationForm" data-no-loader>
+                <div class="modal-header bg-secondary text-white">
+                    <h5 class="modal-title" id="orientationModalTitle">
+                        <i class="bi bi-compass"></i> Change Orientation / تغيير الاتجاه
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p class="text-muted small" id="orientationScopeText">
+                        Rows of all zones will be re-traced at the given orientation and the map updated.
+                        Existing trees of these zones are removed.
+                        <br>
+                        سيتم إعادة رسم صفوف جميع المناطق بالاتجاه المدخل وتحديث الخريطة، مع حذف أشجار هذه المناطق.
+                    </p>
+                    <p class="text-muted small mb-2">
+                        Zones affected / المناطق المتأثرة: <b id="orientationZoneCount">0</b>
+                    </p>
+                    <div class="alert alert-warning py-2 small d-none" id="orientationNoRows">
+                        There are no rows on this page yet. Generate rows first.
+                        / لا توجد صفوف في هذه الصفحة بعد، قم بإنشاء الصفوف أولاً.
+                    </div>
+                    <div class="mb-2">
+                        <label class="form-label" for="orientationDegrees">Orientation (degrees) / الاتجاه (درجة)</label>
+                        <div class="input-group">
+                            <input type="number" step="1" min="0" max="359" class="form-control"
+                                   id="orientationDegrees" name="orientation" value="0" required>
+                            <span class="input-group-text">°</span>
+                        </div>
+                        <div class="form-text">0° = East-West / الشرق-الغرب, 90° = North-South / الشمال-الجنوب</div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-secondary" id="orientationApplyBtn">
+                        <i class="bi bi-check"></i> Apply / تطبيق
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 <!-- Map -->
 <div class="card shadow-sm mt-4">
     {% set map_title_en = "Map" %}{% set map_title_ar = "الخريطة" %}
@@ -227,11 +298,13 @@
 
 {% block extra_js %}
 <script>
+window.zoneOptions = {{ zone_options|tojson }};
 document.addEventListener('DOMContentLoaded', function() {
     const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
     initMap('map', geojsonUrl, {
         center: [34.0, -6.0], zoom: 14,
         selectable: { type: 'tree_row', checkboxSelector: '.row-checkbox', toggleOnClick: true },
+        labelTypes: ['sector', 'zone', 'tree_row', 'tree'],
         mapDelete: { onClick: rowsRemoveSelected }
     });
 
@@ -241,6 +314,22 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
     updateRowsToolbar();
+    setupZoneSearch();
+
+    const orientationForm = document.getElementById('orientationForm');
+    if (orientationForm) {
+        orientationForm.addEventListener('submit', function(event) {
+            event.preventDefault();
+            rowsChangeOrientationSubmit();
+        });
+    }
+
+    const orientationModal = document.getElementById('orientationModal');
+    if (orientationModal) {
+        orientationModal.addEventListener('show.bs.modal', function() {
+            prepareOrientationModal();
+        });
+    }
 });
 
 function updateRowsToolbar() {
@@ -248,9 +337,187 @@ function updateRowsToolbar() {
     const editBtn = document.getElementById('rowEditBtn');
     const renameBtn = document.getElementById('rowRenameBtn');
     const removeBtn = document.getElementById('rowRemoveBtn');
+    const orientationBtn = document.getElementById('rowOrientationBtn');
     if (editBtn) editBtn.disabled = count !== 1;
     if (renameBtn) renameBtn.disabled = count !== 1;
     if (removeBtn) removeBtn.disabled = count === 0;
+    if (orientationBtn) orientationBtn.disabled = false;
+    updateZoneRowCount();
+}
+
+// Badge inside the zone search input: checked rows / rows currently found.
+function updateZoneRowCount() {
+    const badge = document.getElementById('zoneRowCount');
+    if (!badge) return;
+    let total = 0;
+    let selected = 0;
+    document.querySelectorAll('#rowsTable tbody .row-checkbox').forEach(function (cb) {
+        if (!rowsRowVisible(cb)) return;
+        total += 1;
+        if (cb.checked) selected += 1;
+    });
+    badge.textContent = selected + '/' + total;
+    badge.classList.toggle('text-bg-primary', selected > 0);
+    badge.classList.toggle('text-bg-secondary', selected === 0);
+}
+
+function rowsSelectedZones(selected) {
+    const zones = new Set();
+    selected.forEach(function (cb) {
+        const tr = cb.closest('tr');
+        if (tr && tr.dataset.zone) zones.add(tr.dataset.zone);
+    });
+    return zones;
+}
+
+let orientationRowIds = [];
+
+// Fill the orientation modal from the current table selection. Falls back to
+// the rows shown by the zone filter when nothing is selected, so the form
+// always opens and never widens the scope beyond what is visible.
+function prepareOrientationModal() {
+    const checked = Array.from(document.querySelectorAll('.row-checkbox:checked'));
+    // Fall back to the rows currently shown by the zone filter (all rows when
+    // no filter is active), so a filtered zone is the default scope.
+    const shown = Array.from(document.querySelectorAll('.row-checkbox')).filter(rowsRowVisible);
+    const scope = checked.length ? checked : shown;
+    orientationRowIds = scope.map(function (cb) { return parseInt(cb.value, 10); }).filter(function (n) { return !isNaN(n); });
+
+    const zoneCount = rowsSelectedZones(scope).size;
+    const zoneCountEl = document.getElementById('orientationZoneCount');
+    if (zoneCountEl) zoneCountEl.textContent = zoneCount;
+
+    const scopeText = document.getElementById('orientationScopeText');
+    if (scopeText) {
+        scopeText.innerHTML = checked.length
+            ? 'Rows of the <b>' + zoneCount + '</b> selected zone(s) will be re-traced at the given orientation and the map updated. Existing trees of these zones are removed.<br>' +
+              'سيتم إعادة رسم صفوف <b>' + zoneCount + '</b> منطقة محددة بالاتجاه المدخل وتحديث الخريطة، مع حذف أشجار هذه المناطق.'
+            : 'Rows of the <b>' + zoneCount + '</b> shown zone(s) will be re-traced at the given orientation and the map updated. Existing trees of these zones are removed.<br>' +
+              'سيتم إعادة رسم صفوف <b>' + zoneCount + '</b> منطقة معروضة بالاتجاه المدخل وتحديث الخريطة، مع حذف أشجار هذه المناطق.';
+    }
+
+    const degreesInput = document.getElementById('orientationDegrees');
+    const firstRow = scope.length ? scope[0].closest('tr') : null;
+    if (degreesInput && firstRow) {
+        const current = parseFloat(firstRow.dataset.orientation);
+        degreesInput.value = isNaN(current) ? 0 : Math.round(current);
+    }
+    return scope.length > 0;
+}
+
+function rowsChangeOrientation() {
+    const hasRows = prepareOrientationModal();
+    const modalEl = document.getElementById('orientationModal');
+    const warning = document.getElementById('orientationNoRows');
+    const applyBtn = document.getElementById('orientationApplyBtn');
+    if (warning) warning.classList.toggle('d-none', hasRows);
+    if (applyBtn) applyBtn.disabled = !hasRows;
+    if (window.bootstrap && bootstrap.Modal) {
+        bootstrap.Modal.getOrCreateInstance(modalEl, { backdrop: true }).show();
+        return;
+    }
+    // Fallback if the Bootstrap bundle failed to load: ask natively.
+    if (!hasRows) {
+        alert('No rows available / لا توجد صفوف');
+        return;
+    }
+    const degrees = window.prompt('Orientation in degrees (0-359) / الاتجاه بالدرجات', '0');
+    if (degrees === null) return;
+    const degreesInput = document.getElementById('orientationDegrees');
+    if (degreesInput) degreesInput.value = degrees;
+    rowsChangeOrientationSubmit();
+}
+
+function rowsChangeOrientationSubmit() {
+    const degreesInput = document.getElementById('orientationDegrees');
+    const degrees = parseFloat(degreesInput ? degreesInput.value : '');
+    if (isNaN(degrees)) {
+        alert('Enter the orientation in degrees / أدخل الاتجاه بالدرجات');
+        return;
+    }
+    const url = '{{ url_for("trees.rows_change_orientation", project_id=project.id) }}';
+    const applyBtn = document.getElementById('orientationApplyBtn');
+    if (!orientationRowIds.length) {
+        alert('No rows to update / لا توجد صفوف للتحديث');
+        return;
+    }
+    if (applyBtn) applyBtn.disabled = true;
+
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ row_ids: orientationRowIds, angle: degrees })
+    })
+        .then(function (response) {
+            return response.json().catch(function () { return {}; }).then(function (data) {
+                return { ok: response.ok, data: data };
+            });
+        })
+        .then(function (result) {
+            if (!result.ok || !result.data.ok) {
+                rowsShowToast(result.data.message || 'Failed / فشل', 'danger');
+                return;
+            }
+            bootstrap.Modal.getOrCreateInstance(document.getElementById('orientationModal')).hide();
+            return rowsRefreshTable().then(function () {
+                if (window.reloadMapGeometry) window.reloadMapGeometry();
+                rowsShowToast(result.data.message || 'Done / تم', 'success');
+            });
+        })
+        .catch(function () {
+            rowsShowToast('Request failed / فشل الطلب', 'danger');
+        })
+        .then(function () {
+            if (applyBtn) applyBtn.disabled = false;
+        });
+}
+
+function rowsRefreshTable() {
+    const table = document.getElementById('rowsTable');
+    if (!table) return Promise.resolve();
+    const searchInput = document.getElementById('zoneSearch');
+    const query = searchInput ? searchInput.value : '';
+    return fetch(window.location.href, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function (response) { return response.text(); })
+        .then(function (html) {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const fresh = doc.getElementById('rowsTable');
+            if (fresh) table.replaceWith(fresh);
+            setupZoneSearch();
+            const freshInput = document.getElementById('zoneSearch');
+            if (freshInput && query.trim()) {
+                freshInput.value = query;
+                freshInput.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            updateRowsToolbar();
+        })
+        .catch(function () {});
+}
+
+function rowsShowToast(message, variant) {
+    let container = document.querySelector('.flash-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3 flash-toast-container';
+        container.setAttribute('aria-live', 'assertive');
+        container.setAttribute('aria-atomic', 'true');
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = 'toast flash-toast text-bg-' + variant + ' border-0';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.setAttribute('data-bs-autohide', 'true');
+    toast.setAttribute('data-bs-delay', '5000');
+    const body = document.createElement('div');
+    body.className = 'toast-body';
+    body.textContent = message;
+    toast.appendChild(body);
+    container.appendChild(toast);
+    if (window.bootstrap && bootstrap.Toast) {
+        bootstrap.Toast.getOrCreateInstance(toast).show();
+    }
 }
 
 function rowsEditSelected() {
@@ -294,11 +561,86 @@ function rowsRemoveSelected() {
     }
 }
 
+function rowsRowVisible(checkbox) {
+    const tr = checkbox.closest('tr');
+    return !tr || tr.style.display !== 'none';
+}
+
 function toggleAllRows(source) {
     document.querySelectorAll('.row-checkbox').forEach(cb => {
+        if (!rowsRowVisible(cb)) return;
         cb.checked = source.checked;
         cb.dispatchEvent(new Event('change', { bubbles: true }));
     });
+}
+
+// Show only the rows whose zone is in ``zoneIds``; an empty list shows every row.
+function filterRowsByZones(zoneIds) {
+    const wanted = (zoneIds || []).map(String);
+    document.querySelectorAll('tbody tr').forEach(function (tr) {
+        if (!tr.querySelector('.row-checkbox')) return;
+        tr.style.display = (wanted.length === 0 || wanted.indexOf(String(tr.dataset.zone)) !== -1) ? '' : 'none';
+    });
+}
+
+function hideAllRows() {
+    document.querySelectorAll('tbody tr').forEach(function (tr) {
+        if (tr.querySelector('.row-checkbox')) tr.style.display = 'none';
+    });
+}
+
+// Dynamic zone filter: type any part of a zone name (EN/AR) or its id and the
+// table narrows as you type. Cleared input shows every zone again.
+function setupZoneSearch() {
+    const input = document.getElementById('zoneSearch');
+    if (!input) return;
+    const clearBtn = document.getElementById('zoneSearchClear');
+    const options = Array.isArray(window.zoneOptions) ? window.zoneOptions : [];
+
+    function matchingZones(query) {
+        const q = query.trim().toLowerCase();
+        if (!q) return [];
+        return options.filter(function (zone) {
+            const code = (zone.code || '').toLowerCase();
+            if (code.indexOf(q) === 0) return true;
+            if (code && (code.match(/[a-z]+\d+/g) || []).some(function (token) { return token === q; })) return true;
+            return String(zone.id).indexOf(q) === 0
+                || (zone.en || '').toLowerCase().indexOf(q) !== -1
+                || (zone.ar || '').indexOf(query.trim()) !== -1;
+        });
+    }
+
+    function applyFilter() {
+        const query = input.value.trim();
+        if (clearBtn) clearBtn.classList.toggle('d-none', !query);
+        if (!query) {
+            filterRowsByZones([]);
+            updateZoneRowCount();
+            return;
+        }
+        const ids = matchingZones(query).map(function (zone) { return zone.id; });
+        if (ids.length) {
+            filterRowsByZones(ids);
+        } else {
+            hideAllRows();
+        }
+        updateZoneRowCount();
+    }
+
+    input.addEventListener('input', applyFilter);
+    input.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            input.value = '';
+            applyFilter();
+        }
+    });
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+            input.value = '';
+            applyFilter();
+            input.focus();
+        });
+    }
 }
 </script>
 {% endblock %}

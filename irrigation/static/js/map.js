@@ -7,6 +7,171 @@ let featureLayer = null;
 let drawnItems = null;
 let mapSelectionMode = false;
 let mapRulerActive = false;
+let sectorSelection = null;
+let labelLayers = null;
+let currentGeojsonUrl = null;
+const TREE_LABEL_MIN_ZOOM = 17;
+
+// Label categories that can be toggled from the map widget.
+const LABEL_CATEGORIES = [
+    { type: 'sector', letter: 'S', label: 'Sector / القطاع' },
+    { type: 'zone', letter: 'Z', label: 'Zone / المنطقة' },
+    { type: 'tree_row', letter: 'R', label: 'Row / الصف' },
+    { type: 'tree', letter: 'T', label: 'Tree / الشجرة' }
+];
+const labelState = { sector: true, zone: true, tree_row: true, tree: true };
+
+// ---------- Center labels for sector/zone/row/tree features ----------
+function escapeLabelHtml(value) {
+    return String(value)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// Rows/trees show a local code (R1, R1T5); sectors/zones keep their full code (S1, S1Z1).
+const LOCAL_LABEL_TYPES = ['tree_row', 'tree'];
+const SECTOR_ZONE_PREFIX = /^S\d+Z\d+/;
+
+function labelCode(properties) {
+    if (!properties) return '';
+    const shortName = properties.short_name || '';
+    if (!shortName) return '';
+    if (LOCAL_LABEL_TYPES.indexOf(properties.type) !== -1) {
+        return shortName.replace(SECTOR_ZONE_PREFIX, '') || shortName;
+    }
+    return shortName;
+}
+
+function featureLabelHtml(properties) {
+    const code = labelCode(properties);
+    const name = properties.name || '';
+    const nameAr = properties.name_ar || '';
+    const text = code || name;
+    if (!text && !nameAr) return null;
+    let html = `<span class="map-label-en">${escapeLabelHtml(text || nameAr)}</span>`;
+    if (!code && nameAr && nameAr !== text) {
+        html += `<span class="map-label-ar">${escapeLabelHtml(nameAr)}</span>`;
+    }
+    return html;
+}
+
+function layerCenterLatLng(layer) {
+    if (layer.getBounds) {
+        const bounds = layer.getBounds();
+        if (bounds && bounds.isValid()) return bounds.getCenter();
+    }
+    if (layer.getLatLng) return layer.getLatLng();
+    return null;
+}
+
+function addFeatureLabel(layer, properties, group) {
+    if (!group) return;
+    const html = featureLabelHtml(properties);
+    if (!html) return;
+    const center = layerCenterLatLng(layer);
+    if (!center) return;
+    const marker = L.marker(center, {
+        interactive: false,
+        keyboard: false,
+        icon: L.divIcon({ className: 'map-feature-label', html: html, iconSize: null })
+    });
+    marker.on('add', function() {
+        const el = marker.getElement();
+        if (el) {
+            el.style.marginLeft = -(el.offsetWidth / 2) + 'px';
+            el.style.marginTop = -(el.offsetHeight / 2) + 'px';
+        }
+    });
+    marker.addTo(group);
+}
+
+// Tree labels are only rendered at high zoom levels to keep dense orchard maps usable.
+function syncTreeLabels() {
+    if (!map || !labelLayers || !labelLayers.tree) return;
+    const group = labelLayers.tree;
+    const show = labelState.tree && map.getZoom() >= TREE_LABEL_MIN_ZOOM;
+    if (show) {
+        if (!map.hasLayer(group)) group.addTo(map);
+    } else if (map.hasLayer(group)) {
+        map.removeLayer(group);
+    }
+}
+
+// Show/hide one category's labels (trees additionally require the zoom threshold).
+function applyLabelVisibility(type) {
+    if (!map || !labelLayers || !labelLayers[type]) return;
+    if (type === 'tree') {
+        syncTreeLabels();
+        return;
+    }
+    const group = labelLayers[type];
+    if (labelState[type]) {
+        if (!map.hasLayer(group)) group.addTo(map);
+    } else if (map.hasLayer(group)) {
+        map.removeLayer(group);
+    }
+}
+
+// Map widget with one circle button per label category (Sector/Zone/Row/Tree).
+function setupLabelToggleWidget(targetMap, labelTypes) {
+    if (!labelLayers) return;
+    const categories = LABEL_CATEGORIES.filter(function(category) {
+        return labelTypes.indexOf(category.type) !== -1;
+    });
+    if (!categories.length) return;
+
+    const control = L.control({ position: 'bottomright' });
+    control.onAdd = function() {
+        const group = L.DomUtil.create('div', 'leaflet-bar map-label-toggle');
+        L.DomEvent.disableClickPropagation(group);
+        L.DomEvent.disableScrollPropagation(group);
+
+        categories.forEach(function(category) {
+            const button = L.DomUtil.create('button', 'geometry-map-select-button map-label-toggle-button', group);
+            button.type = 'button';
+            button.textContent = category.letter;
+            button.title = (labelState[category.type] ? 'Hide' : 'Show') + ' ' + category.label;
+            button.setAttribute('aria-label', 'Toggle ' + category.label + ' labels');
+            button.setAttribute('aria-pressed', String(!!labelState[category.type]));
+            button.classList.toggle('active', !!labelState[category.type]);
+            L.DomEvent.on(button, 'click', function(event) {
+                L.DomEvent.stop(event);
+                labelState[category.type] = !labelState[category.type];
+                button.classList.toggle('active', labelState[category.type]);
+                button.setAttribute('aria-pressed', String(labelState[category.type]));
+                button.title = (labelState[category.type] ? 'Hide ' : 'Show ') + category.label;
+                applyLabelVisibility(category.type);
+            });
+        });
+
+        return group;
+    };
+    control.addTo(targetMap);
+}
+
+// Reload the current geometry without a page navigation (rows/orientation edits).
+window.reloadMapGeometry = function() {
+    if (!currentGeojsonUrl || !featureLayer) return Promise.resolve(false);
+    return fetch(currentGeojsonUrl)
+        .then(function(response) { return response.json(); })
+        .then(function(data) {
+            if (labelLayers) {
+                Object.keys(labelLayers).forEach(function(type) {
+                    labelLayers[type].clearLayers();
+                });
+            }
+            featureLayer.clearLayers();
+            featureLayer.addData(data);
+            syncTreeLabels();
+            return true;
+        })
+        .catch(function(err) {
+            console.error('Error reloading geometry:', err);
+            return false;
+        });
+};
 
 // Registry of Leaflet map instances keyed by their container element id.
 const mapRegistry = {};
@@ -115,9 +280,31 @@ function addBaseLayers(targetMap, options) {
     });
 }
 
+function addNorthIndicator(targetMap) {
+    const NorthControl = L.Control.extend({
+        options: { position: 'bottomleft' },
+        onAdd: function() {
+            const div = L.DomUtil.create('div', 'leaflet-north-indicator');
+            div.innerHTML = '<span class="north-needle"></span><span class="north-label">N</span>';
+            L.DomEvent.disableClickPropagation(div);
+            L.DomEvent.disableScrollPropagation(div);
+            const needle = div.querySelector('.north-needle');
+            const update = function() {
+                const bearing = (targetMap.getBearing ? targetMap.getBearing() : 0) || 0;
+                needle.style.transform = 'rotate(' + bearing + 'deg)';
+            };
+            targetMap.on('rotate', update);
+            update();
+            return div;
+        }
+    });
+    targetMap.addControl(new NorthControl());
+}
+
 function initMap(elementId, geojsonUrl, options = {}) {
     const mapElement = document.getElementById(elementId);
     if (!mapElement) return null;
+    currentGeojsonUrl = geojsonUrl || currentGeojsonUrl;
 
     const mapHeight = options.height || '500px';
     mapElement.style.height = mapHeight;
@@ -127,7 +314,8 @@ function initMap(elementId, geojsonUrl, options = {}) {
 
     addBaseLayers(map, options);
 
-    // Add scale bar
+    // North indicator (always visible) + scale bar
+    addNorthIndicator(map);
     L.control.scale().addTo(map);
 
     // Drawn items layer
@@ -173,6 +361,26 @@ function initMap(elementId, geojsonUrl, options = {}) {
     const selectableTypes = options.selectable
         ? (Array.isArray(options.selectable.type) ? options.selectable.type : [options.selectable.type])
         : [];
+    const labelTypes = options.labelTypes || ['sector', 'zone'];
+
+    // Permanent labels (sector S1, zone S1Z1, row R1, tree R1T5), one layer per
+    // category so the map widget can show/hide each of them. Created before the
+    // GeoJSON layer so onEachFeature can route labels into the right group.
+    labelLayers = {};
+    LABEL_CATEGORIES.forEach(function(category) {
+        const group = L.layerGroup();
+        labelLayers[category.type] = group;
+        if (labelTypes.indexOf(category.type) !== -1 && category.type !== 'tree') {
+            group.addTo(map);
+        }
+    });
+
+    // Tree labels only appear from a high zoom level to keep orchard maps readable.
+    map.on('zoomend', syncTreeLabels);
+
+    // Circle-button widget to toggle each label category.
+    setupLabelToggleWidget(map, labelTypes);
+
     if (options.selectable) {
         const selectionControl = L.control({ position: 'topright' });
         selectionControl.onAdd = function() {
@@ -226,6 +434,12 @@ function initMap(elementId, geojsonUrl, options = {}) {
         }
     }
 
+    // Optional single/multi sector selection with a left-side action widget.
+    sectorSelection = null;
+    if (options.sectorSelect && options.sectorSelect.enabled !== false) {
+        setupSectorSelection(map, options.sectorSelect);
+    }
+
     // Feature layer for loaded data
     featureLayer = L.geoJSON(null, {
         style: function(feature) {
@@ -264,7 +478,8 @@ function initMap(elementId, geojsonUrl, options = {}) {
                 const nameAr = feature.properties.name_ar || '';
                 const type = feature.properties.type || '';
                 const validated = feature.properties.validated;
-                let popupContent = `<b>${name}</b>`;
+                let popupContent = `<b>${escapeLabelHtml(labelCode(properties) || name)}</b>`;
+                if (name && labelCode(properties)) popupContent += ` &ndash; ${escapeLabelHtml(name)}`;
                 if (nameAr) popupContent += ` / <span class="ar-text">${nameAr}</span>`;
                 popupContent += `<br><small>Type: ${type}</small>`;
                 if (validated !== undefined) {
@@ -310,6 +525,18 @@ function initMap(elementId, geojsonUrl, options = {}) {
                         }
                     });
                 }
+
+                if (sectorSelection && type === 'sector' && properties.id !== undefined) {
+                    registerSectorLayer(layer, properties);
+                } else if (sectorSelection && layer.setStyle) {
+                    // Any other polygon overlay (zones, boundary, ...) is muted
+                    // while the sector pick mode is active.
+                    sectorSelection.blockLayers.push(layer);
+                }
+
+                if (labelTypes.indexOf(type) !== -1 && labelLayers && labelLayers[type]) {
+                    addFeatureLabel(layer, properties, labelLayers[type]);
+                }
             }
         }
     }).addTo(map);
@@ -323,6 +550,7 @@ function initMap(elementId, geojsonUrl, options = {}) {
                 if (data.features && data.features.length > 0) {
                     map.fitBounds(featureLayer.getBounds(), { padding: [50, 50] });
                 }
+                syncTreeLabels();
             })
             .catch(err => console.error('Error loading geometry:', err));
     }
@@ -470,6 +698,130 @@ function submitMapAction() {
     if (def.parts) add('parts', mapActionPanel.querySelector('[data-role="parts"]').value);
     document.body.appendChild(form);
     form.submit();
+}
+
+// ---------- Sector selection (select sector by sector) + left-side widget ----------
+// options.sectorSelect = {
+//   pickTitle: 'Select sector / اختر قطاعا',
+//   onSelectionChange: function(ids) {},
+//   actions: [ { icon: 'bi-magic', title: '...', enabledWhen: fn(count), onClick: fn(ids) } ]
+// }
+// Clicking a sector toggles its selection. Zones are made non-interactive while
+// pick mode is on so clicks reach the sector polygons underneath.
+function setupSectorSelection(targetMap, config) {
+    const state = {
+        config: config,
+        ids: [],
+        layers: new Map(),
+        blockLayers: [],
+        pickMode: false,
+        pickButton: null,
+        actionButtons: []
+    };
+
+    const control = L.control({ position: 'topleft' });
+    control.onAdd = function() {
+        const group = L.DomUtil.create('div', 'leaflet-bar geometry-sector-widget');
+        L.DomEvent.disableClickPropagation(group);
+
+        const pick = L.DomUtil.create('button', 'geometry-map-select-button geometry-sector-pick-button', group);
+        pick.type = 'button';
+        pick.title = config.pickTitle || 'Select sector / اختر قطاعا';
+        pick.setAttribute('aria-label', pick.title);
+        pick.setAttribute('aria-pressed', 'false');
+        pick.innerHTML = '<i class="bi bi-bounding-box"></i>';
+        pick.addEventListener('click', function() { setSectorPickMode(targetMap, state, !state.pickMode); });
+        state.pickButton = pick;
+
+        (config.actions || []).forEach(function(action) {
+            const button = L.DomUtil.create('button', 'geometry-map-select-button geometry-sector-action-button', group);
+            button.type = 'button';
+            button.title = action.title || '';
+            button.setAttribute('aria-label', action.title || '');
+            button.innerHTML = '<i class="bi ' + action.icon + '"></i>';
+            button.disabled = true;
+            button.addEventListener('click', function() {
+                if (button.disabled) return;
+                if (typeof action.onClick === 'function') action.onClick(state.ids.slice());
+            });
+            state.actionButtons.push({ button: button, action: action });
+        });
+
+        return group;
+    };
+    control.addTo(targetMap);
+    sectorSelection = state;
+}
+
+function setSectorPickMode(targetMap, state, on) {
+    state.pickMode = on;
+    if (state.pickButton) {
+        state.pickButton.classList.toggle('active', on);
+        state.pickButton.setAttribute('aria-pressed', String(on));
+    }
+    targetMap.getContainer().classList.toggle('geometry-sector-pick-mode', on);
+
+    // Disable the overlay polygons (zones, boundary, ...) so clicks pass
+    // through to the sector polygons underneath while picking.
+    state.blockLayers.forEach(function(layer) {
+        if (!layer._path) return;
+        if (on) {
+            L.DomUtil.removeClass(layer._path, 'leaflet-interactive');
+        } else {
+            L.DomUtil.addClass(layer._path, 'leaflet-interactive');
+        }
+    });
+
+    // Raise sector paths so they sit above the (now non-interactive) overlays.
+    if (on) state.layers.forEach(function(layer) { if (layer.bringToFront) layer.bringToFront(); });
+}
+
+function registerSectorLayer(layer, properties) {
+    if (!sectorSelection) return;
+    const id = String(properties.id);
+    sectorSelection.layers.set(id, layer);
+    layer._sectorBaseStyle = { color: properties.color || '#3388ff', weight: 2, fillOpacity: 0.2 };
+    layer.on('click', function(event) {
+        if (!sectorSelection.pickMode || mapRulerActive) return;
+        if (event.originalEvent) L.DomEvent.stopPropagation(event.originalEvent);
+        toggleSectorSelection(id);
+    });
+}
+
+function toggleSectorSelection(id) {
+    if (!sectorSelection) return;
+    const index = sectorSelection.ids.indexOf(id);
+    const layer = sectorSelection.layers.get(id);
+    if (index === -1) {
+        sectorSelection.ids.push(id);
+        if (layer) applySectorStyle(layer, true);
+    } else {
+        sectorSelection.ids.splice(index, 1);
+        if (layer) applySectorStyle(layer, false);
+    }
+    updateSectorActionButtons(sectorSelection);
+    if (typeof sectorSelection.config.onSelectionChange === 'function') {
+        sectorSelection.config.onSelectionChange(sectorSelection.ids.slice());
+    }
+}
+
+function applySectorStyle(layer, selected) {
+    if (!layer || !layer.setStyle) return;
+    if (selected) {
+        layer.setStyle({ color: '#f08c00', weight: 5, fillColor: '#f08c00', fillOpacity: 0.35 });
+        if (layer.bringToFront) layer.bringToFront();
+    } else {
+        layer.setStyle(layer._sectorBaseStyle || { color: '#3388ff', weight: 2, fillOpacity: 0.2 });
+    }
+}
+
+function updateSectorActionButtons(state) {
+    const count = state.ids.length;
+    state.actionButtons.forEach(function(item) {
+        item.button.disabled = item.action.enabledWhen
+            ? !item.action.enabledWhen(count)
+            : count === 0;
+    });
 }
 
 function initRulerTool(drawControl) {

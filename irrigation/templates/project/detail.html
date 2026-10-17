@@ -27,18 +27,17 @@
             action="{{ url_for('project.upload_kml', project_id=project.id) }}"
             enctype="multipart/form-data">
             <div class="row align-items-end">
-                <div class="col-md-8">
-                    <label class="form-label">Upload KML or KMZ file / رفع ملف
+                  <label class="form-label">Upload KML or KMZ file / تحميل الملف 
                         KML أو KMZ</label>
-                    <input type="file" name="kml_file" class="form-control"
-                        accept=".kml,.kmz">
-                </div>
-                <div class="col-md-4">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="bi bi-upload"></i> Upload / رفع
-                    </button>
+            </div>
+            <div class="row g-2">
+                <div class="fileupload-wrapper">
+                    <input type="file" name="kml_file" class="form-control"  accept=".kml,.kmz">
+                    <button type="submit"> <i class="bi bi-upload"></i> </button>
                 </div>
             </div>
+
+            
         </form>
         {% if project.kml_file %}
         <div class="mt-2">
