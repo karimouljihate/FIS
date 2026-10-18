@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.62 - 2026-10-18
+
+### Changed
+- **Trees/Trees table**: all header columns and all data cells set to center alignment (text-center).
+
 ## 0.3.61 - 2026-10-18
 
 ### Changed

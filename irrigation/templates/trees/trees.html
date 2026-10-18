@@ -75,29 +75,29 @@
                     <tr>
                         <th width="40"><input type="checkbox" id="selectAllTrees" onclick="toggleAllTrees(this)"></th>
                         <th>ID</th>
-                        <th>Name</th>
-                        <th>Row</th>
+                        <th class="text-center">Name</th>
+                        <th class="text-center">Row</th>
                         <th class="text-center cursor-pointer" onclick="sortTreesByShortName()" title="Sort by Short Name / ترتيب حسب الاسم المختصر">
                             <span class="ar-text">الاسم المختصر</span><br>Short Name <span id="treeSortIcon" class="ms-1">▼</span>
                         </th>
-                        <th>Variety (EN)</th>
-                        <th>Spacing (m)</th>
-                        <th>Drips/Tree</th>
-                        <th>Validated</th>
+                        <th class="text-center">Variety (EN)</th>
+                        <th class="text-center">Spacing (m)</th>
+                        <th class="text-center">Drips/Tree</th>
+                        <th class="text-center">Validated</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for t in trees %}
                     <tr data-short-name="{{ t.short_name }}">
                         <td><input type="checkbox" class="tree-checkbox" value="{{ t.id }}" data-name-en="{{ t.name_en }}"></td>
-                        <td>{{ t.id }}</td>
-                        <td>{{ t.name_en }}</td>
+<td class="text-center">{{ t.id }}</td>
+                        <td class="text-center">{{ t.name_en }}</td>
                         <td class="text-center">{{ t.row_id }}</td>
                         <td class="text-center"><code>{{ t.short_name }}</code></td>
-                        <td>{{ t.variety_en }}</td>
-                        <td>{{ t.spacing_m }} m</td>
-                        <td>{{ t.drips_per_tree }}</td>
-                        <td>
+                        <td class="text-center">{{ t.variety_en }}</td>
+                        <td class="text-center">{{ t.spacing_m }} m</td>
+                        <td class="text-center">{{ t.drips_per_tree }}</td>
+                        <td class="text-center">
                             {% if t.validated %}
                             <span class="badge bg-success"><i class="bi bi-check"></i></span>
                             {% else %}
