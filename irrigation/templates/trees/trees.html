@@ -35,7 +35,7 @@
                             <button class="btn btn-circle btn-outline-primary" id="treeAddBtn" type="button" title="Add / إضافة" onclick="openAddTreeModal()">
                                 <i class="bi bi-plus"></i>
                             </button>
-                            <button class="btn btn-circle btn-outline-primary" id="treeEditBtn" type="button" title="Edit / تعديل">
+                            <button class="btn btn-circle btn-outline-primary" id="treeEditBtn" type="button" title="Edit / تعديل" onclick="openEditTreeModal()">
                                 <i class="bi bi-pencil"></i>
                             </button>
                             <button class="btn btn-circle btn-outline-danger" id="treeRemoveBtnHeader" type="button"
@@ -85,7 +85,7 @@
                 <tbody>
                     {% for t in trees %}
                     <tr data-short-name="{{ t.short_name }}">
-                        <td><input type="checkbox" class="tree-checkbox" value="{{ t.id }}" data-name-en="{{ t.name_en }}"></td>
+                        <td><input type="checkbox" class="tree-checkbox" value="{{ t.id }}" data-name-en="{{ t.name_en }}" data-name-ar="{{ t.name_ar }}"></td>
 <td class="text-center">{{ t.id }}</td>
                         <td class="text-center">{{ t.name_en }}</td>
                         <td class="text-center">{{ t.row_id }}</td>
@@ -199,6 +199,55 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
                     <button type="submit" class="btn btn-success"><i class="bi bi-check"></i> Add / إضافة</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Edit Tree Modal -->
+<div class="modal fade" id="editTreeModal" tabindex="-1" aria-labelledby="editTreeModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" id="editTreeForm" action="{{ url_for('trees.tree_edit', project_id=project.id) }}">
+                <div class="modal-header bg-primary text-white">
+                    <h5 class="modal-title" id="editTreeModalTitle"><i class="bi bi-pencil"></i> Edit Tree / تعديل الشجرة</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="hidden" name="tree_id" id="editTreeId">
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Name (EN)</label>
+                            <input type="text" name="name_en" id="editTreeNameEn" class="form-control">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Name (AR)</label>
+                            <input type="text" name="name_ar" id="editTreeNameAr" class="form-control">
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Variety (EN)</label>
+                            <input type="text" name="variety_en" id="editTreeVarietyEn" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Variety (AR)</label>
+                            <input type="text" name="variety_ar" id="editTreeVarietyAr" class="form-control">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Drips/Tree</label>
+                            <input type="number" name="drips_per_tree" id="editTreeDrips" step="1" min="1" class="form-control" value="2">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Spacing (m)</label>
+                        <input type="number" name="spacing_m" id="editTreeSpacing" step="0.5" min="1" class="form-control" value="4">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-primary"><i class="bi bi-check"></i> Save / حفظ</button>
                 </div>
             </form>
         </div>
@@ -666,6 +715,39 @@ function openAddTreeModal() {
     modal.show();
 }
 
+function openEditTreeModal() {
+    const selected = document.querySelectorAll('.tree-checkbox:checked');
+    if (selected.length !== 1) return;
+    const checkbox = selected[0];
+    const tr = checkbox.closest('tr');
+    if (!tr) return;
+
+    const treeId = checkbox.value;
+    const nameEn = tr.querySelector('td:nth-child(3)').textContent.trim();
+    const nameAr = checkbox.dataset.nameAr || '';
+    const rowId = tr.querySelector('td:nth-child(4)').textContent.trim();
+    const shortName = tr.querySelector('td:nth-child(5) code').textContent.trim();
+    const varietyEn = tr.querySelector('td:nth-child(6)').textContent.trim();
+    const dripsText = tr.querySelector('td:nth-child(8)').textContent.trim();
+    const spacingText = tr.querySelector('td:nth-child(7)').textContent.trim();
+
+    document.getElementById('editTreeId').value = treeId;
+    document.getElementById('editTreeNameEn').value = nameEn;
+    document.getElementById('editTreeNameAr').value = nameAr;
+    document.getElementById('editTreeVarietyEn').value = tr.querySelector('td:nth-child(6)').textContent.trim();
+    document.getElementById('editTreeVarietyAr').value = '';
+    document.getElementById('editTreeDrips').value = tr.querySelector('td:nth-child(8)').textContent.trim() || 2;
+    document.getElementById('editTreeSpacing').value = tr.querySelector('td:nth-child(7)').textContent.trim().replace(' m', '') || 4;
+
+    const modal = new bootstrap.Modal(document.getElementById('editTreeModal'));
+    modal.show();
+}
+
+const treeEditBtn = document.getElementById('treeEditBtn');
+if (treeEditBtn) {
+    treeEditBtn.addEventListener('click', openEditTreeModal);
+}
+
 function updateAddTreeRows() {
     const zoneSelect = document.getElementById('addTreeZone');
     const rowSelect = document.getElementById('addTreeRow');
@@ -675,11 +757,13 @@ function updateAddTreeRows() {
     fetch('{{ url_for("api.get_geometry", project_id=project.id) }}')
         .then(function(r) { return r.json(); })
         .then(function(data) {
-            const rows = (data.tree_rows || []).filter(function(r) { return String(r.zone_id) === zoneId; });
+            const rows = (data.features || []).filter(function(f) {
+                return f.properties && f.properties.type === 'tree_row' && String(f.properties.zone_id) === zoneId;
+            });
             rows.forEach(function(r) {
                 const opt = document.createElement('option');
-                opt.value = r.id;
-                opt.textContent = r.name_en || ('Row ' + r.id);
+                opt.value = r.properties.id;
+                opt.textContent = r.properties.name_en || ('Row ' + r.properties.id);
                 rowSelect.appendChild(opt);
             });
         });

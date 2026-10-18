@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.68 - 2026-10-18
+
+### Fixed
+- **Add Tree modal**: row dropdown now correctly populates from API FeatureCollection (filters `type: 'tree_row'` features by zone).
+
+### Added
+- **Trees/Trees Edit button**: enabled when exactly 1 tree selected; opens Edit Tree modal with pre-filled data (name EN/AR, variety, drips, spacing).
+- **tree_edit route**: new POST route to update a single tree record.
+
 ## 0.3.67 - 2026-10-18
 
 ### Fixed

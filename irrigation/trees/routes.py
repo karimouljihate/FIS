@@ -515,6 +515,43 @@ def tree_add(project_id):
     return redirect(url_for('trees.trees_view', project_id=project_id))
 
 
+@trees_bp.route('/<int:project_id>/trees/edit', methods=['POST'])
+@login_required
+def tree_edit(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    tree_id = request.form.get('tree_id', type=int)
+    name_en = request.form.get('name_en', '').strip()
+    name_ar = request.form.get('name_ar', '').strip()
+    variety_en = request.form.get('variety_en', '').strip()
+    variety_ar = request.form.get('variety_ar', '').strip()
+    spacing_m = request.form.get('spacing_m', default=4, type=float)
+    drips_per_tree = request.form.get('drips_per_tree', default=2, type=int)
+
+    if not tree_id:
+        flash('Tree ID required / معرّف الشجرة مطلوب', 'danger')
+        return redirect(url_for('trees.trees_view', project_id=project_id))
+
+    tree = mongo.db.trees.find_one({'id': tree_id, 'project_id': project_id})
+    if not tree:
+        flash('Tree not found / الشجرة غير موجودة', 'danger')
+        return redirect(url_for('trees.trees_view', project_id=project_id))
+
+    update_data = {
+        'name_en': name_en or tree.get('name_en'),
+        'name_ar': name_ar or tree.get('name_ar'),
+        'variety_en': variety_en,
+        'variety_ar': variety_ar,
+        'spacing_m': spacing_m,
+        'drips_per_tree': drips_per_tree
+    }
+    mongo.db.trees.update_one({'id': tree_id, 'project_id': project_id}, {'$set': update_data})
+    flash('Tree updated / تم تحديث الشجرة', 'success')
+    return redirect(url_for('trees.trees_view', project_id=project_id))
+
+
 @trees_bp.route('/<int:project_id>/trees/remove', methods=['POST'])
 @login_required
 def trees_remove(project_id):
