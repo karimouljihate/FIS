@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.54 - 2026-10-18
+
+### Added
+- **Tree Setup validation**: client-side percentage check on Generate Trees submit — blocks submission and shows a toast if All Sectors / Zones or any Zone Card variety percentages exceed 100%.
+
 ## 0.3.53 - 2026-10-18
 
 ### Changed

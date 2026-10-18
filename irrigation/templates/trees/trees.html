@@ -140,7 +140,7 @@
 <div class="modal fade bd-example-modal-xl" id="treeSetupModal" tabindex="-1" aria-labelledby="treeSetupModalTitle" aria-hidden="true">
     <div class="modal-dialog modal-dialog-scrollable modal-xl">
         <div class="modal-content">
-            <form method="POST" action="{{ url_for('trees.trees_generate', project_id=project.id) }}">
+            <form id="treeSetupForm" method="POST" action="{{ url_for('trees.trees_generate', project_id=project.id) }}">
                 <div class="modal-header bg-success text-white">
                     <h2 class="wf-title-en">Tree Setup</h2>
                     <i class="bi bi-tree fs-1" aria-hidden="true"></i>
@@ -166,7 +166,7 @@
                             </div>
                             <div class="row g-2">
                                 <div class="col-md-2">
-                                    <label class="form-label small mb-0">Variety 1 (EN) / النوع 1</label>
+                                    <label class="form-label small mb-0">Variety 1  / النوع 1</label>
                                     <input type="text" name="variety_all_1" class="form-control form-control-sm" value="Olive">
                                 </div>
                                 <div class="col-md-2">
@@ -174,7 +174,7 @@
                                     <input type="number" name="pct_all_1" step="1" min="0" max="100" class="form-control form-control-sm" value="100">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label small mb-0">Variety 2 (EN) / النوع 2</label>
+                                    <label class="form-label small mb-0">Variety 2 / النوع 2</label>
                                     <input type="text" name="variety_all_2" class="form-control form-control-sm">
                                 </div>
                                 <div class="col-md-2">
@@ -182,7 +182,7 @@
                                     <input type="number" name="pct_all_2" step="1" min="0" max="100" class="form-control form-control-sm">
                                 </div>
                                 <div class="col-md-2">
-                                    <label class="form-label small mb-0">Variety 3 (EN) / النوع 3</label>
+                                    <label class="form-label small mb-0">Variety 3  / النوع 3</label>
                                     <input type="text" name="variety_all_3" class="form-control form-control-sm">
                                 </div>
                                 <div class="col-md-2">
@@ -219,48 +219,78 @@
                                     <div class="card border-primary zone-card">
                                         <div class="card-header bg-primary text-white small d-flex justify-content-between align-items-center">
                                             <div>
-                                                <strong class="ar-text">الاسم المختصر</strong><br>Short Name
-                                                <br><code>{{ zone.short_name }}</code>
+                                                <span class="text-light small"> {{ zone.short_name }}</span>    
+                                                <!-- <br><code>{{ zone.short_name }}</code> -->
                                             </div>
                                             <span class="text-light small">Rows: {{ zone.row_count|default(0) }}</span>
                                         </div>
                                         <div class="card-body p-2">
                                             <div class="row g-2 mb-1">
-                                                <div class="col-md-3">
+                                                <div class="col-md-5">
                                                     <label class="form-label small mb-0">Spacing (m)</label>
+                                                </div>
+                                                <div class="col-md-2">
                                                     <input type="number" name="spacing_{{ zone.id }}" step="0.5" min="1" class="form-control form-control-sm" value="4">
                                                 </div>
+                                                <div class="col-md-5">
+                                                    <label class="form-label small mb-0 bilingual-label">
+                                                        <span class="bilingual-label-ar">تباعد</span>
+                                                    </label>
+                                                </div>
                                             </div>
                                             <div class="row g-2 mb-1">
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Variety 1 (EN)</label>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-0">Variety 1 </label>
                                                     <input type="text" name="variety_{{ zone.id }}_1" class="form-control form-control-sm" value="Olive">
                                                 </div>
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Pct 1 (%)</label>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-0 align-text-center">Pct 1 (%)</label>
                                                     <input type="number" name="pct_{{ zone.id }}_1" step="1" min="0" max="100" class="form-control form-control-sm" value="100">
+                                                </div>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-0 bilingual-label">
+                                                        <span class="bilingual-label-ar">نوع</span>
+                                                    </label>
+                                                    <input type="text" name="variety_ar{{ zone.id }}_1" class="form-control form-control-sm" value="زيتون">
+
                                                 </div>
                                             </div>
                                             <div class="row g-2 mb-1">
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Variety 2 (EN)</label>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-0">Variety 2 </label>
                                                     <input type="text" name="variety_{{ zone.id }}_2" class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Pct 2 (%)</label>
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-0 align-text-center">Pct 2 (%)</label>
                                                     <input type="number" name="pct_{{ zone.id }}_2" step="1" min="0" max="100" class="form-control form-control-sm">
                                                 </div>
-                                            </div>
-                                            <div class="row g-2">
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Variety 3 (EN)</label>
-                                                    <input type="text" name="variety_{{ zone.id }}_3" class="form-control form-control-sm">
-                                                </div>
-                                                <div class="col-md-3">
-                                                    <label class="form-label small mb-0">Pct 3 (%)</label>
-                                                    <input type="number" name="pct_{{ zone.id }}_3" step="1" min="0" max="100" class="form-control form-control-sm">
+                                                <div class="col-md-4">
+                                                    <label class="form-label small mb-0 bilingual-label">
+                                                        <span class="bilingual-label-ar">نوع</span>
+                                                    </label>
+                                                    <input type="text" name="variety_ar{{ zone.id }}_2" class="form-control form-control-sm">
+
                                                 </div>
                                             </div>
+                                            <div class="row g-2 mb-1">
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small mb-0">Variety 3 </label>
+                                                        <input type="text" name="variety_{{ zone.id }}_3" class="form-control form-control-sm">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small mb-0 align-text-center">Pct 3 (%)</label>
+                                                        <input type="number" name="pct_{{ zone.id }}_3" step="1" min="0" max="100" class="form-control form-control-sm">
+                                                    </div>
+                                                    <div class="col-md-4">
+                                                        <label class="form-label small mb-0 bilingual-label">
+                                                            <span class="bilingual-label-ar">نوع</span>
+                                                        </label>
+                                                        <input type="text" name="variety_ar{{ zone.id }}_3" class="form-control form-control-sm">
+                                                    </div>
+                                            </div>
+                                            
+
+                                            
                                         </div>
                                     </div>
                                 </div>
@@ -420,6 +450,69 @@ document.querySelectorAll('.collapse-sector').forEach(function (btn) {
             icon.classList.toggle('bi-chevron-up');
         }
     });
+});
+
+function showTreeSetupToast(message, variant) {
+    let container = document.querySelector('.flash-toast-container');
+    if (!container) {
+        container = document.createElement('div');
+        container.className = 'toast-container position-fixed bottom-0 end-0 p-3 flash-toast-container';
+        container.setAttribute('aria-live', 'assertive');
+        container.setAttribute('aria-atomic', 'true');
+        document.body.appendChild(container);
+    }
+    const toast = document.createElement('div');
+    toast.className = 'toast flash-toast text-bg-' + variant + ' border-0';
+    toast.setAttribute('role', 'alert');
+    toast.setAttribute('aria-live', 'assertive');
+    toast.setAttribute('aria-atomic', 'true');
+    toast.setAttribute('data-bs-autohide', 'true');
+    toast.setAttribute('data-bs-delay', '5000');
+    const body = document.createElement('div');
+    body.className = 'toast-body';
+    body.textContent = message;
+    toast.appendChild(body);
+    container.appendChild(toast);
+    if (window.bootstrap && bootstrap.Toast) {
+        bootstrap.Toast.getOrCreateInstance(toast).show();
+    }
+}
+
+function validateTreeSetup() {
+    // All Sectors / Zones card
+    const allTotal = [1, 2, 3].reduce(function (sum, slot) {
+        const el = document.querySelector('input[name="pct_all_' + slot + '"]');
+        return sum + (el ? parseFloat(el.value || 0) : 0);
+    }, 0);
+    if (allTotal > 100) {
+        showTreeSetupToast('Error in Percentage: All Sectors / Zones total exceeds 100% / خطأ في النسبة: إجمالي القطاعات والمناطق يتجاوز 100%', 'danger');
+        return false;
+    }
+
+    // Per-zone cards
+    const zoneTotals = {};
+    document.querySelectorAll('input[name^="pct_"]').forEach(function (input) {
+        const name = input.getAttribute('name');
+        const match = name.match(/^pct_(.+)_([123])$/);
+        if (match) {
+            const zoneId = match[1];
+            zoneTotals[zoneId] = (zoneTotals[zoneId] || 0) + parseFloat(input.value || 0);
+        }
+    });
+    for (const zoneId in zoneTotals) {
+        if (zoneTotals[zoneId] > 100) {
+            showTreeSetupToast('Error in Percentage: Zone total exceeds 100% / خطأ في النسبة: إجمالي المنطقة يتجاوز 100%', 'danger');
+            return false;
+        }
+    }
+
+    return true;
+}
+
+document.getElementById('treeSetupForm').addEventListener('submit', function(event) {
+    if (!validateTreeSetup()) {
+        event.preventDefault();
+    }
 });
 </script>
 {% endblock %}
