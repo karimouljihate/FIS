@@ -561,5 +561,26 @@ document.getElementById('treeSetupForm').addEventListener('submit', function(eve
         event.preventDefault();
     }
 });
+
+// Trees Validate button
+const treeValidateBtn = document.getElementById('treeValidateBtn');
+if (treeValidateBtn) {
+    treeValidateBtn.addEventListener('click', function() {
+        const url = '{{ url_for("trees.trees_validate", project_id=project.id) }}';
+        fetch(url, { method: 'POST' })
+            .then(function(response) { return response.json().catch(function() { return {}; }); })
+            .then(function(data) {
+                if (data.message) {
+                    showTreeSetupToast(data.message, 'success');
+                } else {
+                    showTreeSetupToast('Trees validated / تم التحقق من الأشجار', 'success');
+                }
+                location.reload();
+            })
+            .catch(function() {
+                showTreeSetupToast('Validation failed / فشل التحقق', 'danger');
+            });
+    });
+}
 </script>
 {% endblock %}

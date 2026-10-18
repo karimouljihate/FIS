@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.59 - 2026-10-18
+
+### Fixed
+- **Trees/Trees Validation button**: added click handler to POST to `trees.trees_validate` route (was missing handler).
+
 ## 0.3.58 - 2026-10-18
 
 ### Fixed
