@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.67 - 2026-10-18
+
+### Fixed
+- **Trees/Trees filter/search**: now matches both Short Name and tree Name; properly shows/hides rows.
+- **Trees/Trees counter badge**: fixed to count visible rows correctly; updates on load, search, checkbox toggle, sort, and select-all.
+- **Trees/Trees select all**: now only affects visible (non-filtered) rows; select-all checkbox state syncs with selection count.
+
 ## 0.3.66 - 2026-10-18
 
 ### Fixed

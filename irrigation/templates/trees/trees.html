@@ -413,14 +413,20 @@ function updateTreesToolbar() {
     const count = document.querySelectorAll('.tree-checkbox:checked').length;
     const editBtn = document.getElementById('treeEditBtn');
     const removeBtnHeader = document.getElementById('treeRemoveBtnHeader');
+    const selectAll = document.getElementById('selectAllTrees');
+    const visibleCount = document.querySelectorAll('#treesTable tbody tr:not([style*="display: none"]) .tree-checkbox').length;
     if (editBtn) editBtn.disabled = count !== 1;
     if (removeBtnHeader) removeBtnHeader.disabled = count === 0;
+    if (selectAll) selectAll.checked = (count > 0 && count === visibleCount);
     updateTreeBadge();
 }
 
 function toggleAllTrees(source) {
-    document.querySelectorAll('.tree-checkbox').forEach(cb => {
-        cb.checked = source.checked;
+    const isChecked = source.checked;
+    document.querySelectorAll('#treesTable tbody tr .tree-checkbox').forEach(function(cb) {
+        const tr = cb.closest('tr');
+        if (tr && tr.style.display === 'none') return;
+        cb.checked = isChecked;
         cb.dispatchEvent(new Event('change', { bubbles: true }));
     });
 }
@@ -483,7 +489,7 @@ function sortTreesByShortName() {
         return sa.localeCompare(sb);
     });
     rows.forEach(function (row) { tbody.appendChild(row); });
-    updateTreeBadge();
+    updateTreesToolbar();
 }
 
 function setupTreeSearch() {
@@ -497,10 +503,12 @@ function setupTreeSearch() {
         document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
             if (!tr.querySelector('.tree-checkbox')) return;
             const shortName = (tr.getAttribute('data-short-name') || '').toLowerCase();
-            const visible = shortName.indexOf(q) !== -1;
+            const nameCell = tr.querySelector('td:nth-child(3)');
+            const nameText = (nameCell ? nameCell.textContent : '').toLowerCase();
+            const visible = (shortName.indexOf(q) !== -1) || (nameText.indexOf(q) !== -1);
             tr.style.display = visible ? '' : 'none';
         });
-        updateTreeBadge();
+        updateTreesToolbar();
     }
 
     input.addEventListener('input', applyFilter);
