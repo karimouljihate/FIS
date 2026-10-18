@@ -488,6 +488,11 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     updateTreesToolbar();
     setupTreeSearch();
+    
+    // Fallback: ensure badge updates on full load
+    window.addEventListener('load', function() {
+        updateTreesToolbar();
+    });
 });
 
 function initTreePagination() {
@@ -640,17 +645,18 @@ function updateTreeBadge() {
     if (!badge) return;
     let total = 0;
     let selected = 0;
-    document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
+    const rows = document.querySelectorAll('#treesTableBody tr[data-short-name]');
+    rows.forEach(function (tr) {
         if (!tr.querySelector('.tree-checkbox')) return;
         total += 1;
         if (tr.style.display !== 'none' && tr.querySelector('.tree-checkbox').checked) selected += 1;
     });
-    const badge = document.getElementById('treeRowCount');
     if (badge) {
         badge.textContent = selected + '/' + total;
         badge.classList.toggle('text-bg-primary', selected > 0);
         badge.classList.toggle('text-bg-secondary', selected === 0);
     }
+    console.log('updateTreeBadge: total=', total, 'selected=', selected);
 }
 
 let treeSortDesc = false;

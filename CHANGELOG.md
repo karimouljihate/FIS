@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.73 - 2026-10-18
+
+### Fixed
+- **Trees/Trees badge initialization**: fixed 0/0 on hard refresh by ensuring badge updates on window load fallback and using `#treesTableBody` selector.
+
 ## 0.3.70 - 2026-10-18
 
 ### Fixed
