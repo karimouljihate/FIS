@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.69 - 2026-10-18
+
+### Fixed
+- **Trees/Trees counter badge**: now shows "selected / total" where total = ALL trees (not just visible). E.g. "0/5968". Select-all checkbox syncs with total count.
+
 ## 0.3.68 - 2026-10-18
 
 ### Fixed

@@ -463,10 +463,10 @@ function updateTreesToolbar() {
     const editBtn = document.getElementById('treeEditBtn');
     const removeBtnHeader = document.getElementById('treeRemoveBtnHeader');
     const selectAll = document.getElementById('selectAllTrees');
-    const visibleCount = document.querySelectorAll('#treesTable tbody tr:not([style*="display: none"]) .tree-checkbox').length;
+    const totalCount = document.querySelectorAll('#treesTable tbody tr .tree-checkbox').length;
     if (editBtn) editBtn.disabled = count !== 1;
     if (removeBtnHeader) removeBtnHeader.disabled = count === 0;
-    if (selectAll) selectAll.checked = (count > 0 && count === visibleCount);
+    if (selectAll) selectAll.checked = (count > 0 && count === totalCount);
     updateTreeBadge();
 }
 
@@ -514,9 +514,8 @@ function updateTreeBadge() {
     let selected = 0;
     document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
         if (!tr.querySelector('.tree-checkbox')) return;
-        if (tr.style.display === 'none') return;
         total += 1;
-        if (tr.querySelector('.tree-checkbox').checked) selected += 1;
+        if (tr.style.display !== 'none' && tr.querySelector('.tree-checkbox').checked) selected += 1;
     });
     badge.textContent = selected + '/' + total;
     badge.classList.toggle('text-bg-primary', selected > 0);
