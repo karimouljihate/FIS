@@ -723,21 +723,37 @@ function updateTreeBadge() {
 let treeSortDesc = false;
 
 function sortTreesByShortName() {
-    treeSortDesc = !treeSortDesc;
-    const icon = document.getElementById('treeSortIcon');
-    if (icon) icon.textContent = treeSortDesc ? '▲' : '▼';
-    const tbody = document.querySelector('#treesTableBody');
-    const rows = Array.from(tbody.querySelectorAll('tr[data-short-name]'));
-    rows.sort(function (a, b) {
-        const sa = (a.getAttribute('data-short-name') || '').toLowerCase();
-        const sb = (b.getAttribute('data-short-name') || '').toLowerCase();
-        if (treeSortDesc) return sb.localeCompare(sa);
-        return sa.localeCompare(sb);
-    });
-    rows.forEach(function (row) { tbody.appendChild(row); });
-    // Re-filter after sort
-    applyTreeFilter();
-    updateTreesToolbar();
+    // Show busy cursor
+    document.body.style.cursor = 'wait';
+    document.querySelector('#treesTableBody').style.cursor = 'wait';
+    const sortIcon = document.getElementById('treeSortIcon');
+    if (sortIcon) sortIcon.textContent = '⏳';
+    
+    // Use setTimeout to allow UI to update cursor before sorting
+    setTimeout(function() {
+        try {
+            treeSortDesc = !treeSortDesc;
+            const sortIcon = document.getElementById('treeSortIcon');
+            if (sortIcon) sortIcon.textContent = treeSortDesc ? '▲' : '▼';
+            const tbody = document.querySelector('#treesTableBody');
+            const rows = Array.from(tbody.querySelectorAll('tr[data-short-name]'));
+            rows.sort(function (a, b) {
+                const sa = (a.getAttribute('data-short-name') || '').toLowerCase();
+                const sb = (b.getAttribute('data-short-name') || '').toLowerCase();
+                if (treeSortDesc) return sb.localeCompare(sa);
+                return sa.localeCompare(sb);
+            });
+            rows.forEach(function (row) { tbody.appendChild(row); });
+            // Re-filter after sort
+            applyTreeFilter();
+            updateTreesToolbar();
+        } finally {
+            // Restore cursor
+            document.body.style.cursor = '';
+            document.querySelector('#treesTableBody').style.cursor = '';
+            if (sortIcon) sortIcon.textContent = treeSortDesc ? '▲' : '▼';
+        }
+    }, 0);
 }
 
 function setupTreeSearch() {
