@@ -500,7 +500,7 @@ def tree_add(project_id):
         'project_id': project_id,
         'zone_id': zone_id,
         'row_id': row_id,
-        'name_en': name_en or f'Tree {zone_id}-{row_id}',
+        'name_en': name_en or f'T{zone_id}-{row_id}',
         'name_ar': name_ar or f'شجرة {zone_id}-{row_id}',
         'geometry': geometry,
         'variety_en': variety_en,

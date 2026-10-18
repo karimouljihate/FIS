@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.65 - 2026-10-18
+
+### Fixed
+- **Tree name format**: changed default name from `Tree {id}-{n}` to `T{id}-{n}` (e.g. `T6576-1`) in both `trees_generate` and `tree_add` routes.
+
 ## 0.3.64 - 2026-10-18
 
 ### Added
