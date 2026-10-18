@@ -471,6 +471,50 @@ def trees_view(project_id):
                            sectors=sectors, zones=zones, zone_groups=zone_groups)
 
 
+@trees_bp.route('/<int:project_id>/trees/add', methods=['POST'])
+@login_required
+def tree_add(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+
+    zone_id = request.form.get('zone_id', type=int)
+    row_id = request.form.get('row_id', type=int)
+    name_en = request.form.get('name_en', '').strip()
+    name_ar = request.form.get('name_ar', '').strip()
+    lng = request.form.get('lng', type=float)
+    lat = request.form.get('lat', type=float)
+    variety_en = request.form.get('variety_en', 'Olive').strip()
+    variety_ar = request.form.get('variety_ar', 'زيتون').strip()
+    drips_per_tree = request.form.get('drips_per_tree', default=2, type=int)
+    spacing_m = request.form.get('spacing_m', default=4, type=float)
+
+    if not zone_id or not row_id:
+        flash('Zone and Row required / المنطقة والصف مطلوبان', 'danger')
+        return redirect(url_for('trees.trees_view', project_id=project_id))
+
+    geometry = {'type': 'Point', 'coordinates': [lng, lat]} if lng is not None and lat is not None else None
+
+    tree = {
+        'id': get_next_id('trees'),
+        'project_id': project_id,
+        'zone_id': zone_id,
+        'row_id': row_id,
+        'name_en': name_en or f'Tree {zone_id}-{row_id}',
+        'name_ar': name_ar or f'شجرة {zone_id}-{row_id}',
+        'geometry': geometry,
+        'variety_en': variety_en,
+        'variety_ar': variety_ar,
+        'variety_pct': None,
+        'spacing_m': spacing_m,
+        'drips_per_tree': drips_per_tree,
+        'validated': False
+    }
+    mongo.db.trees.insert_one(tree)
+    flash('Tree added / تمت إضافة الشجرة', 'success')
+    return redirect(url_for('trees.trees_view', project_id=project_id))
+
+
 @trees_bp.route('/<int:project_id>/trees/remove', methods=['POST'])
 @login_required
 def trees_remove(project_id):

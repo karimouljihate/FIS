@@ -32,7 +32,7 @@
                                     data-bs-toggle="modal" data-bs-target="#treeSetupModal" title="Tree Setup / إعداد الشجرة">
                                 <i class="bi bi-tree"></i>
                             </button>
-                            <button class="btn btn-circle btn-outline-primary" id="treeAddBtn" type="button" title="Add / إضافة">
+                            <button class="btn btn-circle btn-outline-primary" id="treeAddBtn" type="button" title="Add / إضافة" onclick="openAddTreeModal()">
                                 <i class="bi bi-plus"></i>
                             </button>
                             <button class="btn btn-circle btn-outline-primary" id="treeEditBtn" type="button" title="Edit / تعديل">
@@ -126,6 +126,79 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
                     <button type="submit" class="btn btn-danger"><i class="bi bi-trash2-fill"></i> Delete All / حذف الكل</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Add Tree Modal -->
+<div class="modal fade" id="addTreeModal" tabindex="-1" aria-labelledby="addTreeModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <form method="POST" id="addTreeForm" action="{{ url_for('trees.tree_add', project_id=project.id) }}">
+                <div class="modal-header bg-success text-white">
+                    <h5 class="modal-title" id="addTreeModalTitle"><i class="bi bi-plus-circle"></i> Add Tree / إضافة شجرة</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Zone / المنطقة</label>
+                        <select name="zone_id" id="addTreeZone" class="form-select" required onchange="updateAddTreeRows()">
+                            <option value="">Select zone / اختر منطقة</option>
+                            {% for z in zones %}
+                            <option value="{{ z.id }}">{{ z.short_name }} - {{ z.name_en }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Row / الصف</label>
+                        <select name="row_id" id="addTreeRow" class="form-select" required>
+                            <option value="">Select row / اختر صف</option>
+                        </select>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Name (EN)</label>
+                            <input type="text" name="name_en" class="form-control" placeholder="e.g. T6576-1">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Name (AR)</label>
+                            <input type="text" name="name_ar" class="form-control" placeholder="مثال: شجرة ٦٥٧٦-١">
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-6">
+                            <label class="form-label">Longitude</label>
+                            <input type="number" name="lng" step="any" class="form-control" placeholder="Lng">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Latitude</label>
+                            <input type="number" name="lat" step="any" class="form-control" placeholder="Lat">
+                        </div>
+                    </div>
+                    <div class="row g-2 mb-3">
+                        <div class="col-md-4">
+                            <label class="form-label">Variety (EN)</label>
+                            <input type="text" name="variety_en" class="form-control" value="Olive">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Variety (AR)</label>
+                            <input type="text" name="variety_ar" class="form-control" value="زيتون">
+                        </div>
+                        <div class="col-md-4">
+                            <label class="form-label">Drips/Tree</label>
+                            <input type="number" name="drips_per_tree" step="1" min="1" class="form-control" value="2">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Spacing (m)</label>
+                        <input type="number" name="spacing_m" step="0.5" min="1" class="form-control" value="4">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
+                    <button type="submit" class="btn btn-success"><i class="bi bi-check"></i> Add / إضافة</button>
                 </div>
             </form>
         </div>
@@ -338,9 +411,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function updateTreesToolbar() {
     const count = document.querySelectorAll('.tree-checkbox:checked').length;
-    const removeBtn = document.getElementById('treeRemoveBtn');
+    const editBtn = document.getElementById('treeEditBtn');
     const removeBtnHeader = document.getElementById('treeRemoveBtnHeader');
-    if (removeBtn) removeBtn.disabled = count === 0;
+    if (editBtn) editBtn.disabled = count !== 1;
     if (removeBtnHeader) removeBtnHeader.disabled = count === 0;
     updateTreeBadge();
 }
@@ -583,6 +656,30 @@ if (treeValidateBtn) {
         document.body.appendChild(form);
         form.submit();
     });
+});
+
+function openAddTreeModal() {
+    const modal = new bootstrap.Modal(document.getElementById('addTreeModal'));
+    modal.show();
+}
+
+function updateAddTreeRows() {
+    const zoneSelect = document.getElementById('addTreeZone');
+    const rowSelect = document.getElementById('addTreeRow');
+    const zoneId = zoneSelect.value;
+    rowSelect.innerHTML = '<option value="">Select row / اختر صف</option>';
+    if (!zoneId) return;
+    fetch('{{ url_for("api.get_geometry", project_id=project.id) }}')
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            const rows = (data.tree_rows || []).filter(function(r) { return String(r.zone_id) === zoneId; });
+            rows.forEach(function(r) {
+                const opt = document.createElement('option');
+                opt.value = r.id;
+                opt.textContent = r.name_en || ('Row ' + r.id);
+                rowSelect.appendChild(opt);
+            });
+        });
 }
 </script>
 {% endblock %}

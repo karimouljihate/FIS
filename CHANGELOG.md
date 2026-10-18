@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.64 - 2026-10-18
+
+### Added
+- **Trees/Trees toolbar behavior**: Edit button enabled only when exactly 1 tree selected; Delete button enabled when 1+ trees selected; both disabled when none selected. Add (+) button always enabled, opens Add Tree modal.
+- **Add Tree Modal**: new modal to add a single tree with Zone, Row, Name EN/AR, Lng/Lat, Variety EN/AR, Drips/Tree, Spacing.
+- **tree_add route**: new POST route to insert a single tree record.
+
 ## 0.3.63 - 2026-10-18
 
 ### Removed
