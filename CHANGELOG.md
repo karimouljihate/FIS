@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.53 - 2026-10-18
+
+### Changed
+- **Tree Setup - Zone cards inside Sector cards**: changed from col-md-6 to col-md-4 so 3 zone cards display per row instead of 2.
+
 ## 0.3.52 - 2026-10-18
 
 ### Changed
