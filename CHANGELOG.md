@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.55 - 2026-10-18
+
+### Changed
+- **Tree Setup validation**: Generate Trees button is now disabled (instead of showing a toast) when All Sectors / Zones or any Zone Card variety percentages exceed 100%. Button re-enables when percentages are corrected.
+
 ## 0.3.54 - 2026-10-18
 
 ### Added

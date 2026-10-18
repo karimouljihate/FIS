@@ -302,7 +302,7 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel / إلغاء</button>
-                    <button type="submit" class="btn btn-success"><i class="bi bi-magic"></i> Generate Trees / إنشاء الأشجار</button>
+                    <button type="submit" id="treeGenerateBtn" class="btn btn-success"><i class="bi bi-magic"></i> Generate Trees / إنشاء الأشجار</button>
                 </div>
             </form>
         </div>
@@ -452,42 +452,13 @@ document.querySelectorAll('.collapse-sector').forEach(function (btn) {
     });
 });
 
-function showTreeSetupToast(message, variant) {
-    let container = document.querySelector('.flash-toast-container');
-    if (!container) {
-        container = document.createElement('div');
-        container.className = 'toast-container position-fixed bottom-0 end-0 p-3 flash-toast-container';
-        container.setAttribute('aria-live', 'assertive');
-        container.setAttribute('aria-atomic', 'true');
-        document.body.appendChild(container);
-    }
-    const toast = document.createElement('div');
-    toast.className = 'toast flash-toast text-bg-' + variant + ' border-0';
-    toast.setAttribute('role', 'alert');
-    toast.setAttribute('aria-live', 'assertive');
-    toast.setAttribute('aria-atomic', 'true');
-    toast.setAttribute('data-bs-autohide', 'true');
-    toast.setAttribute('data-bs-delay', '5000');
-    const body = document.createElement('div');
-    body.className = 'toast-body';
-    body.textContent = message;
-    toast.appendChild(body);
-    container.appendChild(toast);
-    if (window.bootstrap && bootstrap.Toast) {
-        bootstrap.Toast.getOrCreateInstance(toast).show();
-    }
-}
-
-function validateTreeSetup() {
+function treeSetupPercentagesValid() {
     // All Sectors / Zones card
     const allTotal = [1, 2, 3].reduce(function (sum, slot) {
         const el = document.querySelector('input[name="pct_all_' + slot + '"]');
         return sum + (el ? parseFloat(el.value || 0) : 0);
     }, 0);
-    if (allTotal > 100) {
-        showTreeSetupToast('Error in Percentage: All Sectors / Zones total exceeds 100% / خطأ في النسبة: إجمالي القطاعات والمناطق يتجاوز 100%', 'danger');
-        return false;
-    }
+    if (allTotal > 100) return false;
 
     // Per-zone cards
     const zoneTotals = {};
@@ -500,17 +471,30 @@ function validateTreeSetup() {
         }
     });
     for (const zoneId in zoneTotals) {
-        if (zoneTotals[zoneId] > 100) {
-            showTreeSetupToast('Error in Percentage: Zone total exceeds 100% / خطأ في النسبة: إجمالي المنطقة يتجاوز 100%', 'danger');
-            return false;
-        }
+        if (zoneTotals[zoneId] > 100) return false;
     }
 
     return true;
 }
 
+function updateGenerateButtonState() {
+    const btn = document.getElementById('treeGenerateBtn');
+    if (!btn) return;
+    btn.disabled = !treeSetupPercentagesValid();
+}
+
+document.getElementById('treeSetupForm').addEventListener('input', function(event) {
+    if (event.target && event.target.matches && event.target.matches('input[name^="pct_"]')) {
+        updateGenerateButtonState();
+    }
+});
+
+document.addEventListener('DOMContentLoaded', function() {
+    updateGenerateButtonState();
+});
+
 document.getElementById('treeSetupForm').addEventListener('submit', function(event) {
-    if (!validateTreeSetup()) {
+    if (!treeSetupPercentagesValid()) {
         event.preventDefault();
     }
 });
