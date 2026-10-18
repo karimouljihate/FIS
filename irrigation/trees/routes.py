@@ -619,7 +619,7 @@ def trees_generate(project_id):
                 'project_id': project_id,
                 'zone_id': row.get('zone_id'),
                 'row_id': row['id'],
-                'name_en': f'Tree {row["id"]}-{i+1}',
+                'name_en': f'T{row["id"]}-{i+1}',
                 'name_ar': f'شجرة {row["id"]}-{i+1}',
                 'geometry': point_geojson,
                 'variety_en': variety_en,

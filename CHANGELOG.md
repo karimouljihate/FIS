@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.61 - 2026-10-18
+
+### Changed
+- **Trees/Trees table**: removed Variety (AR) column.
+- **Trees/Trees tree name**: changed format from `Tree {id}-{n}` to `T{id}-{n}` (e.g. `T6576-1`).
+- **Trees/Trees Row column**: set to center alignment.
+- **Trees/Trees ordering**: applies to all trees (removed 100-row limit and "Showing first 100" notice).
+- **colspan values** updated from 10 to 9 after removing Variety (AR) column.
+
 ## 0.3.60 - 2026-10-18
 
 ### Fixed

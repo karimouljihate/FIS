@@ -27,7 +27,7 @@
             <table class="table table-hover table-sm mb-0" id="treesTable">
                 <thead>
                     <tr class="table-light">
-                        <th colspan="10" class="text-center">
+                        <th colspan="9" class="text-center">
                             <button class="btn btn-circle btn-outline-success" id="treeSetupBtn" type="button"
                                     data-bs-toggle="modal" data-bs-target="#treeSetupModal" title="Tree Setup / إعداد الشجرة">
                                 <i class="bi bi-tree"></i>
@@ -57,7 +57,7 @@
                         </th>
                     </tr>
                     <tr class="table-light">
-                        <th colspan="10" class="text-center align-middle">
+                        <th colspan="9" class="text-center align-middle">
                             <div class="input-group input-group-sm search-zone">
                                 <div class="search-field">
                                     <input type="text" id="treeSearch" class="form-control search-input"
@@ -81,22 +81,20 @@
                             <span class="ar-text">الاسم المختصر</span><br>Short Name <span id="treeSortIcon" class="ms-1">▼</span>
                         </th>
                         <th>Variety (EN)</th>
-                        <th>Variety (AR)</th>
                         <th>Spacing (m)</th>
                         <th>Drips/Tree</th>
                         <th>Validated</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for t in trees[:100] %}
+                    {% for t in trees %}
                     <tr data-short-name="{{ t.short_name }}">
                         <td><input type="checkbox" class="tree-checkbox" value="{{ t.id }}" data-name-en="{{ t.name_en }}"></td>
                         <td>{{ t.id }}</td>
                         <td>{{ t.name_en }}</td>
-                        <td>{{ t.row_id }}</td>
+                        <td class="text-center">{{ t.row_id }}</td>
                         <td class="text-center"><code>{{ t.short_name }}</code></td>
                         <td>{{ t.variety_en }}</td>
-                        <td class="ar-text">{{ t.variety_ar }}</td>
                         <td>{{ t.spacing_m }} m</td>
                         <td>{{ t.drips_per_tree }}</td>
                         <td>
@@ -108,7 +106,7 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="10" class="text-center text-muted text-warning py-3 fs-2">No trees yet  - لا توجد أشجار</td></tr>
+                    <tr><td colspan="9" class="text-center text-muted text-warning py-3 fs-2">No trees yet  - لا توجد أشجار</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -309,9 +307,6 @@
     </div>
 </div>
 
-{% if trees|length > 100 %}
-<p class="text-muted small mt-2">Showing first 100 of {{ trees|length }} trees / عرض أول 100 من {{ trees|length }} شجرة</p>
-{% endif %}
 
 
 
