@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.66 - 2026-10-18
+
+### Fixed
+- **Trees/Trees counter badge**: simplified `updateTreeBadge()` to count visible rows only (removed redundant short-name re-match). Badge now correctly shows selected/total on load, search, checkbox toggle, and sort.
+
 ## 0.3.65 - 2026-10-18
 
 ### Fixed

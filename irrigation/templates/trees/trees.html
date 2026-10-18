@@ -455,18 +455,13 @@ function treesRemoveSelected() {
 function updateTreeBadge() {
     const badge = document.getElementById('treeRowCount');
     if (!badge) return;
-    const query = document.getElementById('treeSearch');
-    const q = (query ? query.value : '').trim().toLowerCase();
     let total = 0;
     let selected = 0;
     document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
         if (!tr.querySelector('.tree-checkbox')) return;
-        const shortName = (tr.getAttribute('data-short-name') || '').toLowerCase();
-        const visible = (tr.style.display !== 'none') && shortName.indexOf(q) !== -1;
-        if (visible) {
-            total += 1;
-            if (tr.querySelector('.tree-checkbox').checked) selected += 1;
-        }
+        if (tr.style.display === 'none') return;
+        total += 1;
+        if (tr.querySelector('.tree-checkbox').checked) selected += 1;
     });
     badge.textContent = selected + '/' + total;
     badge.classList.toggle('text-bg-primary', selected > 0);
