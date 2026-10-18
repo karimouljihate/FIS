@@ -77,7 +77,9 @@
                         <th>ID</th>
                         <th>Name</th>
                         <th>Row</th>
-                        <th class="text-center"> الاسم المختصر <br>Short Name</th>
+                        <th class="text-center cursor-pointer" onclick="sortTreesByShortName()" title="Sort by Short Name / ترتيب حسب الاسم المختصر">
+                            <span class="ar-text">الاسم المختصر</span><br>Short Name <span id="treeSortIcon" class="ms-1">▼</span>
+                        </th>
                         <th>Variety (EN)</th>
                         <th>Variety (AR)</th>
                         <th>Spacing (m)</th>
@@ -87,7 +89,7 @@
                 </thead>
                 <tbody>
                     {% for t in trees[:100] %}
-                    <tr>
+                    <tr data-short-name="{{ t.short_name }}">
                         <td><input type="checkbox" class="tree-checkbox" value="{{ t.id }}" data-name-en="{{ t.name_en }}"></td>
                         <td>{{ t.id }}</td>
                         <td>{{ t.name_en }}</td>
@@ -395,8 +397,8 @@ function updateTreeBadge() {
     let selected = 0;
     document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
         if (!tr.querySelector('.tree-checkbox')) return;
-        const text = tr.textContent.toLowerCase();
-        const visible = (tr.style.display !== 'none') && text.indexOf(q) !== -1;
+        const shortName = (tr.getAttribute('data-short-name') || '').toLowerCase();
+        const visible = (tr.style.display !== 'none') && shortName.indexOf(q) !== -1;
         if (visible) {
             total += 1;
             if (tr.querySelector('.tree-checkbox').checked) selected += 1;
@@ -407,18 +409,36 @@ function updateTreeBadge() {
     badge.classList.toggle('text-bg-secondary', selected === 0);
 }
 
+let treeSortDesc = false;
+
+function sortTreesByShortName() {
+    treeSortDesc = !treeSortDesc;
+    const icon = document.getElementById('treeSortIcon');
+    if (icon) icon.textContent = treeSortDesc ? '▲' : '▼';
+    const tbody = document.querySelector('#treesTable tbody');
+    const rows = Array.from(tbody.querySelectorAll('tr[data-short-name]'));
+    rows.sort(function (a, b) {
+        const sa = (a.getAttribute('data-short-name') || '').toLowerCase();
+        const sb = (b.getAttribute('data-short-name') || '').toLowerCase();
+        if (treeSortDesc) return sb.localeCompare(sa);
+        return sa.localeCompare(sb);
+    });
+    rows.forEach(function (row) { tbody.appendChild(row); });
+    updateTreeBadge();
+}
+
 function setupTreeSearch() {
     const input = document.getElementById('treeSearch');
     if (!input) return;
     const clearBtn = document.getElementById('treeSearchClear');
 
     function applyFilter() {
-        const query = input.value.trim().toLowerCase();
-        if (clearBtn) clearBtn.classList.toggle('d-none', !query);
+        const q = input.value.trim().toLowerCase();
+        if (clearBtn) clearBtn.classList.toggle('d-none', !q);
         document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
             if (!tr.querySelector('.tree-checkbox')) return;
-            const text = tr.textContent.toLowerCase();
-            const visible = text.indexOf(query) !== -1;
+            const shortName = (tr.getAttribute('data-short-name') || '').toLowerCase();
+            const visible = shortName.indexOf(q) !== -1;
             tr.style.display = visible ? '' : 'none';
         });
         updateTreeBadge();
@@ -566,20 +586,11 @@ document.getElementById('treeSetupForm').addEventListener('submit', function(eve
 const treeValidateBtn = document.getElementById('treeValidateBtn');
 if (treeValidateBtn) {
     treeValidateBtn.addEventListener('click', function() {
-        const url = '{{ url_for("trees.trees_validate", project_id=project.id) }}';
-        fetch(url, { method: 'POST' })
-            .then(function(response) { return response.json().catch(function() { return {}; }); })
-            .then(function(data) {
-                if (data.message) {
-                    showTreeSetupToast(data.message, 'success');
-                } else {
-                    showTreeSetupToast('Trees validated / تم التحقق من الأشجار', 'success');
-                }
-                location.reload();
-            })
-            .catch(function() {
-                showTreeSetupToast('Validation failed / فشل التحقق', 'danger');
-            });
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{{ url_for("trees.trees_validate", project_id=project.id) }}';
+        document.body.appendChild(form);
+        form.submit();
     });
 }
 </script>

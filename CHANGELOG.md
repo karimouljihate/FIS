@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.60 - 2026-10-18
+
+### Fixed
+- **Trees/Trees filtering & ordering**: search now filters by Short Name only (`data-short-name` attribute); Short Name header is clickable to sort ascending/descending with sort icon.
+- **Trees/Trees Validation button**: fixed to POST via form submission (route returns redirect, not JSON).
+
 ## 0.3.59 - 2026-10-18
 
 ### Fixed
