@@ -492,7 +492,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
 function initTreePagination() {
     const tbody = document.querySelector('#treesTableBody');
-    if (!tbody) return;
+    if (!tbody) {
+        console.warn('initTreePagination: tbody not found');
+        return;
+    }
     
     // Collect all rows
     const rows = Array.from(tbody.querySelectorAll('tr[data-short-name]'));
@@ -511,7 +514,8 @@ function initTreePagination() {
         });
     }
     
-    // Initial render
+    // Initial render - always call even if 0 rows
+    console.log('initTreePagination: totalTrees=', treePaginationState.totalTrees);
     renderTreePage();
 }
 
@@ -523,10 +527,16 @@ function renderTreePage() {
     const prevBtn = document.getElementById('treePagePrev');
     const nextBtn = document.getElementById('treePageNext');
     
-    if (!tbody || !paginationEl) return;
+    console.log('renderTreePage: totalTrees=', treePaginationState.totalTrees, 'pageSize=', pageSize, 'filteredRows=', filteredRows.length);
+    
+    if (!tbody || !paginationEl) {
+        console.warn('renderTreePage: missing elements', { tbody: !!tbody, paginationEl: !!paginationEl });
+        return;
+    }
     
     // Show/hide pagination
     if (treePaginationState.pageSize === 0 || treePaginationState.totalTrees <= treePaginationState.pageSize) {
+        console.log('renderTreePage: hiding pagination - totalTrees:', treePaginationState.totalTrees, 'pageSize:', pageSize);
         paginationEl.style.display = 'none';
         treePaginationState.filteredRows.forEach(r => r.style.display = '');
         updateTreesToolbar();
