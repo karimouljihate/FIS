@@ -149,27 +149,45 @@
                 <div class="modal-body">
                     <!-- All Sectors / Zones shared setup -->
                     <div class="card mb-3">
-                        <div class="card-header bg-light">
+                        <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                             <strong>All Sectors / Zones / جميع القطاعات والمناطق</strong>
-                            <span class="float-end text-muted small">(applies to zones without their own setup / تُطبَّق على المناطق التي لا لديها إعداد)</span>
+                            <span class="text-muted small">(applies to zones without their own setup / تُطبَّق على المناطق التي لا لديها إعداد)</span>
                         </div>
                         <div class="card-body">
-                            <div class="row g-2 align-items-end">
+                            <div class="row g-2 mb-2">
                                 <div class="col-md-3">
-                                    <label class="form-label small">Spacing (m) / المسافة</label>
+                                    <label class="form-label small mb-0">Spacing (m) / المسافة</label>
                                     <input type="number" name="spacing_all" step="0.5" min="1" class="form-control form-control-sm" value="4">
                                 </div>
                                 <div class="col-md-3">
-                                    <label class="form-label small">Drips/Tree / القطاعات لكل شجرة</label>
+                                    <label class="form-label small mb-0">Drips/Tree / القطاعات لكل شجرة</label>
                                     <input type="number" name="drips_all" step="1" min="1" class="form-control form-control-sm" value="2">
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small">Variety 1 (EN) / النوع 1</label>
+                            </div>
+                            <div class="row g-2">
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Variety 1 (EN) / النوع 1</label>
                                     <input type="text" name="variety_all_1" class="form-control form-control-sm" value="Olive">
                                 </div>
-                                <div class="col-md-3">
-                                    <label class="form-label small">Pct 1 (%) / النسبة 1</label>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Pct 1 (%) / النسبة 1</label>
                                     <input type="number" name="pct_all_1" step="1" min="0" max="100" class="form-control form-control-sm" value="100">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Variety 2 (EN) / النوع 2</label>
+                                    <input type="text" name="variety_all_2" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Pct 2 (%) / النسبة 2</label>
+                                    <input type="number" name="pct_all_2" step="1" min="0" max="100" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Variety 3 (EN) / النوع 3</label>
+                                    <input type="text" name="variety_all_3" class="form-control form-control-sm">
+                                </div>
+                                <div class="col-md-2">
+                                    <label class="form-label small mb-0">Pct 3 (%) / النسبة 3</label>
+                                    <input type="number" name="pct_all_3" step="1" min="0" max="100" class="form-control form-control-sm">
                                 </div>
                             </div>
                         </div>
@@ -201,7 +219,7 @@
                                     <div class="card border-primary zone-card">
                                         <div class="card-header bg-primary text-white small d-flex justify-content-between align-items-center">
                                             <div>
-                                                <strong>{{ zone.name_en }} / {{ zone.name_ar }}</strong>
+                                                <strong class="ar-text">الاسم المختصر</strong><br>Short Name
                                                 <br><code>{{ zone.short_name }}</code>
                                             </div>
                                             <span class="text-light small">Rows: {{ zone.row_count|default(0) }}</span>
@@ -214,31 +232,31 @@
                                                 </div>
                                             </div>
                                             <div class="row g-2 mb-1">
-                                                <div class="col-md-6">
+                                                <div class="col-md-3">
                                                     <label class="form-label small mb-0">Variety 1 (EN)</label>
                                                     <input type="text" name="variety_{{ zone.id }}_1" class="form-control form-control-sm" value="Olive">
                                                 </div>
-                                                <div class="col-md-6">
+                                                <div class="col-md-3">
                                                     <label class="form-label small mb-0">Pct 1 (%)</label>
                                                     <input type="number" name="pct_{{ zone.id }}_1" step="1" min="0" max="100" class="form-control form-control-sm" value="100">
                                                 </div>
                                             </div>
                                             <div class="row g-2 mb-1">
-                                                <div class="col-md-6">
+                                                <div class="col-md-3">
                                                     <label class="form-label small mb-0">Variety 2 (EN)</label>
                                                     <input type="text" name="variety_{{ zone.id }}_2" class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col-md-6">
+                                                <div class="col-md-3">
                                                     <label class="form-label small mb-0">Pct 2 (%)</label>
                                                     <input type="number" name="pct_{{ zone.id }}_2" step="1" min="0" max="100" class="form-control form-control-sm">
                                                 </div>
                                             </div>
                                             <div class="row g-2">
-                                                <div class="col-md-6">
+                                                <div class="col-md-3">
                                                     <label class="form-label small mb-0">Variety 3 (EN)</label>
                                                     <input type="text" name="variety_{{ zone.id }}_3" class="form-control form-control-sm">
                                                 </div>
-                                                <div class="col-md-6">
+                                                <div class="col-md-3">
                                                     <label class="form-label small mb-0">Pct 3 (%)</label>
                                                     <input type="number" name="pct_{{ zone.id }}_3" step="1" min="0" max="100" class="form-control form-control-sm">
                                                 </div>

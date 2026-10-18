@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.3.52 - 2026-10-18
+
+### Changed
+- **Tree Setup - All Sectors card**: colored header (bg-primary text-white), split into two rows (Spacing + Drips on row 1; all 3 Variety/Pct pairs on row 2) with shorter col-md-2 fields.
+- **Tree Setup - Zone card header**: replaced zone Name with Short Name (e.g. `S1Z1`), kept Rows count.
+- **Tree Setup - Zone card Variety/Pct fields**: reduced field width from col-md-6 to col-md-3.
+
 ## 0.3.51 - 2026-10-18
 
 ### Added

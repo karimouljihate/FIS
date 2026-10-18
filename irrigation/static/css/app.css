@@ -1074,8 +1074,8 @@ body.map-fullscreen-lock {
    ──────────────────────────────────────────────────────────────────────────── */
 #treeSetupModal .modal-dialog {
     max-height: calc(100dvh - 120px); /* navbar≈60px + footer≈44px + 16px air */
-    max-width: 1000px; /* wider modal for setup cards */
-    width: 95%;
+    max-width: 1200px; /* wider modal for setup cards */
+    width: 100%;
     margin-top: 16px;
     margin-bottom: 60px; /* clears fixed footer */
 }
