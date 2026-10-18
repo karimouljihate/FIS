@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.70 - 2026-10-18
+
+### Fixed
+- **Trees/Trees pagination**: added 50-rows-per-page pagination with page navigation controls and configurable page size (25/50/100/All).
+- **Trees/Trees filter/search**: fixed to match both Short Name and Name, works correctly with pagination.
+- **Trees/Trees counter badge**: now shows "selected / total" where total = ALL trees (not just visible). Works correctly with pagination.
+- **Trees/Trees select all**: works correctly with pagination and filtering.
+
 ## 0.3.69 - 2026-10-18
 
 ### Fixed

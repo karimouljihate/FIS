@@ -25,7 +25,7 @@
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover table-sm mb-0" id="treesTable">
-                <thead>
+<thead>
                     <tr class="table-light">
                         <th colspan="9" class="text-center">
                             <button class="btn btn-circle btn-outline-success" id="treeSetupBtn" type="button"
@@ -70,7 +70,7 @@
                     </tr>
                     <tr>
                         <th width="40"><input type="checkbox" id="selectAllTrees" onclick="toggleAllTrees(this)"></th>
-                        <th>ID</th>
+                        <th class="text-center">ID</th>
                         <th class="text-center">Name</th>
                         <th class="text-center">Row</th>
                         <th class="text-center cursor-pointer" onclick="sortTreesByShortName()" title="Sort by Short Name / ترتيب حسب الاسم المختصر">
@@ -82,11 +82,11 @@
                         <th class="text-center">Validated</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="treesTableBody">
                     {% for t in trees %}
                     <tr data-short-name="{{ t.short_name }}">
                         <td><input type="checkbox" class="tree-checkbox" value="{{ t.id }}" data-name-en="{{ t.name_en }}" data-name-ar="{{ t.name_ar }}"></td>
-<td class="text-center">{{ t.id }}</td>
+                        <td class="text-center">{{ t.id }}</td>
                         <td class="text-center">{{ t.name_en }}</td>
                         <td class="text-center">{{ t.row_id }}</td>
                         <td class="text-center"><code>{{ t.short_name }}</code></td>
@@ -106,6 +106,25 @@
                     {% endfor %}
                 </tbody>
             </table>
+            
+            <!-- Pagination Controls -->
+            <div class="d-flex justify-content-between align-items-center mt-3" id="treesPagination" style="display: none;">
+                <div>
+                    <span class="me-2 small" id="treePageInfo">Showing 0 of 0 trees</span>
+                    <select class="form-select form-select-sm d-inline-block w-auto ms-2" id="treePageSize" onchange="changeTreePageSize()">
+                        <option value="25">25 per page</option>
+                        <option value="50" selected>50 per page</option>
+                        <option value="100">100 per page</option>
+                        <option value="0">All</option>
+                    </select>
+                </div>
+                <nav aria-label="Tree pagination">
+                    <ul class="pagination pagination-sm mb-0" id="treePaginationControls">
+                        <li class="page-item disabled"><a class="page-link" href="#" id="treePagePrev">« Previous</a></li>
+                        <li class="page-item"><a class="page-link" href="#" id="treePageNext">Next »</a></li>
+                    </ul>
+                </nav>
+            </div>
         </div>
     </div>
 </div>
@@ -440,7 +459,18 @@
 {% endblock %}
 
 {% block extra_js %}
+{% block extra_js %}
 <script>
+// Tree pagination state
+let treePaginationState = {
+    currentPage: 1,
+    pageSize: 50,
+    allRows: [],
+    filteredRows: [],
+    totalTrees: 0,
+    selectedCount: 0
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     const geojsonUrl = '{{ url_for("api.get_geometry", project_id=project.id) }}';
     initMap('map', geojsonUrl, {
@@ -448,6 +478,9 @@ document.addEventListener('DOMContentLoaded', function() {
         selectable: { type: 'tree', checkboxSelector: '.tree-checkbox', toggleOnClick: true },
         mapDelete: { onClick: treesRemoveSelected }
     });
+
+    // Initialize tree pagination
+    initTreePagination();
 
     document.addEventListener('change', function(event) {
         if (event.target && event.target.matches && event.target.matches('.tree-checkbox')) {
@@ -457,6 +490,89 @@ document.addEventListener('DOMContentLoaded', function() {
     updateTreesToolbar();
     setupTreeSearch();
 });
+
+function initTreePagination() {
+    const tbody = document.querySelector('#treesTableBody');
+    if (!tbody) return;
+    
+    // Collect all rows
+    const rows = Array.from(tbody.querySelectorAll('tr[data-short-name]'));
+    treePaginationState.allRows = rows;
+    treePaginationState.filteredRows = rows;
+    treePaginationState.totalTrees = rows.length;
+    
+    // Set page size from selector
+    const pageSizeSelect = document.getElementById('treePageSize');
+    if (pageSizeSelect) {
+        treePaginationState.pageSize = parseInt(pageSizeSelect.value) || 50;
+        pageSizeSelect.addEventListener('change', function() {
+            treePaginationState.pageSize = parseInt(this.value) || 50;
+            treePaginationState.currentPage = 1;
+            renderTreePage();
+        });
+    }
+    
+    // Initial render
+    renderTreePage();
+}
+
+function renderTreePage() {
+    const { filteredRows, currentPage, pageSize } = treePaginationState;
+    const tbody = document.querySelector('#treesTableBody');
+    const paginationEl = document.getElementById('treesPagination');
+    const pageInfo = document.getElementById('treePageInfo');
+    const prevBtn = document.getElementById('treePagePrev');
+    const nextBtn = document.getElementById('treePageNext');
+    
+    if (!tbody || !paginationEl) return;
+    
+    // Show/hide pagination
+    if (treePaginationState.pageSize === 0 || treePaginationState.totalTrees <= treePaginationState.pageSize) {
+        paginationEl.style.display = 'none';
+        treePaginationState.filteredRows.forEach(r => r.style.display = '');
+        updateTreesToolbar();
+        return;
+    }
+    
+    paginationEl.style.display = 'flex';
+    
+    // Calculate pagination
+    const totalPages = Math.ceil(treePaginationState.filteredRows.length / treePaginationState.pageSize);
+    treePaginationState.currentPage = Math.max(1, Math.min(treePaginationState.currentPage, totalPages));
+    
+    const startIdx = (treePaginationState.currentPage - 1) * treePaginationState.pageSize;
+    const endIdx = startIdx + treePaginationState.pageSize;
+    
+    // Show/hide rows
+    treePaginationState.filteredRows.forEach((row, idx) => {
+        row.style.display = (idx >= startIdx && idx < endIdx) ? '' : 'none';
+    });
+    
+    // Update pagination controls
+    if (pageInfo) {
+        const visibleCount = treePaginationState.filteredRows.length;
+        const start = visibleCount > 0 ? startIdx + 1 : 0;
+        const end = Math.min(endIdx, visibleCount);
+        pageInfo.textContent = `Showing ${start}-${end} of ${visibleCount} trees (${treePaginationState.totalTrees} total)`;
+    }
+    
+    if (prevBtn) {
+        prevBtn.parentElement.classList.toggle('disabled', treePaginationState.currentPage === 1);
+        prevBtn.onclick = (e) => { e.preventDefault(); if (treePaginationState.currentPage > 1) { treePaginationState.currentPage--; renderTreePage(); }};
+    }
+    
+    if (nextBtn) {
+        nextBtn.parentElement.classList.toggle('disabled', treePaginationState.currentPage >= totalPages);
+        nextBtn.onclick = (e) => { e.preventDefault(); if (treePaginationState.currentPage < totalPages) { treePaginationState.currentPage++; renderTreePage(); }};
+    }
+}
+
+function changeTreePageSize() {
+    const select = document.getElementById('treePageSize');
+    treePaginationState.pageSize = parseInt(select.value) || 50;
+    treePaginationState.currentPage = 1;
+    renderTreePage();
+}
 
 function updateTreesToolbar() {
     const count = document.querySelectorAll('.tree-checkbox:checked').length;
@@ -472,11 +588,13 @@ function updateTreesToolbar() {
 
 function toggleAllTrees(source) {
     const isChecked = source.checked;
-    document.querySelectorAll('#treesTable tbody tr .tree-checkbox').forEach(function(cb) {
-        const tr = cb.closest('tr');
-        if (tr && tr.style.display === 'none') return;
-        cb.checked = isChecked;
-        cb.dispatchEvent(new Event('change', { bubbles: true }));
+    const visibleRows = treePaginationState.filteredRows.filter(r => r.style.display !== 'none');
+    visibleRows.forEach(function(tr) {
+        const cb = tr.querySelector('.tree-checkbox');
+        if (cb) {
+            cb.checked = isChecked;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
     });
 }
 
@@ -507,6 +625,7 @@ function treesRemoveSelected() {
         doSubmit();
     }
 }
+
 function updateTreeBadge() {
     const badge = document.getElementById('treeRowCount');
     if (!badge) return;
@@ -517,9 +636,12 @@ function updateTreeBadge() {
         total += 1;
         if (tr.style.display !== 'none' && tr.querySelector('.tree-checkbox').checked) selected += 1;
     });
-    badge.textContent = selected + '/' + total;
-    badge.classList.toggle('text-bg-primary', selected > 0);
-    badge.classList.toggle('text-bg-secondary', selected === 0);
+    const badge = document.getElementById('treeRowCount');
+    if (badge) {
+        badge.textContent = selected + '/' + total;
+        badge.classList.toggle('text-bg-primary', selected > 0);
+        badge.classList.toggle('text-bg-secondary', selected === 0);
+    }
 }
 
 let treeSortDesc = false;
@@ -528,7 +650,7 @@ function sortTreesByShortName() {
     treeSortDesc = !treeSortDesc;
     const icon = document.getElementById('treeSortIcon');
     if (icon) icon.textContent = treeSortDesc ? '▲' : '▼';
-    const tbody = document.querySelector('#treesTable tbody');
+    const tbody = document.querySelector('#treesTableBody');
     const rows = Array.from(tbody.querySelectorAll('tr[data-short-name]'));
     rows.sort(function (a, b) {
         const sa = (a.getAttribute('data-short-name') || '').toLowerCase();
@@ -537,6 +659,8 @@ function sortTreesByShortName() {
         return sa.localeCompare(sb);
     });
     rows.forEach(function (row) { tbody.appendChild(row); });
+    // Re-filter after sort
+    applyTreeFilter();
     updateTreesToolbar();
 }
 
@@ -548,17 +672,29 @@ function setupTreeSearch() {
     function applyFilter() {
         const q = input.value.trim().toLowerCase();
         if (clearBtn) clearBtn.classList.toggle('d-none', !q);
-        document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
+        
+        const rows = treePaginationState.allRows;
+        let visibleCount = 0;
+        
+        rows.forEach(function (tr) {
             if (!tr.querySelector('.tree-checkbox')) return;
             const shortName = (tr.getAttribute('data-short-name') || '').toLowerCase();
             const nameCell = tr.querySelector('td:nth-child(3)');
             const nameText = (nameCell ? nameCell.textContent : '').toLowerCase();
-            const visible = (shortName.indexOf(q) !== -1) || (nameText.indexOf(q) !== -1);
+            const visible = q === '' || (shortName.indexOf(q) !== -1) || (nameText.indexOf(q) !== -1);
             tr.style.display = visible ? '' : 'none';
+            if (visible) visibleCount++;
         });
-        updateTreesToolbar();
+        
+        // Update filtered rows for pagination
+        treePaginationState.filteredRows = rows.filter(r => r.style.display !== 'none');
+        treePaginationState.currentPage = 1;
+        renderTreePage();
     }
-
+    
+    // Expose globally for other functions
+    window.applyTreeFilter = applyFilter;
+    
     input.addEventListener('input', applyFilter);
     input.addEventListener('keydown', function (event) {
         if (event.key === 'Escape') {
@@ -573,7 +709,11 @@ function setupTreeSearch() {
             input.focus();
         });
     }
+    
+    // Initial filter
+    applyFilter();
 }
+
 function treesDeleteAll() {
     treesDeleteAllConfirm();
 }
@@ -733,10 +873,10 @@ function openEditTreeModal() {
     document.getElementById('editTreeId').value = treeId;
     document.getElementById('editTreeNameEn').value = nameEn;
     document.getElementById('editTreeNameAr').value = nameAr;
-    document.getElementById('editTreeVarietyEn').value = tr.querySelector('td:nth-child(6)').textContent.trim();
+    document.getElementById('editTreeVarietyEn').value = varietyEn;
     document.getElementById('editTreeVarietyAr').value = '';
-    document.getElementById('editTreeDrips').value = tr.querySelector('td:nth-child(8)').textContent.trim() || 2;
-    document.getElementById('editTreeSpacing').value = tr.querySelector('td:nth-child(7)').textContent.trim().replace(' m', '') || 4;
+    document.getElementById('editTreeDrips').value = dripsText || 2;
+    document.getElementById('editTreeSpacing').value = spacingText.replace(' m', '') || 4;
 
     const modal = new bootstrap.Modal(document.getElementById('editTreeModal'));
     modal.show();
