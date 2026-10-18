@@ -857,12 +857,12 @@ const treeValidateBtn = document.getElementById('treeValidateBtn');
 if (treeValidateBtn) {
     treeValidateBtn.addEventListener('click', function() {
         const form = document.createElement('form');
-        form.method = 'POST';
+form.method = 'POST';
         form.action = '{{ url_for("trees.trees_validate", project_id=project.id) }}';
         document.body.appendChild(form);
         form.submit();
     });
-});
+}
 
 function openAddTreeModal() {
     const modal = new bootstrap.Modal(document.getElementById('addTreeModal'));
