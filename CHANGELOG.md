@@ -1,11 +1,16 @@
 # Changelog
 
-## 0.3.73 - 2026-10-18
+## 0.3.78 - 2026-10-18
 
-### Fixed
-- **Trees/Trees badge initialization**: fixed 0/0 on hard refresh by ensuring badge updates on window load fallback and using `#treesTableBody` selector.
+### Added
+- **Components Tab**: new main navigation tab with 5 sub-tabs:
+  - **Valves / الصمامات** - existing valves management
+  - **Connectors / الوصلات** - placeholder (coming soon)
+  - **Reductors / المخفضات** - placeholder (coming soon)
+  - **Air Removal / إزالة الهواء** - placeholder (coming soon)
+  - **Terminators / النهايات** - placeholder (coming soon)
 
-## 0.3.70 - 2026-10-18
+## 0.3.77 - 2026-10-18
 
 ### Fixed
 - **Trees/Trees pagination**: added 50-rows-per-page pagination with page navigation controls and configurable page size (25/50/100/All).

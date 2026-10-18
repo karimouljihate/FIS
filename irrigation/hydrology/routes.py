@@ -708,3 +708,44 @@ def network_remove(project_id):
         project_id,
         ['check_valve', 'air_release', 'pressure_reducer', 'reduction', 'other'],
         'hydrology.network_elements')
+
+
+# ============================================================================
+# Components Placeholder Routes
+# ============================================================================
+
+@hydrology_bp.route('/<int:project_id>/connectors')
+@login_required
+def connectors(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+    flash('Connectors page coming soon / صفحة الوصلات قادمة قريباً', 'info')
+    return render_template('hydrology2/placeholder.html', project=project, title='Connectors / الوصلات', icon='bi-link-45deg')
+
+@hydrology_bp.route('/<int:project_id>/reductors')
+@login_required
+def reductors(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+    flash('Reductors page coming soon / صفحة المخفضات قادمة قريباً', 'info')
+    return render_template('hydrology2/placeholder.html', project=project, title='Reductors / المخفضات', icon='bi-arrow-left-right')
+
+@hydrology_bp.route('/<int:project_id>/air_removal')
+@login_required
+def air_removal(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+    flash('Air Removal page coming soon / صفحة إزالة الهواء قادمة قريباً', 'info')
+    return render_template('hydrology2/placeholder.html', project=project, title='Air Removal / إزالة الهواء', icon='bi-wind')
+
+@hydrology_bp.route('/<int:project_id>/terminators')
+@login_required
+def terminators(project_id):
+    project = get_project_or_redirect(project_id)
+    if not project:
+        return redirect(url_for('project.index'))
+    flash('Terminators page coming soon / صفحة النهايات قادمة قريباً', 'info')
+    return render_template('hydrology2/placeholder.html', project=project, title='Terminators / النهايات', icon='bi-stop-circle')
