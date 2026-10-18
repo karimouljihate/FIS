@@ -63,7 +63,7 @@
             <table class="table table-hover mb-0" id="pipeTable">
                 <thead>
                     <tr class="table-light">
-                        <th colspan="7" class="text-center">
+                        <th colspan="8" class="text-center">
                             <button class="btn btn-circle btn-success" id="pipeHeaderAdd" type="button"
                                     data-bs-toggle="modal" data-bs-target="#addZonePipeModal" title="Add / إضافة">
                                 <i class="bi bi-plus-circle"></i>
@@ -94,6 +94,7 @@
                     <tr>
                         <th width="40" style="vertical-align: middle;"><input type="checkbox" id="selectAllPipes" onclick="toggleAllPipes(this)"></th>
                         <th style="text-align: center; vertical-align: middle;">ID</th>
+                        <th style="text-align: center; vertical-align: middle;" aria-label="Short Name"><span class="ar-text">الاسم المختصر</span><br>Short Name</th>
                         <th style="text-align: center; vertical-align: middle;" aria-label="Name ar top / Name en bottom"><span class="ar-text">الاسم</span><br>Name</th>
                         <th style="text-align: center; vertical-align: middle;" aria-label="Diameter ar top / Diameter en bottom"><span class="ar-text">قُطْر</span><br>Diameter</th>
                         <th style="text-align: center; vertical-align: middle;" aria-label="Length ar top / Length en bottom"><span class="ar-text">طول</span><br>Length (m)</th>
@@ -112,6 +113,7 @@
                                    data-coords="{{ p.geometry.coordinates | tojson }}">
                         </td>
                         <td>{{ p.id }}</td>
+                        <td class="text-center"><code>{{ 'ZP' ~ loop.index }}</code></td>
                         <td>
                             <div>{{ p.name_en }}</div>
                             <div class="ar-text">{{ p.name_ar }}</div>
@@ -135,7 +137,7 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="7" class="text-center text-muted py-3">No zone pipes yet / لا توجد أنابيب مناطق</td></tr>
+                    <tr><td colspan="8" class="text-center text-muted py-3">No zone pipes yet / لا توجد أنابيب مناطق</td></tr>
                     {% endfor %}
                 </tbody>
                 <tfoot class="table-light fw-bold">
@@ -143,7 +145,7 @@
                     {% for p in sub_pipes %}{% set length_ns.total = length_ns.total + (p.properties.get('length_m') or 0) %}{% endfor %}
                     <tr>
                         <td></td>
-                        <td colspan="3" class="text-center">Total / المجموع</td>
+                        <td colspan="4" class="text-center">Total / المجموع</td>
                         <td class="text-center">{{ '%.2f' | format(length_ns.total) }}</td>
                         <td colspan="2"></td>
                     </tr>

@@ -58,14 +58,14 @@
                     </tr>
                     <tr class="table-light">
                         <th colspan="10" class="text-center align-middle">
-                            <div class="input-group input-group-sm tree-search">
-                                <div class="zone-search-field">
+                            <div class="input-group input-group-sm search-zone">
+                                <div class="search-field">
                                     <input type="text" id="treeSearch" class="form-control search-input"
                                            placeholder="Filter trees / تصفية الأشجار" autocomplete="off">
-                                    <div class="zone-search-suffix">
+                                    <div class="search-suffix">
                                         <span class="badge rounded-pill text-bg-secondary tree-row-count" id="treeRowCount"
                                               title="Selected / found trees / الأشجار المحددة من إجمالي النتائج">0/0</span>
-                                        <button type="button" class="tree-search-clear d-none" id="treeSearchClear"
+                                        <button type="button" class="search-clear d-none" id="treeSearchClear"
                                                 aria-label="Clear / مسح"><i class="bi bi-x-lg"></i></button>
                                     </div>
                                 </div>
@@ -106,7 +106,7 @@
                         </td>
                     </tr>
                     {% else %}
-                    <tr><td colspan="10" class="text-center text-muted py-3">No trees yet / لا توجد أشجار</td></tr>
+                    <tr><td colspan="10" class="text-center text-muted text-warning py-3 fs-2">No trees yet  - لا توجد أشجار</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -137,13 +137,14 @@
 </div>
 
 <!-- Tree Setup Modal -->
-<div class="modal fade" id="treeSetupModal" tabindex="-1" aria-labelledby="treeSetupModalTitle" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-scrollable">
+<div class="modal fade bd-example-modal-xl" id="treeSetupModal" tabindex="-1" aria-labelledby="treeSetupModalTitle" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-scrollable modal-xl">
         <div class="modal-content">
             <form method="POST" action="{{ url_for('trees.trees_generate', project_id=project.id) }}">
                 <div class="modal-header bg-success text-white">
-                    <h5 class="modal-title" id="treeSetupModalTitle"><i class="bi bi-tree"></i> Tree Setup / إعداد الشجرة</h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                    <h2 class="wf-title-en">Tree Setup</h2>
+                    <i class="bi bi-tree fs-1" aria-hidden="true"></i>
+                    <h2 class="wf-title-ar" lang="ar">إعداد الأشجار</h2>
                 </div>
                 <div class="modal-body">
                     <!-- All Sectors / Zones shared setup -->

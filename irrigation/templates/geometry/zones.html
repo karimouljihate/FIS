@@ -21,6 +21,7 @@
                 <colgroup>
                     <col style="width: 48px">
                     <col style="width: 70px">
+                    <col style="width: 70px">
                     <col>
                     <col style="width: 90px">
                     <col style="width: 110px">
@@ -31,7 +32,7 @@
                 </colgroup>
                 <thead>
                     <tr class="table-light">
-                        <th colspan="9" class="text-center"
+                        <th colspan="10" class="text-center"
                             style="width: 100%;">
                             <button class="btn btn-circle btn-sm btn-success"
                                 id="zoneAddBtn" data-bs-toggle="modal"
@@ -106,19 +107,26 @@
                         </th>
                     </tr>
                     <tr class="table-light">
-                        <th colspan="9" class="text-center align-middle">
-                            <input type="text" id="zoneNameFilter"
-                                class="form-control form-control-sm d-inline-block w-auto"
-                                style="min-width: 220px;"
-                                placeholder="Search names / بحث بالاسم"
-                                oninput="filterZonesByName(this.value)">
+                        <th colspan="10" class="text-center align-middle">
+                            <div class="input-group input-group-sm search-zone">
+                                <div class="search-field">
+                                    <input type="text" id="zoneNameFilter"
+                                        class="form-control form-control-sm search-input"
+                                        style="min-width: 220px;"
+                                        placeholder="Search names / بحث بالاسم"
+                                        oninput="filterZonesByName(this.value)">
+                                </div>
+                            </div>
                         </th>
                     </tr>
                     <tr class="align-middle">
                         <th><input type="checkbox" id="selectAllZones"
                                 onclick="toggleAllZones(this)"></th>
                         <th>ID</th>
-                        <!-- <th>الاسم / Name</th> -->
+                        <th style="text-align: center; vertical-align: middle;"
+                            aria-label="Short Name"><span
+                                class="ar-text">الاسم المختصر</span><br>Short
+                            Name</th>
                         <th style="text-align: left; vertical-align: middle;"
                             aria-label="Name ar top / Name en bottom"><span
                                 class="ar-text">الاسم</span><br>Name</th>
@@ -155,6 +163,8 @@
                                 data-name-en="{{ item.zone.name_en }}"
                                 data-name-ar="{{ item.zone.name_ar }}"></td>
                         <td>{{ item.zone.id }}</td>
+                        <td class="text-center"><code>{{
+                            item.zone.short_name }}</code></td>
                         <td>
                             {{ item.zone.name_en }}
                             {% if item.zone.name_ar %}<span
@@ -399,6 +409,7 @@
                     <tr class="table-secondary">
                         <td></td>
                         <td>-</td>
+                        <td></td>
                         <td>{{ item.sector.name_en }} ({{ item.sector.name_ar
                             }})</td>
                         <td colspan="6" class="text-muted text-center">No zones
@@ -407,7 +418,7 @@
                     {% endif %}
                     {% else %}
                     <tr>
-                        <td colspan="9" class="text-center py-4">
+                        <td colspan="10" class="text-center py-4">
                             <span
                                 class="zone-empty-banner d-inline-flex align-items-center gap-2">
                                 <i class="bi bi-grid"></i> No Zone Yet / لا توجد

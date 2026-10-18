@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.51 - 2026-10-18
+
+### Added
+- **Geometry/Zones Short Name**: added Short Name column (e.g. `S1Z1`) to the Zones table header and body rows.
+- **Pipes Short Name**: added Short Name column (MP1/SP1/ZP1) to Main Pipe, Second Pipe, and Zone Pipe tables.
+- **Search zone CSS class**: renamed `zone-search`/`tree-search` filter component classes to generic `search-zone` (search-field, search-input, search-suffix, search-row-count, search-clear) and applied to Trees/Trees and Geometry/Zones table filters.
+
+### Changed
+- **Geometry/Zones filter**: wrapped the zone name search input in the `search-zone` input-group structure for consistent styling.
+
 ## 0.3.50 - 2026-10-17
 
 ### Changed
