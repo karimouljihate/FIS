@@ -600,13 +600,74 @@ function updateTreesToolbar() {
     updateTreeBadge();
 }
 
+let treeSelectAllClickTime = 0;
+let treeSelectAllLastCheckState = false;
+
 function toggleAllTrees(source) {
     const isChecked = source.checked;
+    const now = Date.now();
+    const isDoubleClick = (now - treeSelectAllClickTime) < 300;
+    treeSelectAllClickTime = now;
+
+    // If previously checked and now unchecking (regardless of click type) -> uncheck ALL pages
+    if (treeSelectAllLastCheckState && !isChecked) {
+        uncheckAllTreesAllPages();
+        treeSelectAllLastCheckState = isChecked;
+        return;
+    }
+
+    if (isDoubleClick && isChecked) {
+        // Double click + checking -> select ALL trees across ALL pages
+        selectAllTreesAllPages();
+    } else if (isChecked) {
+        // Single click + checking -> select only visible page
+        selectVisiblePageTrees();
+    } else {
+        // Single click + unchecking -> uncheck visible page only
+        uncheckVisiblePageTrees();
+    }
+    treeSelectAllLastCheckState = isChecked;
+}
+
+function selectVisiblePageTrees() {
     const visibleRows = treePaginationState.filteredRows.filter(r => r.style.display !== 'none');
     visibleRows.forEach(function(tr) {
         const cb = tr.querySelector('.tree-checkbox');
-        if (cb) {
-            cb.checked = isChecked;
+        if (cb && !cb.checked) {
+            cb.checked = true;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+}
+
+function uncheckVisiblePageTrees() {
+    const visibleRows = treePaginationState.filteredRows.filter(r => r.style.display !== 'none');
+    visibleRows.forEach(function(tr) {
+        const cb = tr.querySelector('.tree-checkbox');
+        if (cb && cb.checked) {
+            cb.checked = false;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+}
+
+function selectAllTreesAllPages() {
+    const allRows = treePaginationState.filteredRows;
+    allRows.forEach(function(tr) {
+        const cb = tr.querySelector('.tree-checkbox');
+        if (cb && !cb.checked) {
+            cb.checked = true;
+            cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+    });
+}
+
+function uncheckAllTreesAllPages() {
+    const allRows = treePaginationState.filteredRows;
+    allRows.forEach(function(tr) {
+        const cb = tr.querySelector('.tree-checkbox');
+        if (cb && cb.checked) {
+            cb.checked = false;
             cb.dispatchEvent(new Event('change', { bubbles: true }));
         }
     });
