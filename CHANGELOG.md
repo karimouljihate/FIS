@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.63 - 2026-10-18
+
+### Removed
+- **Trees/Trees table**: removed Generate circle button from header action row.
+
 ## 0.3.62 - 2026-10-18
 
 ### Changed
