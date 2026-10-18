@@ -217,11 +217,9 @@
                                 {% for zone in group.zones %}
                                 <div class="col-md-4">
                                     <div class="card border-primary zone-card">
-                                        <div class="card-header bg-primary text-white small d-flex justify-content-between align-items-center">
-                                            <div>
-                                                <span class="text-light small"> {{ zone.short_name }}</span>    
-                                                <!-- <br><code>{{ zone.short_name }}</code> -->
-                                            </div>
+                                        <div class="card-header bg-primary text-white small d-flex align-items-center" data-zone-id="{{ zone.id }}">
+                                            <div class="text-light small">{{ zone.short_name }}</div>
+                                            <div class="text-light small zone-pct-total flex-fill text-center" data-zone-id="{{ zone.id }}">0%</div>
                                             <span class="text-light small">Rows: {{ zone.row_count|default(0) }}</span>
                                         </div>
                                         <div class="card-body p-2">
@@ -460,12 +458,12 @@ function treeSetupPercentagesValid() {
     }, 0);
     if (allTotal > 100) return false;
 
-    // Per-zone cards
+    // Per-zone cards (exclude "all")
     const zoneTotals = {};
     document.querySelectorAll('input[name^="pct_"]').forEach(function (input) {
         const name = input.getAttribute('name');
         const match = name.match(/^pct_(.+)_([123])$/);
-        if (match) {
+        if (match && match[1] !== 'all') {
             const zoneId = match[1];
             zoneTotals[zoneId] = (zoneTotals[zoneId] || 0) + parseFloat(input.value || 0);
         }
@@ -475,6 +473,28 @@ function treeSetupPercentagesValid() {
     }
 
     return true;
+}
+
+function updateZonePctDisplays() {
+    const zoneTotals = {};
+    document.querySelectorAll('input[name^="pct_"]').forEach(function (input) {
+        const name = input.getAttribute('name');
+        const match = name.match(/^pct_(.+)_([123])$/);
+        if (match && match[1] !== 'all') {
+            const zoneId = match[1];
+            zoneTotals[zoneId] = (zoneTotals[zoneId] || 0) + parseFloat(input.value || 0);
+        }
+    });
+    document.querySelectorAll('.zone-pct-total').forEach(function (el) {
+        const zoneId = el.getAttribute('data-zone-id');
+        const total = zoneTotals[zoneId] || 0;
+        el.textContent = total + '%';
+        if (total > 100) {
+            el.classList.add('text-danger');
+        } else {
+            el.classList.remove('text-danger');
+        }
+    });
 }
 
 function syncAllSectorsToZones() {
@@ -510,16 +530,19 @@ function updateGenerateButtonState() {
 document.getElementById('treeSetupForm').addEventListener('input', function(event) {
     if (event.target && event.target.matches && event.target.matches('input[name^="pct_"]')) {
         updateGenerateButtonState();
+        updateZonePctDisplays();
     }
     if (event.target && event.target.matches && (event.target.name === 'spacing_all'
             || event.target.name.match(/^(variety|pct)_all_[123]$/))) {
         syncAllSectorsToZones();
         updateGenerateButtonState();
+        updateZonePctDisplays();
     }
 });
 
 document.addEventListener('DOMContentLoaded', function() {
     updateGenerateButtonState();
+    updateZonePctDisplays();
 });
 
 document.getElementById('treeSetupForm').addEventListener('submit', function(event) {

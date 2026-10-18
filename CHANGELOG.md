@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.57 - 2026-10-18
+
+### Fixed
+- **Tree Setup Generate button**: reliably disabled when All Sectors / Zones or any Zone Card percentages exceed 100%.
+
+### Added
+- **Tree Setup Zone card header**: split into 3 parts — Short Name (left), total percentage (middle, turns red when over 100%), Rows count (right). Percentage updates live as inputs change.
+
 ## 0.3.56 - 2026-10-18
 
 ### Added
