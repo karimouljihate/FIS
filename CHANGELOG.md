@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.56 - 2026-10-18
+
+### Added
+- **Tree Setup sync**: entering values in the All Sectors / Zones card (Spacing, Variety 1/2/3, Pct 1/2/3) reflects into all Zone cards automatically.
+
 ## 0.3.55 - 2026-10-18
 
 ### Changed

@@ -477,6 +477,30 @@ function treeSetupPercentagesValid() {
     return true;
 }
 
+function syncAllSectorsToZones() {
+    const spacingAll = document.querySelector('input[name="spacing_all"]');
+    if (spacingAll) {
+        document.querySelectorAll('input[name^="spacing_"]').forEach(function (el) {
+            if (el.name !== 'spacing_all' && el.name.match(/^spacing_\d+$/)) {
+                el.value = spacingAll.value;
+            }
+        });
+    }
+    [1, 2, 3].forEach(function (slot) {
+        const vAll = document.querySelector('input[name="variety_all_' + slot + '"]');
+        const pAll = document.querySelector('input[name="pct_all_' + slot + '"]');
+        if (!vAll && !pAll) return;
+        var slotRe = new RegExp('^(variety|pct)_(\\d+)_' + slot + '$');
+        document.querySelectorAll('input').forEach(function (el) {
+            var m = el.name.match(slotRe);
+            if (m) {
+                if (m[1] === 'variety' && vAll) el.value = vAll.value;
+                if (m[1] === 'pct' && pAll) el.value = pAll.value;
+            }
+        });
+    });
+}
+
 function updateGenerateButtonState() {
     const btn = document.getElementById('treeGenerateBtn');
     if (!btn) return;
@@ -485,6 +509,11 @@ function updateGenerateButtonState() {
 
 document.getElementById('treeSetupForm').addEventListener('input', function(event) {
     if (event.target && event.target.matches && event.target.matches('input[name^="pct_"]')) {
+        updateGenerateButtonState();
+    }
+    if (event.target && event.target.matches && (event.target.name === 'spacing_all'
+            || event.target.name.match(/^(variety|pct)_all_[123]$/))) {
+        syncAllSectorsToZones();
         updateGenerateButtonState();
     }
 });
