@@ -349,6 +349,7 @@ function updateTreesToolbar() {
     const removeBtnHeader = document.getElementById('treeRemoveBtnHeader');
     if (removeBtn) removeBtn.disabled = count === 0;
     if (removeBtnHeader) removeBtnHeader.disabled = count === 0;
+    updateTreeBadge();
 }
 
 function toggleAllTrees(source) {
@@ -385,32 +386,42 @@ function treesRemoveSelected() {
         doSubmit();
     }
 }
+function updateTreeBadge() {
+    const badge = document.getElementById('treeRowCount');
+    if (!badge) return;
+    const query = document.getElementById('treeSearch');
+    const q = (query ? query.value : '').trim().toLowerCase();
+    let total = 0;
+    let selected = 0;
+    document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
+        if (!tr.querySelector('.tree-checkbox')) return;
+        const text = tr.textContent.toLowerCase();
+        const visible = (tr.style.display !== 'none') && text.indexOf(q) !== -1;
+        if (visible) {
+            total += 1;
+            if (tr.querySelector('.tree-checkbox').checked) selected += 1;
+        }
+    });
+    badge.textContent = selected + '/' + total;
+    badge.classList.toggle('text-bg-primary', selected > 0);
+    badge.classList.toggle('text-bg-secondary', selected === 0);
+}
+
 function setupTreeSearch() {
     const input = document.getElementById('treeSearch');
     if (!input) return;
     const clearBtn = document.getElementById('treeSearchClear');
-    const badge = document.getElementById('treeRowCount');
 
     function applyFilter() {
         const query = input.value.trim().toLowerCase();
         if (clearBtn) clearBtn.classList.toggle('d-none', !query);
-        let total = 0;
-        let selected = 0;
         document.querySelectorAll('#treesTable tbody tr').forEach(function (tr) {
             if (!tr.querySelector('.tree-checkbox')) return;
             const text = tr.textContent.toLowerCase();
             const visible = text.indexOf(query) !== -1;
             tr.style.display = visible ? '' : 'none';
-            if (visible) {
-                total += 1;
-                if (tr.querySelector('.tree-checkbox').checked) selected += 1;
-            }
         });
-        if (badge) {
-            badge.textContent = selected + '/' + total;
-            badge.classList.toggle('text-bg-primary', selected > 0);
-            badge.classList.toggle('text-bg-secondary', selected === 0);
-        }
+        updateTreeBadge();
     }
 
     input.addEventListener('input', applyFilter);

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.58 - 2026-10-18
+
+### Fixed
+- **Trees/Trees counter badge**: now updates on checkbox toggle (not only on search input change) via `updateTreeBadge()` called from both `updateTreesToolbar()` and `applyFilter()`.
+
 ## 0.3.57 - 2026-10-18
 
 ### Fixed
